@@ -50,7 +50,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useStore } from '../store';
+import { useAuthStore } from '../stores/authStore';
 import api from '../api';
 
 const username = ref('');
@@ -59,7 +59,7 @@ const loading = ref(false);
 const error = ref('');
 
 const router = useRouter();
-const store = useStore();
+const authStore = useAuthStore();
 
 const handleLogin = async () => {
   loading.value = true;
@@ -67,7 +67,7 @@ const handleLogin = async () => {
   
   try {
     const response = await api.login(username.value, password.value);
-    store.setApiKey(response.data.api_key);
+    authStore.setApiKey(response.data.api_key);
     router.push('/');
   } catch (err) {
     error.value = err.response?.data?.error || '登录失败，请检查用户名和密码';

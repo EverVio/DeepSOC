@@ -1,41 +1,41 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import { useStore } from './store';
-import Login from './views/Login.vue';
-import Chat from './views/Chat.vue';
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from './stores/authStore'
+import Login from './views/Login.vue'
+import SocLayout from './layouts/SocLayout.vue'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login
+    component: Login,
   },
   {
     path: '/',
     name: 'Chat',
-    component: Chat,
-    meta: { requiresAuth: true }
+    component: SocLayout,
+    meta: { requiresAuth: true },
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/'
-  }
-];
+    redirect: '/',
+  },
+]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
-});
+  routes,
+})
 
-// 路由守卫
 router.beforeEach((to, from, next) => {
-  const store = useStore();
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  
-  if (requiresAuth && !store.apiKey) {
-    next('/login');
-  } else {
-    next();
-  }
-});
+  const authStore = useAuthStore()
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
 
-export default router;
+  if (requiresAuth && !authStore.isAuthenticated) {
+    next('/login')
+    return
+  }
+
+  next()
+})
+
+export default router

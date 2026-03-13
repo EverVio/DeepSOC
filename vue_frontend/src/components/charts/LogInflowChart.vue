@@ -6,31 +6,26 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
+import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
   stats: { type: Object, default: () => ({}) },
   loading: { type: Boolean, default: false },
 })
 
-const chartRef = ref(null)
-let chart = null
+const { chartRef } = useEcharts(
+  () => {
+    const sourceSeries = (props.stats?.source_counts || []).slice(0, 8)
+    const timeline = (props.stats?.timeline || []).slice(-8)
 
-const renderChart = () => {
-  if (!chart) return
+    const names = sourceSeries.map((item) => item.name)
+    const values = sourceSeries.map((item) => item.value)
+    const timelineLabels = timeline.map((item) => item.updated_text || item.file || item.label)
+    const timelineValues = timeline.map((item) => item.value)
+    const hasData = values.length > 0 || timelineValues.length > 0
 
-  const sourceSeries = (props.stats?.source_counts || []).slice(0, 8)
-  const timeline = (props.stats?.timeline || []).slice(-8)
-
-  const names = sourceSeries.map((item) => item.name)
-  const values = sourceSeries.map((item) => item.value)
-  const timelineLabels = timeline.map((item) => item.updated_text || item.file || item.label)
-  const timelineValues = timeline.map((item) => item.value)
-  const hasData = values.length > 0 || timelineValues.length > 0
-
-  chart.setOption(
-    {
+    return {
       backgroundColor: 'transparent',
       grid: [
         { left: 36, right: 10, top: 28, height: '40%' },
@@ -127,37 +122,10 @@ const renderChart = () => {
               },
             },
           ],
-    },
-    true
-  )
-}
-
-const resizeChart = () => {
-  if (chart) chart.resize()
-}
-
-onMounted(() => {
-  if (!chartRef.value) return
-  chart = echarts.init(chartRef.value)
-  renderChart()
-  window.addEventListener('resize', resizeChart)
-})
-
-watch(
-  () => props.stats,
-  () => {
-    renderChart()
+    }
   },
-  { deep: true }
+  () => props.stats
 )
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeChart)
-  if (chart) {
-    chart.dispose()
-    chart = null
-  }
-})
 </script>
 
 <style scoped>

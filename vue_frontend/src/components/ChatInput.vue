@@ -79,7 +79,7 @@
 
 <script setup>
 import { computed, defineEmits, defineExpose, defineProps, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { useStore } from '../store'
+import { useAppStore } from '../stores/appStore'
 import { DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon } from 'vue-tabler-icons'
 import { uploadFile as uploadFileApi } from '../api'
 
@@ -92,7 +92,7 @@ const props = defineProps({
 
 const emit = defineEmits(['send'])
 
-const store = useStore()
+const appStore = useAppStore()
 const message = ref('')
 const textareaRef = ref(null)
 const fileInputRef = ref(null)
@@ -103,13 +103,13 @@ const wavePhase = ref(0)
 let waveTimer = null
 
 const useDbSearch = computed({
-  get: () => store.useDbSearch,
-  set: (value) => store.setUseDbSearch(value),
+  get: () => appStore.useDbSearch,
+  set: (value) => appStore.setUseDbSearch(value),
 })
 
 const useWebSearch = computed({
-  get: () => store.useWebSearch,
-  set: (value) => store.setUseWebSearch(value),
+  get: () => appStore.useWebSearch,
+  set: (value) => appStore.setUseWebSearch(value),
 })
 
 const waveBars = computed(() => {

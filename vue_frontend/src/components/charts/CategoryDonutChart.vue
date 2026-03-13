@@ -6,26 +6,20 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
   stats: { type: Object, default: () => ({}) },
   loading: { type: Boolean, default: false },
 })
 
-const chartRef = ref(null)
-let chart = null
-
 const colorPool = ['#00e5ff', '#00ff9d', '#7b2cbf', '#ff0055', '#ff6a00', '#89a6ff', '#47d3ff']
 
-const renderChart = () => {
-  if (!chart) return
+const { chartRef } = useEcharts(
+  () => {
+    const categories = (props.stats?.category_counts || []).slice(0, 7)
 
-  const categories = (props.stats?.category_counts || []).slice(0, 7)
-
-  chart.setOption(
-    {
+    return {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'item',
@@ -75,37 +69,10 @@ const renderChart = () => {
               style: { text: 'NO CATEGORY DATA', fill: '#6f95a9', font: '12px Roboto Mono' },
             },
           ],
-    },
-    true
-  )
-}
-
-const resizeChart = () => {
-  if (chart) chart.resize()
-}
-
-onMounted(() => {
-  if (!chartRef.value) return
-  chart = echarts.init(chartRef.value)
-  renderChart()
-  window.addEventListener('resize', resizeChart)
-})
-
-watch(
-  () => props.stats,
-  () => {
-    renderChart()
+    }
   },
-  { deep: true }
+  () => props.stats
 )
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeChart)
-  if (chart) {
-    chart.dispose()
-    chart = null
-  }
-})
 </script>
 
 <style scoped>

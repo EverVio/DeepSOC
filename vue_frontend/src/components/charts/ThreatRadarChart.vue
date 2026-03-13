@@ -6,30 +6,24 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
   stats: { type: Object, default: () => ({}) },
   loading: { type: Boolean, default: false },
 })
 
-const chartRef = ref(null)
-let chart = null
+const { chartRef } = useEcharts(
+  () => {
+    const threat = props.stats?.threat_distribution || []
+    const high = threat.find((item) => item.level === 'high')?.value || 0
+    const medium = threat.find((item) => item.level === 'medium')?.value || 0
+    const low = threat.find((item) => item.level === 'low')?.value || 0
 
-const renderChart = () => {
-  if (!chart) return
+    const maxVal = Math.max(high, medium, low, 5)
+    const values = [high, medium, low, Math.round((high + medium) * 0.6), Math.round((medium + low) * 0.6)]
 
-  const threat = props.stats?.threat_distribution || []
-  const high = threat.find((item) => item.level === 'high')?.value || 0
-  const medium = threat.find((item) => item.level === 'medium')?.value || 0
-  const low = threat.find((item) => item.level === 'low')?.value || 0
-
-  const maxVal = Math.max(high, medium, low, 5)
-  const values = [high, medium, low, Math.round((high + medium) * 0.6), Math.round((medium + low) * 0.6)]
-
-  chart.setOption(
-    {
+    return {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'item',
@@ -80,37 +74,10 @@ const renderChart = () => {
               style: { text: 'NO THREAT DATA', fill: '#6f95a9', font: '12px Roboto Mono' },
             },
           ],
-    },
-    true
-  )
-}
-
-const resizeChart = () => {
-  if (chart) chart.resize()
-}
-
-onMounted(() => {
-  if (!chartRef.value) return
-  chart = echarts.init(chartRef.value)
-  renderChart()
-  window.addEventListener('resize', resizeChart)
-})
-
-watch(
-  () => props.stats,
-  () => {
-    renderChart()
+    }
   },
-  { deep: true }
+  () => props.stats
 )
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeChart)
-  if (chart) {
-    chart.dispose()
-    chart = null
-  }
-})
 </script>
 
 <style scoped>
