@@ -353,7 +353,7 @@ RAG 向量库 / 联网情报 / 会话历史 / 文件解析
 ### 1. 后端部署
 
 ```bash
-git clone https://github.com/3145285451/llm.git
+git clone https://github.com/EverVio/DeepSOC.git
 cd django_backend
 pip install -r requirements.txt
 python manage.py runserver
@@ -371,8 +371,6 @@ npm run dev
 
 ```bash
 ollama pull deepseek-r1:7b
-ollama pull qwen3:8b
-ollama pull llama3:8b
 ollama pull bge-large:latest
 ```
 
