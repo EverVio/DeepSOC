@@ -1,218 +1,346 @@
-/* * ==========================================
- * 现代化的根样式 (Root Styles)
- * ==========================================
- */
+/* ============================================================
+ *  DeepSOC — FUI Global Styles
+ *  Phase 1: Dark theme foundation + base reset
+ * ============================================================ */
+
+/* ----------------------------------------------------------
+ * 1. FUI CSS 变量 (全局设计令牌)
+ * ---------------------------------------------------------- */
 :root {
-  /* 色板 (Color Palette) - 更专业、简洁的色系 */
-  --primary-color: #2563eb;
-  /* (调整) 主色 - 专业的蓝色 */
-  --primary-light: #dbeafe;
-  /* (调整) 主色-浅色 (用于背景) */
-  --primary-dark: #1d4ed8;
-  /* (调整) 主色-深色 (用于悬停) */
+  /* ── 背景层 ─────────────────────────────────────── */
+  --bg-base: #050814;
+  /* 极深蓝黑，主背景 */
+  --bg-panel: rgba(13, 22, 43, 0.72);
+  /* 面板/卡片，毛玻璃底色 */
+  --bg-overlay: rgba(5, 8, 20, 0.85);
+  /* 悬浮层 */
 
-  --secondary-color: #059669;
-  /* (调整) 辅色 - 绿色 (用于成功状态) */
-  --danger-color: #dc2626;
-  /* (调整) 危险色 - 红色 */
+  /* ── 强调色 ─────────────────────────────────────── */
+  --neon-cyan: #00E5FF;
+  /* 主强调：霓虹蓝 */
+  --neon-cyan-dim: rgba(0, 229, 255, 0.18);
+  --neon-cyan-glow: 0 0 6px rgba(0, 229, 255, 0.55),
+    0 0 18px rgba(0, 229, 255, 0.25);
 
-  /* 基础 (Base) */
-  --bg-color: #ffffff;
-  /* (调整) 页面背景 - 浅灰 */
-  --card-bg: #ffffff;
-  /* 卡片/侧边栏背景 - 白色 */
-  --border-color: #e2e8f0;
-  /* (调整) 边框 - 更浅的灰色 */
+  --neon-purple: #7B2CBF;
+  /* 次强调：深邃紫（AI 元素）*/
+  --neon-purple-dim: rgba(123, 44, 191, 0.22);
 
-  /* 文本 (Text) */
-  --text-primary: #1e293b;
-  /* (调整) 主要文本 - 深灰蓝 */
-  --text-secondary: #64748b;
-  /* (调整) 次要文本 - 灰蓝 */
-  --text-light: #94a3b8;
-  /* (新增) 提示文本 - 浅灰蓝 */
+  --neon-green: #00FF9D;
+  /* 安全/在线状态 */
+  --neon-red: #FF0055;
+  /* 危险/攻击 */
+  --neon-orange: #FF6A00;
+  /* 警告/中危 */
 
-  /* 消息气泡 (Messages) */
-  --user-message-bg: #dbeafe;
-  /* (调整) 用户消息背景 - 浅蓝 */
-  --user-message-text: #000000;
-  /* (新增) 用户消息文本 */
-  --bot-message-bg: #ffffff;
-  /* (调整) AI 消息背景 - 白色 */
-  --bot-message-border: #e2e8f0;
-  /* (新增) AI 消息边框 */
+  /* ── 文本 ────────────────────────────────────────── */
+  --text-primary: #E0F4FF;
+  /* 主文本：冷白 */
+  --text-secondary: #7BA7BC;
+  /* 次要文本：暗青 */
+  --text-muted: #3A5568;
+  /* 弱化文本 */
+  --text-neon: var(--neon-cyan);
 
-  /* 代码 (Code) */
-  --code-bg: #f1f5f9;
-  /* (新增) 代码块背景 */
-  --code-text: #334155;
-  /* (新增) 代码块文本 */
+  /* ── 边框 ────────────────────────────────────────── */
+  --border-dim: rgba(0, 229, 255, 0.15);
+  --border-active: rgba(0, 229, 255, 0.5);
 
-  /* 阴影与圆角 (Shadows & Radius) */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --radius: 6px;
-  /* (调整) 圆角 - 稍小，更精致 */
+  /* ── 字体 ────────────────────────────────────────── */
+  --font-ui: 'Rajdhani', 'Noto Sans SC', sans-serif;
+  --font-brand: 'Orbitron', sans-serif;
+  --font-mono: 'Roboto Mono', 'Consolas', monospace;
+
+  /* ── 切角尺寸 ────────────────────────────────────── */
+  --clip-sm: 8px;
+  --clip-md: 14px;
+  --clip-lg: 20px;
+
+  /* ── 过渡 ────────────────────────────────────────── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+
+  /* ─── 兼容旧组件变量（防止白屏）─────────────────── */
+  --primary-color: var(--neon-cyan);
+  --primary-dark: #00b8d4;
+  --primary-light: var(--neon-cyan-dim);
+  --secondary-color: var(--neon-green);
+  --danger-color: var(--neon-red);
+  --bg-color: var(--bg-base);
+  --card-bg: var(--bg-panel);
+  --border-color: var(--border-dim);
+  --text-light: var(--text-muted);
+  --code-bg: rgba(0, 0, 0, 0.45);
+  --code-text: var(--neon-green);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --radius: 0px;
+  /* FUI 不使用圆角，统一切角 */
+
+  --user-message-bg: var(--neon-cyan-dim);
+  --user-message-text: var(--neon-cyan);
+  --bot-message-bg: var(--bg-panel);
+  --bot-message-border: var(--border-dim);
 }
 
-/* * ==========================================
- * 基础元素重置 (Base Element Reset)
- * ==========================================
- */
-* {
+/* ----------------------------------------------------------
+ * 2. 基础重置
+ * ---------------------------------------------------------- */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  background-color: var(--bg-color);
+  background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: var(--font-ui);
+  font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* 禁用文字选中时的高亮，保持 FUI 感 */
+  ::selection {
+    background: var(--neon-cyan-dim);
+    color: var(--neon-cyan);
+  }
 }
 
-.container {
-  max-width: 1400px;
-  /* (调整) 适配更宽的屏幕 */
-  margin: 0 auto;
-  padding: 0 1rem;
+/* ----------------------------------------------------------
+ * 3. FUI 通用组件类
+ * ---------------------------------------------------------- */
+
+/* 3-1 切角卡片 */
+.fui-card {
+  position: relative;
+  background: rgba(13, 22, 43, 0.8);
+  /* backdrop-filter: blur(12px); */
+  /* -webkit-backdrop-filter: blur(12px); */
+  border: 1px solid var(--border-dim);
+  clip-path: polygon(var(--clip-md) 0,
+      100% 0,
+      100% calc(100% - var(--clip-md)),
+      calc(100% - var(--clip-md)) 100%,
+      0 100%,
+      0 var(--clip-md));
 }
 
-/* * ==========================================
- * 通用组件样式 (Utility Components)
- * ==========================================
- */
+/* 3-2 霓虹文本 */
+.fui-neon-text {
+  color: var(--neon-cyan);
+  text-shadow: var(--neon-cyan-glow);
+}
 
-/* 按钮 (Buttons) */
+.fui-brand-text {
+  font-family: var(--font-brand);
+  color: var(--neon-cyan);
+  text-shadow: var(--neon-cyan-glow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* 3-3 扫描线叠层（用于卡片内部） */
+.fui-scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0, 229, 255, 0.025) 3px,
+      rgba(0, 229, 255, 0.025) 4px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 3-4 准星角标（四角装饰） */
+.fui-corners {
+  position: relative;
+}
+
+.fui-corners::before,
+.fui-corners::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--neon-cyan);
+  border-style: solid;
+  opacity: 0.7;
+}
+
+.fui-corners::before {
+  top: 4px;
+  left: 4px;
+  border-width: 1px 0 0 1px;
+}
+
+.fui-corners::after {
+  bottom: 4px;
+  right: 4px;
+  border-width: 0 1px 1px 0;
+}
+
+/* ----------------------------------------------------------
+ * 4. 按钮重置为 FUI 风格
+ * ---------------------------------------------------------- */
 button {
   cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 0.5rem 0.875rem;
-  /* (调整) 优化 padding */
-  font-weight: 500;
-  transition: all 0.2s ease;
+  border: 1px solid var(--border-dim);
+  background: var(--neon-cyan-dim);
+  color: var(--neon-cyan);
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 0.875rem;
-  /* (调整) 统一字号 */
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: all var(--transition-fast);
   display: inline-flex;
-  /* (新增) 适配图标 */
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  /* (新增) 图标与文本间距 */
 }
 
-button:focus {
-  outline: 2px solid var(--primary-light);
-  /* (新增) 优化 focus 状态 */
-  outline-offset: 2px;
+button:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.3);
+  border-color: var(--border-active);
+  box-shadow: var(--neon-cyan-glow);
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.35;
 }
 
 button.primary {
-  background-color: var(--primary-color);
-  color: white;
-  box-shadow: var(--shadow-sm);
+  background: rgba(0, 229, 255, 0.2);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
 }
 
 button.primary:hover:not(:disabled) {
-  background-color: var(--primary-dark);
+  background: rgba(0, 229, 255, 0.35);
 }
 
 button.secondary {
-  background-color: var(--card-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border-color: var(--border-dim);
+  color: var(--text-secondary);
 }
 
 button.secondary:hover:not(:disabled) {
-  background-color: var(--bg-color);
+  border-color: var(--border-active);
+  color: var(--neon-cyan);
 }
 
 button.danger {
-  background-color: var(--danger-color);
-  color: white;
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 0, 85, 0.15);
+  border-color: var(--neon-red);
+  color: var(--neon-red);
 }
 
 button.danger:hover:not(:disabled) {
-  background-color: #b91c1c;
+  background: rgba(255, 0, 85, 0.3);
+  box-shadow: 0 0 8px rgba(255, 0, 85, 0.4);
 }
 
-/* 输入框 (Inputs & Textarea) */
+button:focus {
+  outline: 1px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------
+ * 5. 输入框
+ * ---------------------------------------------------------- */
 input,
 textarea {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  padding: 0.625rem 0.875rem;
-  /* (调整) 优化 padding */
-  font-size: 0.9rem;
-  /* (调整) 优化字号 */
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-dim);
   color: var(--text-primary);
-  background-color: var(--card-bg);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  padding: 0.625rem 0.875rem;
   width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  /* FUI 无圆角 */
+  border-radius: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
-  /* (调整) 优化 focus 阴影 */
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 2px var(--neon-cyan-dim),
+    inset 0 0 8px rgba(0, 229, 255, 0.06);
 }
 
 textarea {
-  font-family: inherit;
+  font-family: var(--font-mono);
   resize: vertical;
 }
 
-/* 卡片 (Card) */
+/* ----------------------------------------------------------
+ * 6. 卡片 (兼容旧 .card 类名)
+ * ---------------------------------------------------------- */
 .card {
-  background-color: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border-color);
-  /* (新增) 增加边框，更精致 */
-  padding: 1.5rem;
+  background: rgba(13, 22, 43, 0.8);
+  /* backdrop-filter: blur(12px); */
+  /* -webkit-backdrop-filter: blur(12px); */
+  border: 1px solid var(--border-dim);
+  clip-path: polygon(var(--clip-md) 0, 100% 0,
+      100% calc(100% - var(--clip-md)),
+      calc(100% - var(--clip-md)) 100%,
+      0 100%, 0 var(--clip-md));
+  padding: 1.25rem;
 }
 
-/* 错误提示 (Error Message) */
+/* ----------------------------------------------------------
+ * 7. 错误提示
+ * ---------------------------------------------------------- */
 .error-message {
-  color: var(--danger-color);
+  color: var(--neon-red);
+  background: rgba(255, 0, 85, 0.1);
+  border: 1px solid rgba(255, 0, 85, 0.4);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
-  border-radius: var(--radius);
-  background-color: #fee2e2;
-  /* (调整) 红色背景 */
-  border: 1px solid #fca5a5;
-  /* (新增) 红色边框 */
   font-size: 0.875rem;
   font-weight: 500;
+  font-family: var(--font-mono);
 }
 
-/* 加载动画 (Loading Spinner) */
+/* ----------------------------------------------------------
+ * 8. 加载动画
+ * ---------------------------------------------------------- */
 .loading {
   display: inline-block;
   width: 1.25rem;
-  /* (调整) 尺寸 */
   height: 1.25rem;
-  /* (调整) 尺寸 */
-  border: 3px solid var(--primary-light);
-  /* (调整) 颜色 */
+  border: 2px solid var(--neon-cyan-dim);
   border-radius: 50%;
-  border-top-color: var(--primary-color);
-  /* (调整) 颜色 */
-  animation: spin 0.8s ease-in-out infinite;
+  border-top-color: var(--neon-cyan);
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -221,21 +349,18 @@ textarea {
   }
 }
 
-/* * ==========================================
- * Markdown 渲染样式 (Markdown Rendering)
- * ==========================================
- */
-
-/* 仅针对 AI 回复 (非用户消息) */
+/* ----------------------------------------------------------
+ * 9. Markdown 渲染（AI 终端输出）
+ * ---------------------------------------------------------- */
 .message:not(.user-message) .message-text {
-  line-height: 1.7;
-  font-size: 0.95rem;
-  /* (新增) 优化 AI 回复字号 */
-  color: var(--text-primary);
+  font-family: var(--font-mono);
+  line-height: 1.75;
+  font-size: 0.9rem;
+  color: var(--neon-green);
 }
 
 .message:not(.user-message) .message-text p {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.6rem;
 }
 
 .message:not(.user-message) .message-text p:last-child {
@@ -244,77 +369,110 @@ textarea {
 
 .message:not(.user-message) .message-text ul,
 .message:not(.user-message) .message-text ol {
-  padding-left: 1.75rem;
-  /* (调整) 增加缩进 */
-  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  margin-bottom: 0.6rem;
 }
 
 .message:not(.user-message) .message-text li {
-  margin-bottom: 0.375rem;
-  /* (调整) 优化行距 */
+  margin-bottom: 0.3rem;
 }
 
-/* (调整) 优化代码块样式 */
 .message:not(.user-message) .message-text pre {
-  background-color: var(--code-bg);
-  color: var(--code-text);
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--neon-green);
   padding: 1rem;
-  border-radius: var(--radius);
   overflow-x: auto;
   margin: 0.75rem 0;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(0, 255, 157, 0.25);
+  font-family: var(--font-mono);
 }
 
 .message:not(.user-message) .message-text code {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
 }
 
-/* 行内代码 */
 .message:not(.user-message) .message-text :not(pre)>code {
-  background-color: var(--code-bg);
-  color: var(--primary-dark);
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-  font-weight: 500;
+  background: rgba(0, 255, 157, 0.1);
+  color: var(--neon-green);
+  padding: 0.15em 0.35em;
+  border: 1px solid rgba(0, 255, 157, 0.2);
 }
 
-/* 引用 */
 .message:not(.user-message) .message-text blockquote {
-  border-left: 4px solid var(--primary-light);
-  /* (调整) 颜色 */
+  border-left: 3px solid var(--neon-cyan);
   padding-left: 1rem;
   margin: 0.75rem 0;
   color: var(--text-secondary);
-  background-color: var(--bg-color);
-  /* (新增) 浅色背景 */
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
 }
 
-/* 表格 */
+.message:not(.user-message) .message-text h1,
+.message:not(.user-message) .message-text h2,
+.message:not(.user-message) .message-text h3 {
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--neon-cyan);
+  margin: 1rem 0 0.5rem;
+  font-weight: 700;
+}
+
+.message:not(.user-message) .message-text a {
+  color: var(--neon-cyan);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.message:not(.user-message) .message-text a:hover {
+  border-bottom-color: var(--neon-cyan);
+}
+
 .message:not(.user-message) .message-text table {
-  width: auto;
-  /* (调整) 自动宽度 */
   border-collapse: collapse;
-  margin: 1rem 0;
-  font-size: 0.875rem;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  width: 100%;
+  margin: 0.75rem 0;
 }
 
 .message:not(.user-message) .message-text th,
 .message:not(.user-message) .message-text td {
-  border: 1px solid var(--border-color);
-  padding: 0.625rem 0.875rem;
-  text-align: left;
+  border: 1px solid var(--border-dim);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
 }
 
 .message:not(.user-message) .message-text th {
-  background-color: var(--bg-color);
+  background: var(--neon-cyan-dim);
+  color: var(--neon-cyan);
+  font-family: var(--font-ui);
+  text-transform: uppercase;
   font-weight: 600;
 }
 
-.message:not(.user-message) .message-text tr:nth-child(even) {
-  background-color: var(--bg-color);
+/* ----------------------------------------------------------
+ * 10. 滚动条 FUI 化
+ * ---------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.6);
+}
+
+/* ----------------------------------------------------------
+ * 11. 工具类
+ * ---------------------------------------------------------- */
+.container {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 1rem;
 }

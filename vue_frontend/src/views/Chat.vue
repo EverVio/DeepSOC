@@ -1,927 +1,956 @@
 <template>
-  <div class="chat-container">
-    <div class="sidebar" v-if="isSidebarOpen">
-      <SessionList
-        :sessions="sessions"
-        :current-session="currentSession"
-        @select="handleSelectSession"
-        @delete="handleDeleteSession"
-        @create="handleCreateSession"
-      />
-      
-      <div class="user-info">
-        <div class="user-actions">
-          <button class="secondary" @click="openSettingsModal">
-            <settings-icon class="icon-small" />
-            设置
-          </button>
-          <button class="secondary" @click="handleClearHistory">
-            <trash-icon class="icon-small" />
-            清空当前会话
-          </button>
+  <!-- SOC 大屏根容器：CSS Grid 驱动 -->
+  <div class="soc-dashboard">
+
+    <!-- ══════════════════════════════════════════════════════
+         顶部 HUD 状态栏
+    ══════════════════════════════════════════════════════ -->
+    <header class="soc-header">
+      <div class="header-brand">
+        <span class="brand-name">DEEP<em>SOC</em></span>
+        <span class="brand-sub">Security Operations Center</span>
+      </div>
+
+      <div class="header-hud">
+        <div class="hud-item">
+          <span class="hud-label">SYSTEM</span>
+          <span class="hud-value hud-value--green">ONLINE</span>
+        </div>
+        <div class="hud-divider" />
+        <div class="hud-item">
+          <span class="hud-label">DEFCON</span>
+          <span class="hud-value hud-value--cyan">LEVEL 4</span>
+        </div>
+        <div class="hud-divider" />
+        <div class="hud-item">
+          <span class="hud-label">SESSION</span>
+          <span class="hud-value hud-value--cyan session-name-display">{{ currentSession }}</span>
+        </div>
+        <div class="hud-divider" />
+        <div class="hud-item">
+          <span class="hud-label">TIME</span>
+          <span class="hud-value hud-value--cyan">{{ currentTime }}</span>
         </div>
       </div>
-    </div>
-    
-    <div class="chat-area">
-      <div class="chat-header">
-        <button class="icon-button sidebar-toggle" @click="toggleSidebar" title="切换侧边栏">
-          <MenuIcon class="icon" />
+
+      <div class="header-controls">
+        <button class="hud-btn" @click="toggleSidebar" :title="isSidebarOpen ? '收起面板' : '展开面板'">
+          <MenuIcon class="hud-icon" />
         </button>
-
-        <div class="header-titles">
-          <h2 class="session-title">{{ currentSession }}</h2>
-          <p class="session-subtitle">大模型故障日志诊断</p>
-        </div>
+        <button class="hud-btn" @click="openSettingsModal" title="设置">
+          <SettingsIcon class="hud-icon" />
+        </button>
       </div>
-      
-      <div v-if="error" class="error-message global-error">{{ error }}</div>
-      
-      <div class="messages-container" ref="messagesContainerRef">
-        <div v-if="messages.length === 0" class="empty-state">
-          <div class="logo-icon-wrapper">
-<svg height="5em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="5em" xmlns="http://www.w3.org/2000/svg"><title>DeepSeek</title><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg>
+
+      <!-- 底部装饰线 -->
+      <div class="header-line" aria-hidden="true">
+        <div class="header-line-fill" />
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════
+         主内容区：左面板 + 中央终端
+    ══════════════════════════════════════════════════════ -->
+    <main class="soc-main" :class="{ 'sidebar-collapsed': !isSidebarOpen }">
+
+      <!-- 左侧：会话管理面板 -->
+      <aside class="panel-left" v-show="isSidebarOpen">
+        <FuiCard title="TACTICAL SESSIONS" class="h-full">
+          <template #actions>
+            <button class="fui-icon-btn" @click="handleCreateSession('新会话 ' + Date.now())" title="新建会话">
+              <PlusIcon class="btn-icon" />
+            </button>
+          </template>
+
+          <!-- 搜索框 -->
+          <div class="session-search">
+            <SearchIcon class="search-icon-sm" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="SEARCH SESSION..."
+              class="session-search-input"
+            />
           </div>
-          <h3>开始您的诊断对话</h3>
-          <p>请在下方输入您的问题或日志信息。</p>
-        </div>
-        
-        <ChatMessage
-          v-for="(msg, index) in messages"
-          :key="msg.id"
-          :is-user="msg.isUser"
-          :content="msg.content"
-          :attachment-name="msg.attachmentName"
-          :think-process="msg.think_process" 
-          :duration="msg.duration"
-          :timestamp="msg.timestamp"
-          :message-id="msg.id"
-          :allow-regenerate="!msg.isUser && index === messages.length - 1 && !loading"
-          @regenerate="handleRegenerate"
-          @edit="handleEditMessage"
-        />
-        
-        <div 
-          v-if="loading && 
-                messages.length > 0 && 
-                !messages[messages.length - 1].isUser && 
-                !messages[messages.length - 1].content && 
-                !messages[messages.length - 1].think_process" 
-          class="loading-indicator"
-        >
-          <div class="loading"></div>
-          <p> 模型正在分析...</p>
-        </div>
-      </div>
-      
-      <div class="chat-input-wrapper">
-        <ChatInput
-          ref="chatInputRef"
-          :loading="loading"
-          @send="handleSendMessage"
-        />
-      </div>
 
-      <div
-        v-if="showSettingsModal"
-        class="settings-modal-overlay"
-        @click.self="closeSettingsModal"
-      >
-        <div class="settings-modal card">
-          <div class="settings-modal-header">
-            <h3>设置</h3>
-            <button class="icon-button" @click="closeSettingsModal" title="关闭">
-              <x-icon class="icon-small" />
+          <!-- 会话列表 -->
+          <div class="session-items">
+            <div
+              v-for="session in filteredSessions"
+              :key="session"
+              class="session-item"
+              :class="{ 'session-item--active': session === currentSession }"
+              @click="handleSelectSession(session)"
+            >
+              <TerminalIcon class="session-icon" />
+              <span class="session-item-name">{{ session }}</span>
+              <button
+                class="fui-icon-btn session-del"
+                @click.stop="handleDeleteSession(session)"
+                title="删除"
+              >
+                <TrashIcon class="btn-icon" />
+              </button>
+            </div>
+            <div v-if="filteredSessions.length === 0" class="session-empty">
+              NO SESSIONS FOUND
+            </div>
+          </div>
+
+          <!-- 底部操作 -->
+          <div class="panel-footer">
+            <button class="fui-footer-btn" @click="handleClearHistory">
+              <TrashIcon class="btn-icon" />
+              CLEAR SESSION
             </button>
           </div>
+        </FuiCard>
+      </aside>
 
-          <div class="settings-modal-body">
-            <div class="settings-field">
-              <label for="sessionSelect">选择会话</label>
-              <select id="sessionSelect" v-model="selectedSessionForExport">
-                <option
-                  v-for="session in sessions"
-                  :key="session"
-                  :value="session"
-                >
-                  {{ session }}
-                </option>
-              </select>
+      <!-- 中央：战术分析终端 -->
+      <section class="panel-center">
+        <FuiCard class="h-full terminal-card">
+          <template #header>
+            <div class="terminal-header-left">
+              <span class="status-dot-inline" />
+              <span class="terminal-title">TACTICAL ANALYSIS TERMINAL</span>
+            </div>
+            <div class="terminal-header-right">
+              <span class="terminal-meta">{{ currentSession }}</span>
+              <span class="terminal-meta">大模型故障日志诊断</span>
+            </div>
+          </template>
+
+          <!-- 错误提示 -->
+          <div v-if="error" class="fui-error-bar">
+            <AlertIcon class="btn-icon" /> {{ error }}
+          </div>
+
+          <!-- 消息流 -->
+          <div class="messages-viewport" ref="messagesContainerRef">
+            <!-- 空态 -->
+            <div v-if="messages.length === 0" class="terminal-empty">
+              <div class="terminal-empty-art">
+                <svg height="4em" viewBox="0 0 24 24" width="4em" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588z" fill="#00E5FF"/>
+                </svg>
+              </div>
+              <p class="terminal-empty-text">
+                <span class="prompt-prefix">root@DeepSOC:~$</span>
+                &nbsp;_
+              </p>
+              <p class="terminal-empty-hint">awaiting tactical input...</p>
             </div>
 
-            <div class="settings-field">
-              <label for="modelSelect">选择模型</label>
-              <select id="modelSelect" v-model="selectedModel">
-                <option v-for="model in availableModels" :key="model" :value="model">
-                  {{ model }}
-                </option>
-              </select>
-            </div>
+            <!-- 消息列表 -->
+            <ChatMessage
+              v-for="(msg, index) in messages"
+              :key="msg.id"
+              :is-user="msg.isUser"
+              :content="msg.content"
+              :attachment-name="msg.attachmentName"
+              :think-process="msg.think_process"
+              :duration="msg.duration"
+              :timestamp="msg.timestamp"
+              :message-id="msg.id"
+              :allow-regenerate="!msg.isUser && index === messages.length - 1 && !loading"
+              @regenerate="handleRegenerate"
+              @edit="handleEditMessage"
+            />
 
-            <div class="settings-actions">
-              <button
-                class="secondary"
-                :disabled="isExporting"
-                @click="handleExportSelectedSession"
-              >
-                <download-icon class="icon-small" />
-                {{ isExporting ? '导出中...' : '导出为HTML文件' }}
-              </button>
-              <button class="secondary danger-hover" @click="handleLogoutFromModal">
-                <logout-icon class="icon-small" />
-                退出登录
-              </button>
+            <!-- 流式加载指示 -->
+            <div
+              v-if="loading && messages.length > 0 &&
+                    !messages[messages.length - 1].isUser &&
+                    !messages[messages.length - 1].content &&
+                    !messages[messages.length - 1].think_process"
+              class="terminal-loading"
+            >
+              <span class="loading-cursor">█</span>
+              <span class="loading-text">ANALYZING...</span>
             </div>
           </div>
+
+          <!-- 输入区 -->
+          <div class="terminal-input-zone">
+            <ChatInput
+              ref="chatInputRef"
+              :loading="loading"
+              @send="handleSendMessage"
+            />
+          </div>
+        </FuiCard>
+      </section>
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════
+         设置模态框（功能保留，样式 FUI 化）
+    ══════════════════════════════════════════════════════ -->
+    <div
+      v-if="showSettingsModal"
+      class="fui-modal-overlay"
+      @click.self="closeSettingsModal"
+    >
+      <FuiCard title="SYSTEM CONFIG" class="fui-modal-card" :clip="18">
+        <template #actions>
+          <button class="fui-icon-btn" @click="closeSettingsModal"><XIcon class="btn-icon" /></button>
+        </template>
+
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label">EXPORT SESSION</label>
+            <select class="fui-select" v-model="selectedSessionForExport">
+              <option v-for="s in sessions" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+
+          <div class="modal-field">
+            <label class="modal-label">AI MODEL</label>
+            <select class="fui-select" v-model="selectedModel">
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+          </div>
+
+          <div class="modal-actions">
+            <button class="primary" :disabled="isExporting" @click="handleExportSelectedSession">
+              <DownloadIcon class="btn-icon" />
+              {{ isExporting ? 'EXPORTING...' : 'EXPORT HTML' }}
+            </button>
+            <button class="danger" @click="handleLogoutFromModal">
+              <LogoutIcon class="btn-icon" />
+              LOGOUT
+            </button>
+          </div>
         </div>
-      </div>
+      </FuiCard>
     </div>
+
   </div>
 </template>
 
 <script setup>
-// (新增) 导入图标
-import { onMounted, computed, ref, nextTick, watch } from 'vue'; 
-import { useRouter } from 'vue-router';
-import { useStore } from '../store';
-import api from '../api';
-import SessionList from '../components/SessionList.vue';
-import ChatMessage from '../components/ChatMessage.vue';
-import ChatInput from '../components/ChatInput.vue';
-// (修改) 导入 MenuIcon
-import { DownloadIcon, TrashIcon, LogoutIcon, MenuIcon, SettingsIcon, XIcon } from 'vue-tabler-icons';
-const store = useStore();
-const router = useRouter();
-const messagesContainerRef = ref(null); 
-const chatInputRef = ref(null); 
-const lastUserMessage = ref(''); 
+import { onMounted, onBeforeUnmount, computed, ref, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useStore } from '../store'
+import api from '../api'
+import FuiCard from '../components/FuiCard.vue'
+import ChatMessage from '../components/ChatMessage.vue'
+import ChatInput from '../components/ChatInput.vue'
+import {
+  DownloadIcon, TrashIcon, LogoutIcon, MenuIcon, SettingsIcon,
+  XIcon, PlusIcon, SearchIcon, TerminalIcon, AlertTriangleIcon as AlertIcon,
+} from 'vue-tabler-icons'
 
-// (新增) 侧边栏状态
-const isSidebarOpen = ref(true);
+const store = useStore()
+const router = useRouter()
+const messagesContainerRef = ref(null)
+const chatInputRef = ref(null)
+const lastUserMessage = ref('')
+const isSidebarOpen = ref(true)
+const searchQuery = ref('')
 
-// ... (计算属性)
-const sessions = computed(() => store.sessions);
-const currentSession = computed(() => store.currentSession);
-const messages = computed(() => store.messages[currentSession.value] || []);
-const loading = computed(() => store.loading);
-const error = computed(() => store.error);
-const isEditing = computed(() => store.isEditing);
-const editingMessageId = computed(() => store.editingMessageId);
-const useDbSearch = computed(() => store.useDbSearch);
-const useWebSearch = computed(() => store.useWebSearch);
+// ── 计算属性 ─────────────────────────────────────────────
+const sessions       = computed(() => store.sessions)
+const currentSession = computed(() => store.currentSession)
+const messages       = computed(() => store.messages[currentSession.value] || [])
+const loading        = computed(() => store.loading)
+const error          = computed(() => store.error)
+const isEditing      = computed(() => store.isEditing)
+const editingMessageId = computed(() => store.editingMessageId)
+const useDbSearch    = computed(() => store.useDbSearch)
+const useWebSearch   = computed(() => store.useWebSearch)
 
-const showSettingsModal = ref(false);
-const isExporting = ref(false);
-const selectedSessionForExport = ref(currentSession.value);
-const selectedModel = ref('DeepSeek-R1');
-const availableModels = ref([
-  'DeepSeek-R1:7b',
-  'Qwen3:8b',
-  'Llama3:8b'
-]);
+const filteredSessions = computed(() => {
+  if (!searchQuery.value) return sessions.value
+  const q = searchQuery.value.toLowerCase()
+  return sessions.value.filter(s => s.toLowerCase().includes(q))
+})
 
-watch(() => currentSession.value, (newSession) => {
-  if (!showSettingsModal.value) {
-    selectedSessionForExport.value = newSession;
-  }
-}, { immediate: true });
+// ── 实时时钟 ─────────────────────────────────────────────
+const currentTime = ref('')
+let clockTimer = null
+const updateClock = () => {
+  const now = new Date()
+  currentTime.value = now.toLocaleTimeString('zh-CN', { hour12: false })
+}
+updateClock()
 
-watch(sessions, (newSessions) => {
-  if (!newSessions.includes(selectedSessionForExport.value)) {
-    selectedSessionForExport.value = newSessions[0] || '';
-  }
-}, { immediate: true });
+// ── 设置模态框 ────────────────────────────────────────────
+const showSettingsModal = ref(false)
+const isExporting = ref(false)
+const selectedSessionForExport = ref(currentSession.value)
+const selectedModel = ref('DeepSeek-R1')
+const availableModels = ref(['DeepSeek-R1:7b', 'Qwen3:8b', 'Llama3:8b'])
+
+watch(() => currentSession.value, (v) => {
+  if (!showSettingsModal.value) selectedSessionForExport.value = v
+}, { immediate: true })
+
+watch(sessions, (v) => {
+  if (!v.includes(selectedSessionForExport.value))
+    selectedSessionForExport.value = v[0] || ''
+}, { immediate: true })
 
 const openSettingsModal = () => {
-  selectedSessionForExport.value = currentSession.value;
-  showSettingsModal.value = true;
-};
+  selectedSessionForExport.value = currentSession.value
+  showSettingsModal.value = true
+}
+const closeSettingsModal = () => { showSettingsModal.value = false }
 
-const closeSettingsModal = () => {
-  showSettingsModal.value = false;
-};
+// ── 工具函数 ──────────────────────────────────────────────
+const toggleSidebar = () => { isSidebarOpen.value = !isSidebarOpen.value }
 
-const ensureSessionMessages = async (sessionId) => {
-  let sessionMessages = store.messages[sessionId];
-  if (sessionMessages && sessionMessages.length > 0) {
-    return sessionMessages;
-  }
+const scrollToBottom = async () => {
+  await nextTick()
+  const c = messagesContainerRef.value
+  if (c) c.scrollTop = c.scrollHeight
+}
 
+const loadHistory = async (sessionId) => {
+  store.setLoading(true)
+  store.setError(null)
   try {
-    const response = await api.getHistory(sessionId);
-    store.loadHistory(sessionId, response.data.history);
-    sessionMessages = store.messages[sessionId] || [];
-    return sessionMessages;
+    const res = await api.getHistory(sessionId)
+    store.loadHistory(sessionId, res.data.history)
+    const msgs = store.messages[sessionId] || []
+    const last = [...msgs].reverse().find(m => m.isUser)
+    lastUserMessage.value = last ? last.content : ''
+    await scrollToBottom()
   } catch (err) {
-    const message = err?.response?.data?.error || err?.message || '加载会话历史失败';
-    throw new Error(message);
-  }
-};
-
-const buildExportHtml = (sessionName, exportTime, sessionMessages) => {
-  let htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title> 模型聊天记录 - ${sessionName}</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                font-size: 14px;
-            }
-            .header {
-                text-align: center;
-                border-bottom: 2px solid #1a73e8;
-                padding-bottom: 20px;
-                margin-bottom: 30px;
-            }
-            .header h1 {
-                color: #1a73e8;
-                margin-bottom: 10px;
-                font-size: 24px;
-            }
-            .header h2 {
-                color: #5f6368;
-                margin: 0 0 5px 0;
-                font-weight: normal;
-                font-size: 18px;
-            }
-            .header p {
-                color: #80868b;
-                margin: 0;
-                font-size: 14px;
-            }
-            .message {
-                margin-bottom: 20px;
-                padding: 12px;
-                border-radius: 6px;
-            }
-            .user-message {
-                background-color: #e8f0fe;
-                border-left: 3px solid #1a73e8;
-            }
-            .ai-message {
-                background-color: #f1f8e9;
-                border-left: 3px solid #34a853;
-            }
-            .message-header {
-                font-weight: bold;
-                margin-bottom: 8px;
-                font-size: 15px;
-            }
-            .user-header {
-                color: #1a73e8;
-            }
-            .ai-header {
-                color: #34a853;
-            }
-            .timestamp {
-                color: #80868b;
-                font-size: 12px;
-            }
-            .content {
-                white-space: pre-wrap;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-            @media print {
-                body {
-                    padding: 10px;
-                }
-                .message {
-                    page-break-inside: avoid;
-                    margin-bottom: 15px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1> 模型聊天记录 </h1>
-            <h2>会话: ${sessionName}</h2>
-            <p>导出时间: ${exportTime}</p>
-        </div>
-  `;
-
-  sessionMessages.forEach((msg) => {
-    const role = msg.isUser ? '用户' : 'AI助手';
-    const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN') : '';
-    const contentText = msg.content || '';
-
-    htmlContent += `
-        <div class="message ${msg.isUser ? 'user-message' : 'ai-message'}">
-            <div class="message-header ${msg.isUser ? 'user-header' : 'ai-header'}">
-                ${role}${time ? ` <span class="timestamp">(${time})</span>` : ''}
-            </div>
-            <div class="content">${contentText}</div>
-        </div>
-    `;
-  });
-
-  htmlContent += `
-    </body>
-    </html>
-  `;
-
-  return htmlContent;
-};
-
-const exportSessionToHtml = async (sessionId) => {
-  const sessionName = sessionId;
-  const exportTime = new Date().toLocaleString('zh-CN');
-  const sessionMessages = await ensureSessionMessages(sessionId);
-  const htmlContent = buildExportHtml(sessionName, exportTime, sessionMessages);
-
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${sessionName}_聊天记录_${new Date().getTime()}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-const handleExportSelectedSession = async () => {
-  if (isExporting.value || !selectedSessionForExport.value) {
-    return;
-  }
-
-  isExporting.value = true;
-  try {
-    await exportSessionToHtml(selectedSessionForExport.value);
-    alert('聊天记录已导出为HTML文件，您可以使用浏览器打开该文件并打印为PDF');
-  } catch (error) {
-    console.error('导出失败:', error);
-    alert(error.message || '导出失败，请查看控制台了解详细信息');
+    store.setError(err.response?.data?.error || '加载历史记录失败')
   } finally {
-    isExporting.value = false;
+    store.setLoading(false)
   }
-};
+}
 
 const loadGlossary = async () => {
   try {
-    const response = await api.getGlossary();
-    store.setGlossary(response.data.terms || {});
-  } catch (err) {
-    console.warn('加载术语词典失败', err);
-  }
-};
+    const res = await api.getGlossary()
+    store.setGlossary(res.data.terms || {})
+  } catch {}
+}
 
-// (新增) 切换侧边栏函数
-const toggleSidebar = () => {
-  isSidebarOpen.value = !isSidebarOpen.value;
-};
-
-const scrollToBottom = async () => {
-  await nextTick();
-  const container = messagesContainerRef.value;
-  if (container) {
-    container.scrollTop = container.scrollHeight;
-  }
-};
-
-const loadHistory = async (sessionId) => {
-  try {
-    store.setLoading(true);
-    const response = await api.getHistory(sessionId);
-    store.loadHistory(sessionId, response.data.history);
-
-    const currentMessages = store.messages[sessionId] || [];
-    const lastUserMsg = [...currentMessages].reverse().find(m => m.isUser);
-    lastUserMessage.value = lastUserMsg ? lastUserMsg.content : '';
-
-    await scrollToBottom(); 
-  } catch (err) {
-    store.setError(err.response?.data?.error || '加载历史记录失败');
-  } finally {
-    store.setLoading(false);
-  }
-};
-
-onMounted(() => {
-  loadGlossary();
-  loadHistory(currentSession.value);
-});
-
+// ── 会话操作 ─────────────────────────────────────────────
 const handleSelectSession = async (sessionId) => {
-  store.setCurrentSession(sessionId);
-  await loadHistory(sessionId);
-};
+  store.setCurrentSession(sessionId)
+  await loadHistory(sessionId)
+}
 
 const handleDeleteSession = async (sessionId) => {
-  try {
-    if (store.sessions.length === 1 && store.sessions[0] === sessionId) {
-        store.addSession('默认对话');
-    }
-    await api.clearHistory(sessionId);
-    store.removeSession(sessionId);
-    store.clearSessionMessages(sessionId);
-    await loadHistory(store.currentSession);
-  } catch (err) {
-    store.setError(err.response?.data?.error || '删除会话失败');
-  }
-};
+  if (!window.confirm(`确定要删除会话 "${sessionId}" 吗？`)) return
+  if (store.sessions.length === 1 && store.sessions[0] === sessionId)
+    store.addSession('默认对话')
+  await api.clearHistory(sessionId)
+  store.removeSession(sessionId)
+  store.clearSessionMessages(sessionId)
+  await loadHistory(store.currentSession)
+}
 
 const handleCreateSession = (sessionId) => {
-  store.addSession(sessionId);
-  store.clearSessionMessages(sessionId);
-  loadHistory(sessionId);
-};
+  store.addSession(sessionId)
+  store.clearSessionMessages(sessionId)
+  loadHistory(sessionId)
+}
 
+const handleClearHistory = async () => {
+  if (!window.confirm(`确定要清空当前会话 "${currentSession.value}" 吗？`)) return
+  await api.clearHistory(currentSession.value)
+  store.clearSessionMessages(currentSession.value)
+  await scrollToBottom()
+}
+
+// ── 发送消息 ─────────────────────────────────────────────
 const handleSendMessage = async (content, extra) => {
-  const sessionId = currentSession.value;
-
-  if (isEditing.value && editingMessageId.value) {
-    await handleEditSend(sessionId, content);
-  } else {
-    await handleNormalSend(sessionId, content, extra);
-  }
-};
+  if (isEditing.value && editingMessageId.value)
+    await handleEditSend(currentSession.value, content)
+  else
+    await handleNormalSend(currentSession.value, content, extra)
+}
 
 const handleNormalSend = async (sessionId, content, extra) => {
-  lastUserMessage.value = content;
-  store.addMessage(sessionId, true, { content: content, attachmentName: extra && extra.attachmentName ? extra.attachmentName : undefined });
-  await scrollToBottom(); 
-  
-  const aiMessageId = store.addMessage(sessionId, false, { 
-    content: '', 
-    think_process: '' 
-  });
-  await scrollToBottom(); 
-  
-  store.setLoading(true);
-  store.setError(null);
+  lastUserMessage.value = content
+  store.addMessage(sessionId, true, {
+    content,
+    attachmentName: extra?.attachmentName,
+  })
+  await scrollToBottom()
+  store.addMessage(sessionId, false, { content: '', think_process: '' })
+  await scrollToBottom()
+  store.setLoading(true)
+  store.setError(null)
 
-  // 将附件作为附加段落拼接到本次用户输入末尾（不影响输入框展示）
-  const combinedInput = extra && extra.attachmentText
-    ? `${content}\n\n[附件]\n${extra.attachmentText}`
-    : content;
-
+  const input = extra?.attachmentText ? `${content}\n\n[附件]\n${extra.attachmentText}` : content
   await api.streamChat(
-    sessionId,
-    combinedInput,
+    sessionId, input,
     (data) => {
-      if (data.type === 'content') {
-        store.updateLastMessage(sessionId, { content_chunk: data.chunk });
-      } else if (data.type === 'think') {
-        store.updateLastMessage(sessionId, { think_chunk: data.chunk });
-      } else if (data.type === 'metadata') {
-        store.updateLastMessage(sessionId, { duration: data.duration });
-      } else if (data.type === 'error') {
-        store.setError(data.chunk || '流式响应出错');
-      }
-      scrollToBottom();
+      if (data.type === 'content') store.updateLastMessage(sessionId, { content_chunk: data.chunk })
+      else if (data.type === 'think')    store.updateLastMessage(sessionId, { think_chunk: data.chunk })
+      else if (data.type === 'metadata') store.updateLastMessage(sessionId, { duration: data.duration })
+      else if (data.type === 'error')    store.setError(data.chunk || '流式响应出错')
+      scrollToBottom()
     },
-    (errorMessage) => {
-      store.setLoading(false);
-      store.setError(errorMessage);
-      scrollToBottom();
-    },
-    () => {
-      store.setLoading(false);
-      scrollToBottom();
-    },
-    null, 
-    useDbSearch.value,
-    useWebSearch.value
-  );
-};
+    (msg) => { store.setLoading(false); store.setError(msg); scrollToBottom() },
+    ()    => { store.setLoading(false); scrollToBottom() },
+    null, useDbSearch.value, useWebSearch.value
+  )
+}
 
 const handleEditSend = async (sessionId, editedContent) => {
-  const messageId = editingMessageId.value;
-  const chatHistory = messages.value;
+  const messageId = editingMessageId.value
+  const history   = messages.value
+  lastUserMessage.value = editedContent
 
-  lastUserMessage.value = editedContent;
-  
-  const editIndex = chatHistory.findIndex(msg => msg.id === messageId);
-  
-  if (editIndex === -1) {
-    store.setError('找不到要编辑的消息');
-    store.clearEditing();
-    return;
-  }
+  const editIndex = history.findIndex(m => m.id === messageId)
+  if (editIndex === -1) { store.setError('找不到要编辑的消息'); store.clearEditing(); return }
 
-  const context = chatHistory.slice(0, editIndex).map(msg => ({
-    role: msg.isUser ? 'user' : 'assistant',
-    content: msg.content
-  }));
+  const context = history.slice(0, editIndex).map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.content }))
+  history[editIndex].content = editedContent
 
-  chatHistory[editIndex].content = editedContent;
-
-  let aiMessageIndex = editIndex + 1;
-  
-  if (aiMessageIndex >= chatHistory.length) {
-    store.addMessage(sessionId, false, { 
-      content: '', 
-      think_process: '' 
-    });
-    aiMessageIndex = editIndex + 1;
-  } else if (chatHistory[aiMessageIndex].isUser) {
-    chatHistory.splice(aiMessageIndex, 0, {
-      id: Date.now() + Math.random(),
-      isUser: false,
-      content: '',
-      think_process: '',
-      duration: null,
-      timestamp: new Date()
-    });
-    aiMessageIndex = editIndex + 1;
+  let aiIdx = editIndex + 1
+  if (aiIdx >= history.length) {
+    store.addMessage(sessionId, false, { content: '', think_process: '' }); aiIdx = editIndex + 1
+  } else if (history[aiIdx].isUser) {
+    history.splice(aiIdx, 0, { id: Date.now() + Math.random(), isUser: false, content: '', think_process: '', duration: null, timestamp: new Date() })
+    aiIdx = editIndex + 1
   } else {
-    chatHistory[aiMessageIndex].content = '';
-    chatHistory[aiMessageIndex].think_process = '';
-    chatHistory[aiMessageIndex].duration = null;
+    history[aiIdx].content = ''; history[aiIdx].think_process = ''; history[aiIdx].duration = null
   }
+  if (editIndex + 2 < history.length) history.splice(editIndex + 2)
 
-  if (editIndex + 2 < chatHistory.length) {
-    chatHistory.splice(editIndex + 2);
-  }
-
-  await scrollToBottom();
-  store.setLoading(true);
-  store.setError(null);
+  await scrollToBottom()
+  store.setLoading(true); store.setError(null)
 
   await api.streamChat(
-    sessionId,
-    editedContent,
+    sessionId, editedContent,
     (data) => {
-      if (data.type === 'content') {
-        store.updateMessageAtIndex(sessionId, aiMessageIndex, { content_chunk: data.chunk });
-      } else if (data.type === 'think') {
-        store.updateMessageAtIndex(sessionId, aiMessageIndex, { think_chunk: data.chunk });
-      } else if (data.type === 'metadata') {
-        store.updateMessageAtIndex(sessionId, aiMessageIndex, { duration: data.duration });
-      } else if (data.type === 'error') {
-        store.setError(data.chunk || '流式响应出错');
-      }
-      scrollToBottom();
+      if (data.type === 'content') store.updateMessageAtIndex(sessionId, aiIdx, { content_chunk: data.chunk })
+      else if (data.type === 'think')    store.updateMessageAtIndex(sessionId, aiIdx, { think_chunk: data.chunk })
+      else if (data.type === 'metadata') store.updateMessageAtIndex(sessionId, aiIdx, { duration: data.duration })
+      else if (data.type === 'error')    store.setError(data.chunk || '流式响应出错')
+      scrollToBottom()
     },
-    (errorMessage) => {
-      store.setLoading(false);
-      store.setError(errorMessage);
-      store.clearEditing();
-      scrollToBottom();
-    },
-    () => {
-      store.setLoading(false);
-      store.clearEditing();
-      if (chatInputRef.value) {
-        chatInputRef.value.clearInput();
-      }
-      scrollToBottom();
-    },
-    context,
-    useDbSearch.value,
-    useWebSearch.value
-  );
-};
+    (msg) => { store.setLoading(false); store.setError(msg); store.clearEditing(); scrollToBottom() },
+    ()    => { store.setLoading(false); store.clearEditing(); chatInputRef.value?.clearInput(); scrollToBottom() },
+    context, useDbSearch.value, useWebSearch.value
+  )
+}
 
 const handleRegenerate = async () => {
-  if (loading.value || !lastUserMessage.value) {
-    console.warn('Cannot regenerate while loading or no last user message.');
-    return;
-  }
-  const sessionId = currentSession.value;
-  
-  const currentMessages = messages.value;
-  if (currentMessages.length === 0 || currentMessages[currentMessages.length - 1].isUser) {
-      console.warn('Last message is not an AI message.');
-      return;
-  }
+  if (loading.value || !lastUserMessage.value) return
+  const msgs = messages.value
+  if (msgs.length === 0 || msgs[msgs.length - 1].isUser) return
+  store.removeLastMessage(currentSession.value)
+  await scrollToBottom()
+  await handleNormalSend(currentSession.value, lastUserMessage.value)
+}
 
-  store.removeLastMessage(sessionId);
-  await scrollToBottom(); 
-  
-  await handleNormalSend(sessionId, lastUserMessage.value);
-};
+const handleEditMessage = ({ messageId, content }) => {
+  store.setEditing(messageId)
+  chatInputRef.value?.setContent(content)
+  scrollToBottom()
+  nextTick(() => chatInputRef.value?.focus())
+}
 
-const handleEditMessage = (editData) => {
-  const { messageId, content } = editData;
-  store.setEditing(messageId);
-  
-  if (chatInputRef.value) {
-    chatInputRef.value.setContent(content);
-  }
-  
-  scrollToBottom();
-  nextTick(() => {
-    if (chatInputRef.value) {
-      chatInputRef.value.focus();
-    }
-  });
-};
+// ── 导出功能 ─────────────────────────────────────────────
+const ensureSessionMessages = async (sessionId) => {
+  let msgs = store.messages[sessionId]
+  if (msgs?.length > 0) return msgs
+  const res = await api.getHistory(sessionId)
+  store.loadHistory(sessionId, res.data.history)
+  return store.messages[sessionId] || []
+}
 
-// (修改) 替换 confirm
-const handleClearHistory = async () => {
-  if (window.confirm(`确定要清空当前会话 "${currentSession.value}" 的历史记录吗？`)) {
-    try {
-      await api.clearHistory(currentSession.value);
-      store.clearSessionMessages(currentSession.value);
-      await scrollToBottom();
-    } catch (err)
- {
-      store.setError(err.response?.data?.error || '清空历史记录失败');
-    }
-  }
-};
+const buildExportHtml = (sessionName, exportTime, msgs) => {
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DeepSOC 聊天记录 - ${sessionName}</title>
+<style>body{font-family:monospace;background:#050814;color:#00E5FF;max-width:900px;margin:0 auto;padding:20px}
+.msg{margin:12px 0;padding:12px;border:1px solid rgba(0,229,255,0.3)}.user{color:#00FF9D}.ai{color:#00E5FF}</style>
+</head><body><h1>DeepSOC — ${sessionName}</h1><p>导出时间: ${exportTime}</p>`
+  msgs.forEach(m => {
+    html += `<div class="msg ${m.isUser ? 'user' : 'ai'}"><strong>${m.isUser ? 'USER' : 'AI'}</strong><pre>${m.content || ''}</pre></div>`
+  })
+  html += `</body></html>`
+  return html
+}
 
-// (修改) 替换 confirm
+const exportSessionToHtml = async (sessionId) => {
+  const msgs = await ensureSessionMessages(sessionId)
+  const html = buildExportHtml(sessionId, new Date().toLocaleString('zh-CN'), msgs)
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `DeepSOC_${sessionId}_${Date.now()}.html`; a.click()
+  URL.revokeObjectURL(url)
+}
+
+const handleExportSelectedSession = async () => {
+  if (isExporting.value || !selectedSessionForExport.value) return
+  isExporting.value = true
+  try { await exportSessionToHtml(selectedSessionForExport.value) }
+  catch (e) { alert(e.message || '导出失败') }
+  finally { isExporting.value = false }
+}
+
 const handleLogout = () => {
-  if (window.confirm('确定要退出登录吗？')) {
-    store.clearApiKey();
-    router.push('/login');
-    return true;
-  }
-  return false;
-};
+  if (!window.confirm('确定要退出登录吗？')) return false
+  store.clearApiKey(); router.push('/login'); return true
+}
+const handleLogoutFromModal = () => { if (handleLogout()) closeSettingsModal() }
 
-const handleLogoutFromModal = () => {
-  const didLogout = handleLogout();
-  if (didLogout) {
-    closeSettingsModal();
-  }
-};
+// ── 生命周期 ─────────────────────────────────────────────
+onMounted(() => {
+  loadGlossary()
+  loadHistory(currentSession.value)
+  clockTimer = setInterval(updateClock, 1000)
+})
+onBeforeUnmount(() => { clearInterval(clockTimer) })
 </script>
 
 <style scoped>
-.chat-container {
-  display: flex;
+/* ── 根布局 ─────────────────────────────────────────────── */
+.soc-dashboard {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  width: 100vw;
   height: 100vh;
-  overflow: hidden; /* (新增) 防止溢出 */
-}
-
-.sidebar {
-  width: 280px; /* (调整) 宽度 */
-  flex-shrink: 0; /* (新增) 防止侧边栏被压缩 */
-  display: flex;
-  flex-direction: column;
-  background-color: var(--card-bg);
-  border-right: 1px solid var(--border-color);
-}
-
-.user-info {
-  padding: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.user-actions {
-  display: flex;
-  flex-direction: column; /* (调整) 垂直排列 */
-  gap: 0.5rem;
-}
-
-.user-actions button {
-  width: 100%;
-  justify-content: flex-start; /* (新增) 按钮内容左对齐 */
-  font-size: 0.875rem;
-}
-
-/* (新增) 退出登录按钮的悬停效果 */
-.danger-hover:hover {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
-  color: var(--danger-color);
-}
-
-.icon-button {
-  background: none;
-  border: none;
-  padding: 0.5rem; /* 增加内边距，更易点击且视觉更舒展 */
-  border-radius: 0.75rem; /* 增加圆角，更柔和，可调整 */
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* 使用更平滑的三次贝塞尔曲线过渡 */
-  flex-shrink: 0;
-}
-
-.icon-button:hover {
-  /* 悬停反馈更现代 */
-  background-color: var(--bg-hover-subtle, rgba(0, 0, 0, 0.04)); /* 使用更微妙的颜色，例如透明度 */
-  color: var(--text-primary); 
-  
-  /* 轻微的抬升效果，增加立体感 */
-  transform: translateY(-1px); 
-}
-
-.icon-button:active {
-  background-color: var(--bg-hover);
-  border: 1px solid var(--border-color);
-  transform: scale(0.95);
-}
-
-.icon-button:focus {
-  outline: none;
-  border: none;
-}
-
-.icon {
-  width: 2rem;
-  height: 2rem;
-  display: block;
-}
-
-.icon-small {
-  width: 1rem;
-  height: 1rem;
-}
-
-.chat-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-color);
-  overflow: hidden; 
-}
-
-.chat-header {
-  display: flex; /* (新增) 使用 flex 布局 */
-  align-items: center; /* (新增) 垂直居中 */
-  padding: 1rem 1.5rem; /* (调整) 增加 padding */
-  background-color: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-/* (新增) 侧边栏切换按钮 */
-.sidebar-toggle {
-  margin-right: 2rem; /* (新增) 与标题的间距 */
-}
-
-/* (新增) 标题包裹层 */
-.header-titles {
-  flex-grow: 1; /* 占据剩余空间 */
-  min-width: 0; /* 允许标题收缩和截断 */
-}
-
-.session-title {
-  font-size: 1.25rem; /* (调整) */
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  /* (新增) 防止标题过长时溢出 */
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 0;
 }
 
-.session-subtitle {
-  font-size: 0.875rem; /* (调整) */
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin: 0;
-}
-
-/* (新增) 全局错误提示定位 */
-.global-error {
-  margin: 1rem 1.5rem 0;
-  box-shadow: var(--shadow);
-}
-
-.messages-container {
-  flex: 1;
-  /* 调整消息框上下、左右移动 */
-  padding: 5rem 12rem;  
-  overflow-y: auto;
+/* ── 顶部 HUD 状态栏 ─────────────────────────────────────── */
+.soc-header {
   display: flex;
-  flex-direction: column;
-  /* 注意：这里不添加 align-items: center */
-  gap: 1.5rem; 
+  align-items: center;
+  padding: 0 1.25rem;
+  background: rgba(5, 8, 20, 0.92);
+  border-bottom: 1px solid var(--border-dim);
+  position: relative;
+  z-index: 10;
+  gap: 1.5rem;
+  flex-shrink: 0;
 }
 
-/* (调整) 空状态样式 */
-.empty-state {
-  margin: auto;
-  color: var(--text-secondary);
-  font-size: 1rem;
-  text-align: center;
-  padding: 2rem;
+.brand-name {
+  font-family: var(--font-brand);
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--neon-cyan);
+  letter-spacing: 0.15em;
+  text-shadow: var(--neon-cyan-glow);
+  line-height: 1;
+}
+.brand-name em {
+  font-style: normal;
+  color: var(--neon-purple);
+  text-shadow: 0 0 8px rgba(123, 44, 191, 0.7);
+}
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-top: 2px;
+}
+
+.header-hud {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: auto;
+}
+.hud-item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 0 1rem;
+}
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.hud-value {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  margin-top: 1px;
+}
+.hud-value--cyan   { color: var(--neon-cyan); }
+.hud-value--green  { color: var(--neon-green); text-shadow: 0 0 6px rgba(0,255,157,0.5); }
+.session-name-display {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border-dim);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hud-btn {
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  color: var(--text-secondary);
+  padding: 0.3rem;
+  clip-path: none;
+  border-radius: 2px;
+  transition: all 0.2s;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hud-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: var(--neon-cyan-dim);
+  box-shadow: none;
+}
+.hud-icon { width: 1.1rem; height: 1.1rem; display: block; }
+
+/* 底部装饰线 */
+.header-line {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: var(--border-dim);
+  overflow: hidden;
+}
+.header-line-fill {
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, transparent 0%, var(--neon-cyan) 50%, transparent 100%);
+  animation: lineScan 4s linear infinite;
+}
+@keyframes lineScan {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(400%); }
+}
+
+/* ── 主内容区 CSS Grid ──────────────────────────────────── */
+.soc-main {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 10px;
+  padding: 10px;
+  overflow: hidden;
+  transition: grid-template-columns 0.3s ease;
+}
+.soc-main.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
+
+/* 左侧面板 */
+.panel-left {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.3s ease;
+}
+.sidebar-collapsed .panel-left {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* h-full 工具类：让 FuiCard 撑满父容器 */
+.h-full {
+  height: 100%;
+}
+
+/* ── 会话列表内部 ──────────────────────────────────────── */
+.session-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-dim);
+  flex-shrink: 0;
+}
+.search-icon-sm { width: 0.9rem; height: 0.9rem; color: var(--text-muted); flex-shrink: 0; }
+.session-search-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  width: 100%;
+  clip-path: none;
+  padding: 0;
+}
+.session-search-input::placeholder { color: var(--text-muted); font-style: normal; }
+.session-search-input:focus { outline: none; }
+
+.session-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.4rem 0;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+}
+.session-item:hover {
+  background: rgba(0, 229, 255, 0.05);
+  border-left-color: rgba(0, 229, 255, 0.3);
+}
+.session-item--active {
+  background: rgba(0, 229, 255, 0.1);
+  border-left-color: var(--neon-cyan);
+}
+.session-icon { width: 0.8rem; height: 0.8rem; color: var(--text-muted); flex-shrink: 0; }
+.session-item-name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-item--active .session-item-name { color: var(--neon-cyan); }
+.session-del { opacity: 0; padding: 0.15rem; transition: opacity 0.15s; }
+.session-item:hover .session-del { opacity: 1; }
+
+.session-empty {
+  padding: 1rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.panel-footer {
+  border-top: 1px solid var(--border-dim);
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+.fui-footer-btn {
+  width: 100%;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-dim);
+  gap: 0.4rem;
+}
+.fui-footer-btn:hover {
+  color: var(--neon-red);
+  border-color: rgba(255, 0, 85, 0.5);
+  background: rgba(255, 0, 85, 0.08);
+  box-shadow: none;
+}
+
+.fui-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  clip-path: none;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: inherit;
+  transition: color 0.15s;
+}
+.fui-icon-btn:hover { color: var(--neon-cyan); background: transparent; box-shadow: none; }
+.btn-icon { width: 0.9rem; height: 0.9rem; display: block; }
+
+/* ── 中央终端面板 ─────────────────────────────────────── */
+.panel-center {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-card {
+  /* FuiCard body 需要 flex 列布局来让消息区撑满 */
+}
+/* 覆盖 FuiCard body 为 flex 列 */
+.terminal-card :deep(.fui-card-body) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.status-dot-inline {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 6px var(--neon-cyan);
+  flex-shrink: 0;
+  animation: dotPulse 2.4s ease-in-out infinite;
+}
+@keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.terminal-title {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon-cyan);
+}
+.terminal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}
+.terminal-meta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+/* 错误条 */
+.fui-error-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  background: rgba(255, 0, 85, 0.1);
+  border-bottom: 1px solid rgba(255, 0, 85, 0.35);
+  color: var(--neon-red);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+/* 消息视口 */
+.messages-viewport {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
-.logo-icon-wrapper {
-  border-radius: 50%;
-  padding: 1rem;
+/* 空态 */
+.terminal-empty {
+  margin: auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
+  opacity: 0.6;
 }
-
-.logo-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--primary-color);
-}
-
-.empty-state h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.loading-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem; /* (调整) */
-  padding: 0.5rem 1rem;
+.terminal-empty-art svg { filter: drop-shadow(0 0 8px rgba(0,229,255,0.4)); }
+.terminal-empty-text {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  max-width: 80%;
+}
+.prompt-prefix { color: var(--neon-cyan); }
+.terminal-empty-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+/* 流式加载指示 */
+.terminal-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--neon-cyan);
   align-self: flex-start;
 }
+.loading-cursor {
+  animation: blink 0.8s step-end infinite;
+  color: var(--neon-cyan);
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.loading-text { color: var(--text-secondary); letter-spacing: 0.1em; font-size: 0.7rem; }
 
-.loading-indicator .loading {
-  width: 1.25rem;
-  height: 1.25rem;
+/* 输入区 */
+.terminal-input-zone {
+  border-top: 1px solid var(--border-dim);
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.25);
 }
 
-.settings-modal-overlay {
+/* ── 设置模态框 ───────────────────────────────────────── */
+.fui-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(5, 8, 20, 0.75);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1200;
-  padding: 1.5rem;
+  z-index: 1000;
 }
-
-.settings-modal {
-  width: min(480px, 100%);
+.fui-modal-card {
+  width: min(480px, 90vw);
+}
+.modal-body {
   display: flex;
   flex-direction: column;
-  max-height: 85vh;
+  gap: 1.25rem;
+  padding: 1.25rem;
 }
-
-.settings-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-color);
+.modal-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.4rem;
 }
-
-.settings-modal-header h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+.fui-select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-dim);
   color: var(--text-primary);
-}
-
-.settings-modal-body {
-  padding: 1rem 1.25rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.settings-field label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.settings-field select {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  background-color: var(--bg-color);
-  color: var(--text-primary);
-  font-size: 0.95rem;
+  border-radius: 0;
+  appearance: none;
+  cursor: pointer;
 }
-
-.settings-field select:focus {
+.fui-select:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(77, 107, 254, 0.15);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px var(--neon-cyan-dim);
 }
-
-.settings-hint {
-  font-size: 0.75rem;
-  color: var(--text-light);
-}
-
-.settings-actions {
+.modal-actions {
   display: flex;
-  flex-direction: column;
   gap: 0.75rem;
+  flex-direction: column;
 }
 </style>
