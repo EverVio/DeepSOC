@@ -356,6 +356,8 @@ RAG 向量库 / 联网情报 / 会话历史 / 文件解析
 git clone https://github.com/EverVio/DeepSOC.git
 cd django_backend
 pip install -r requirements.txt
+python manage.py makemigrations
+python manage.py migrate
 python manage.py runserver
 ```
 
