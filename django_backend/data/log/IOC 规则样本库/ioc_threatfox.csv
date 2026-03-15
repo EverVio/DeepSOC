@@ -1,0 +1,101 @@
+﻿规则/样本类型,IOC值,威胁意图,风险等级,基础标签,来源渠道,适用场景
+恶意URL/域名,bloomhaul.checkstor.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,638490.idealgo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,genomecouri.idealgo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,guidecoral.idealgo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,mer-forgeon.idealgo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意IP,168.245.203.60:3790,Meterpreter 远控/木马/分发,高,"AS58580,C2,censys,FASTRACK,hacktool,MetaSploit,Meterpreter",ThreatFox,基础设施安全分析
+恶意IP,178.128.123.209:4410,DCRat 远控/木马/分发,高,"AS14061,C2,censys,DcRAT,DIGITALOCEAN-ASN,RAT",ThreatFox,基础设施安全分析
+恶意IP,111.196.69.56:5200,DCRat 远控/木马/分发,高,"AS4808,C2,censys,CHINA169-BJ,DcRAT,RAT",ThreatFox,基础设施安全分析
+恶意IP,196.202.102.11:7443,Unknown malware 远控/木马/分发,高,"AS8452,C2,censys,Mythic,TE-AS",ThreatFox,基础设施安全分析
+恶意IP,156.234.56.50:48711,Cobalt Strike 远控/木马/分发,高,"AS138415,C2,censys,CobaltStrike,cs-watermark-987654321,YANCYLIMITED-AS-HK",ThreatFox,基础设施安全分析
+恶意IP,156.234.56.37:48711,Cobalt Strike 远控/木马/分发,高,"AS138415,C2,censys,CobaltStrike,cs-watermark-987654321,YANCYLIMITED-AS-HK",ThreatFox,基础设施安全分析
+恶意IP,156.234.56.52:48711,Cobalt Strike 远控/木马/分发,高,"AS138415,C2,censys,CobaltStrike,cs-watermark-987654321,YANCYLIMITED-AS-HK",ThreatFox,基础设施安全分析
+恶意IP,156.234.56.42:48711,Cobalt Strike 远控/木马/分发,高,"AS138415,C2,censys,CobaltStrike,cs-watermark-987654321,YANCYLIMITED-AS-HK",ThreatFox,基础设施安全分析
+恶意IP,103.236.63.138:6666,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,基础设施安全分析
+恶意URL/域名,obsdeboomgaard.nl,StrelaStealer 远控/木马/分发,高,StrelaStealer,ThreatFox,Web访问日志分析
+恶意URL/域名,obrazdzs.ru,StrelaStealer 远控/木马/分发,高,StrelaStealer,ThreatFox,Web访问日志分析
+恶意URL/域名,foresrebat.foldername.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,fjor9-lab.foldername.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,http://webcdns.com:2083/static-directory/lt.mp3,Cobalt Strike 远控/木马/分发,高,cobaltstrike,ThreatFox,Web访问日志分析
+恶意URL/域名,tru3-hold.foldername.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,catcharisingstar.us.com,Quasar RAT 远控/木马/分发,高,quasar,ThreatFox,Web访问日志分析
+恶意URL/域名,dovney.com,Quasar RAT 远控/木马/分发,高,quasar,ThreatFox,Web访问日志分析
+恶意URL/域名,lumspireos.foldername.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,vornexon.zipfolder.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意IP,38.60.224.176:443,Cobalt Strike 远控/木马/分发,高,"CobaltStrike,cs-watermark-987654321",ThreatFox,基础设施安全分析
+恶意IP,143.92.51.45:8088,Cobalt Strike 远控/木马/分发,高,"CobaltStrike,cs-watermark-305419896",ThreatFox,基础设施安全分析
+恶意IP,119.29.117.194:801,Cobalt Strike 远控/木马/分发,高,"CobaltStrike,cs-watermark-987654321",ThreatFox,基础设施安全分析
+恶意IP,217.156.122.251:443,Cobalt Strike 远控/木马/分发,高,"CobaltStrike,cs-watermark-987654321",ThreatFox,基础设施安全分析
+恶意IP,185.242.245.69:5000,IClickFix 远控/木马/分发,高,"C2,ClickFix,Russian",ThreatFox,基础设施安全分析
+恶意URL/域名,http://185.242.245.69:5000/DForecast/p2/e70d098aace7414caa01272494f1c947,IClickFix 远控/木马/分发,高,"ClickFix,Russian",ThreatFox,Web访问日志分析
+恶意文件Hash,77cfee64e0634bf8e0ccac9264f9915c1122619b86e3c18236224c4006ecf52f,IClickFix 远控/木马/分发,高,"ClickFix,Russian",ThreatFox,主机安全防护(Windows/Linux)
+恶意文件Hash,4b78364cb434ab7380a20b48f79ebcfb8f1a0e90488887f8c890d9a696c903bd,IClickFix 远控/木马/分发,高,"ClickFix,Russian",ThreatFox,主机安全防护(Windows/Linux)
+恶意文件Hash,1456fa7b402fe0fcc4997d62a6216e5656530068b7cb3534cfe5cdf841ee61ec,IClickFix 远控/木马/分发,高,"ClickFix,Russian",ThreatFox,主机安全防护(Windows/Linux)
+恶意URL/域名,https://wellnessmedcare.org/buch/Favorites/document.doc.LnK,BEARDSHELL 远控/木马/分发,高,"APT28,CVE-2026-21509,Operation_Neusploit,WebDAV",ThreatFox,Web访问日志分析
+恶意URL/域名,https://freefoodaid.com/ankara/Favorites/document.doc.LnK,BEARDSHELL 远控/木马/分发,高,"APT28,CVE-2026-21509,Operation_Neusploit,WebDAV",ThreatFox,Web访问日志分析
+恶意IP,23.227.202.14:443,BEARDSHELL 远控/木马/分发,高,"APT28,Operation_Neusploit",ThreatFox,基础设施安全分析
+恶意IP,72.62.185.31:443,BEARDSHELL 远控/木马/分发,高,"APT28,Operation_Neusploit",ThreatFox,基础设施安全分析
+恶意IP,159.253.120.2:443,BEARDSHELL 远控/木马/分发,高,"APT28,Operation_Neusploit",ThreatFox,基础设施安全分析
+恶意URL/域名,smerias.info,NetSupportManager RAT 远控/木马/分发,高,"ClickFix,erans.ru,NetSupport,reserve-C2",ThreatFox,Web访问日志分析
+恶意URL/域名,basular.info,NetSupportManager RAT 远控/木马/分发,高,"ClickFix,erans.ru,NetSupport,reserve-C2",ThreatFox,Web访问日志分析
+恶意URL/域名,nbovsc.com,NetSupportManager RAT 远控/木马/分发,高,"ClickFix,NetSupport,staging",ThreatFox,Web访问日志分析
+恶意URL/域名,whovcs.com,NetSupportManager RAT 远控/木马/分发,高,"ClickFix,NetSupport,staging",ThreatFox,Web访问日志分析
+恶意URL/域名,nexus-server.click,IClickFix 远控/木马/分发,高,"AS202412,ClickFix,ErrTraffic,Omegatech",ThreatFox,Web访问日志分析
+恶意IP,91.199.163.53:443,NetSupportManager RAT 远控/木马/分发,高,"Alviva,C2,NetSupport",ThreatFox,基础设施安全分析
+恶意IP,103.83.87.178:1990,XWorm 远控/木马/分发,高,"C2,XWorm",ThreatFox,基础设施安全分析
+恶意URL/域名,http://158.94.211.208/OBOXW2026.txt,XWorm 远控/木马/分发,高,"OBOXW2026,Omegatech,staging,XWorm",ThreatFox,Web访问日志分析
+恶意URL/域名,tur.applecloud.com.co,XWorm 远控/木马/分发,高,"Apple_impersonation,phishing,Turkey,XWorm",ThreatFox,Web访问日志分析
+恶意URL/域名,mail.clearvwtp.shop,XWorm 远控/木马/分发,高,"email_infrastructure,phishing,XWorm",ThreatFox,Web访问日志分析
+恶意URL/域名,mail.wetradetra.cfd,XWorm 远控/木马/分发,高,"email_infrastructure,phishing,XWorm",ThreatFox,Web访问日志分析
+恶意URL/域名,mail.wetrasogo.shop,XWorm 远控/木马/分发,高,"email_infrastructure,phishing,XWorm",ThreatFox,Web访问日志分析
+恶意IP,91.84.122.33:80,ClearFake 远控/木马/分发,高,"ClearFake,ClickFix,WebDAV",ThreatFox,基础设施安全分析
+恶意文件Hash,ed130e3df72984c816fe23f9f61f0ae01478840d1227015df4e44685523abbd9,ClearFake 远控/木马/分发,高,"ClearFake,DLL,WebDAV",ThreatFox,主机安全防护(Windows/Linux)
+恶意文件Hash,f6c1d093b76a18ffbe8fcafd2e29402a2c9ddf51a1ee80ce218059a10b79edab,ClearFake 远控/木马/分发,高,"ClearFake,DLL,WebDAV",ThreatFox,主机安全防护(Windows/Linux)
+恶意文件Hash,06d8a0195397fbc996eca2f8480dd180300628bbbc192e69145686b9e4f409a9,ClearFake 远控/木马/分发,高,"ClearFake,DLL,WebDAV",ThreatFox,主机安全防护(Windows/Linux)
+恶意IP,94.154.35.166:443,ClearFake 远控/木马/分发,高,"bulletproof,ClearFake,Omegatech",ThreatFox,基础设施安全分析
+恶意IP,94.154.35.162:80,ClearFake 远控/木马/分发,高,"bulletproof,ClearFake,Omegatech",ThreatFox,基础设施安全分析
+恶意IP,94.154.35.166:80,ClearFake 远控/木马/分发,高,"bulletproof,ClearFake,Omegatech",ThreatFox,基础设施安全分析
+恶意IP,178.16.52.101:80,ClearFake 远控/木马/分发,高,"bulletproof,ClearFake,Omegatech",ThreatFox,基础设施安全分析
+恶意URL/域名,ghost-node-0.fiumeveloce.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,qpiihw67.zipfolder.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,auth-z9-user.mondofuturo.in.net,ClearFake 远控/木马/分发,高,"15March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,srv-77-meta.schnellerechner.in.net,ClearFake 远控/木马/分发,高,"15March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,cdn-static-v5.petitnuage.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,api-v3-storage.petitnuage.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,metrics-sync-1.petitnuage.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,goldbox.digital,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,MacOS",ThreatFox,Web访问日志分析
+恶意URL/域名,cloud-drive-v7.fortezzarossa.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,srv-cluster-01.fortezzarossa.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,web-proxy-alt.fortezzarossa.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,remote-access-2.stillewasser.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,backend-node-v.stillewasser.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,cache-dist-10.stillewasser.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,internal-sys-x.stillewasser.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,work-flow-v0.mondolibre.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,staff-portal-1.mondolibre.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,main-point-1.metallocielo.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,api-app.uppercrafteroom.com,FAKEUPDATES 远控/木马/分发,高,"SocGholish,tds",ThreatFox,Web访问日志分析
+恶意URL/域名,infra-web-01.metallocielo.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,sat-uplink-5.grandevision.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,hyper-sc4n.zipfolder.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,nanaonsol.lol,Unknown malware 远控/木马/分发,高,"BadCoin,ClickFix",ThreatFox,Web访问日志分析
+恶意URL/域名,ai-process-guide.cfd,ClearFake 远控/木马/分发,高,"ClearFake,ClickFix",ThreatFox,Web访问日志分析
+恶意URL/域名,open-space-1.silberpfad.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,steel-base-7.grandevision.in.net,ClearFake 远控/木马/分发,高,"14March2026,ClearFake,Commandline,Windows",ThreatFox,Web访问日志分析
+恶意URL/域名,https://virtual-cdncloud.sbs/api/index.php,Unknown malware 远控/木马/分发,高,"ClickFix,ErrTraffic",ThreatFox,Web访问日志分析
+恶意URL/域名,volt-layer.zipfolder.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,main-z7-point.metallocampo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意IP,8.210.49.79:9090,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,基础设施安全分析
+恶意URL/域名,wenfengas68.com,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,Web访问日志分析
+恶意URL/域名,www.cfqax.cyou,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,Web访问日志分析
+恶意URL/域名,www.cfqaz.cyou,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,Web访问日志分析
+恶意URL/域名,slong.help,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,Web访问日志分析
+恶意URL/域名,sync-x1-data.metallocampo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,gate-v8-proxy.metallocampo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意IP,20.2.211.167:80,ValleyRAT 远控/木马/分发,高,"RAT,ValleyRAT",ThreatFox,基础设施安全分析
+恶意URL/域名,web-31-infra.metallocampo.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,oanobwsc.com,StrelaStealer 远控/木马/分发,高,StrelaStealer,ThreatFox,Web访问日志分析
+恶意URL/域名,link-z2-sat.grandeparole.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,core-x3-rock.grandeparole.in.net,ClearFake 远控/木马/分发,高,ClearFake,ThreatFox,Web访问日志分析
+恶意URL/域名,o2vietnam.com.vn,StrelaStealer 远控/木马/分发,高,StrelaStealer,ThreatFox,Web访问日志分析

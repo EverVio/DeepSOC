@@ -1,0 +1,51 @@
+模板ID,防护场景,攻击类型,适用组件,风险等级,适用场景,策略代码/步骤,生效条件,回滚提示,基础标签
+WEB-001,Web防护,SQL注入,WAF/ModSecurity,高,Web应用存在SQL注入漏洞,SecRuleEngine On\nInclude @owasp_crs_rules\nSecRule ARGS "@rx (select|union|insert|delete)" "id:1001,deny",规则加载完成，注入请求被拦截,SecRuleEngine设为DetectionOnly，注释规则,Web防护、SQL注入、WAF、高风险
+WEB-002,Web防护,XSS攻击,Nginx,中,前端输入未过滤导致XSS,add_header X-XSS-Protection "1; mode=block"\nadd_header Content-Security-Policy "default-src 'self'",浏览器头生效，恶意脚本被拦截,注释header配置，重启Nginx,Web防护、XSS、Nginx、中风险
+WEB-003,Web防护,WebShell上传,Nginx+WAF,高,上传点存在文件上传漏洞,SecRule FILES:NAME "@rx \.(php|jsp|asp)" "id:1002,deny"\nfind /web -name "*.php"|xargs grep -l eval,恶意文件上传被拦截,禁用id:1002规则，恢复文件,Web防护、WebShell、Nginx、高风险
+WEB-004,Web防护,命令注入,ModSecurity,高,存在系统命令执行漏洞,SecRule ARGS "@rx (system|exec|passthru|shell_exec)" "id:1003,deny",命令执行关键字被拦截,注释规则，改为检测模式,Web防护、命令注入、WAF、高风险
+WEB-005,Web防护,目录遍历,Nginx,中,存在../路径穿越漏洞,if ($uri ~* "\.\./") { return 403; }\n限制root路径为指定目录,路径穿越请求返回403,删除if判断，重启Nginx,Web防护、目录遍历、Nginx、中风险
+WEB-006,Web防护,CSRF攻击,Nginx,中,表单无token导致CSRF,add_header X-Frame-Options SAMEORIGIN\n配置Referer校验,iframe嵌套被限制，跨站请求拦截,删除header与Referer校验,Web防护、CSRF、Nginx、中风险
+WEB-007,Web防护,SSRF攻击,WAF,高,存在服务端请求伪造漏洞,SecRule ARGS "@rx (127.0.0.1|192.168|10\.|172\.16)" "id:1004,deny",内网IP请求被拦截,注释规则，临时放行,Web防护、SSRF、WAF、高风险
+WEB-008,Web防护,文件包含,PHP+WAF,高,存在include/require文件包含漏洞,SecRule ARGS "@rx (\.php\?|file=|path=)" "id:1005,deny",文件包含参数被拦截,关闭规则，修复代码,Web防护、文件包含、WAF、高风险
+WEB-009,Web防护,网页篡改,Nginx,中,首页/静态页面被篡改,配置静态文件只读\nchattr +i index.html\n定时md5校验,文件无法修改，篡改立即发现,chattr -i恢复可写,Web防护、网页篡改、Nginx、中风险
+WEB-010,Web防护,API未授权访问,Nginx,中,API接口无鉴权,location /api { deny all; allow 127.0.0.1; }\n添加auth验证,未授权访问返回403,删除deny/allow规则,Web防护、API未授权、Nginx、中风险
+WEB-011,Web防护,水平越权,应用配置,高,用户可越权查看他人数据,添加用户ID权限校验\n接口层校验owner字段,越权请求被拦截,临时注释校验逻辑,Web防护、越权访问、应用、高风险
+WEB-012,Web防护,敏感信息泄露,Nginx,中,响应包泄露身份证/手机号,SecRule RESPONSE_BODY "@rx (\d{18}|\d{11})" "id:1006,deny",敏感信息被屏蔽,关闭响应体检测规则,Web防护、信息泄露、WAF、中风险
+WEB-013,Web防护,Fastjson反序列化,WAF,高,Fastjson版本存在反序列化漏洞,SecRule ARGS "@rx (\.class|\.getRuntime)" "id:1007,deny",恶意payload被拦截,升级jar包，关闭临时规则,Web防护、Fastjson、WAF、高风险
+WEB-014,Web防护,Log4j漏洞,WAF/Nginx,高,Log4j2远程代码执行漏洞,SecRule ARGS "@rx (jndi:ldap|jndi:rmi)" "id:1008,deny",JNDI注入被拦截,升级Log4j，移除规则,Web防护、Log4j、WAF、高风险
+WEB-015,Web防护,Shiro反序列化,WAF,高,Shiro rememberMe反序列化漏洞,SecRule COOKIE "@rx (rememberMe=deleteMe)" "id:1009,deny",恶意Cookie被拦截,升级Shiro，关闭规则,Web防护、Shiro、WAF、高风险
+WEB-016,Web防护,Nginx解析漏洞,Nginx,高,nginx 1.x解析漏洞导致php执行,location ~* \.php$ { fastcgi_pass 127.0.0.1:9000; }\n禁止非指定后缀解析,非php文件不执行解析,恢复旧配置，重启服务,Web防护、Nginx漏洞、Nginx、高风险
+WEB-017,Web防护,Tomcat弱口令,Tomcat,高,Tomcat管理后台弱口令,修改tomcat-users.xml\n强密码+限制IP访问,弱口令无法登录,恢复旧用户配置,Web防护、弱口令、Tomcat、中风险
+WEB-018,Web防护,IIS短文件名,IIS,中,IIS短文件名泄露漏洞,web.config添加过滤规则\n禁止~1字符访问,短文件名请求404,删除web.config规则,Web防护、IIS、IIS、中风险
+WEB-019,Web防护,爬虫攻击,Nginx,中,高频爬虫导致业务压力,limit_req zone=one burst=5 nodelay\n限制单IP请求频率,爬虫被限流，正常访问正常,注释限流配置,Web防护、爬虫、Nginx、中风险
+WEB-020,Web防护,表单暴力破解,Nginx,中,登录框密码爆破,limit_req zone=login burst=3\n添加验证码校验,爆破请求被限流,移除限流，关闭验证码,Web防护、暴力破解、Nginx、中风险
+HOST-001,主机防护,SSH暴力破解,fail2ban/iptables,中,SSH被频繁密码尝试,apt install fail2ban\n[sshd] enabled=true maxretry=5,5次失败自动封禁IP,停止fail2ban，清空iptables,主机防护、SSH爆破、fail2ban、中风险
+HOST-002,主机防护,RDP暴力破解,Windows防火墙,中,Windows远程桌面被爆破,netsh advfirewall set firewallpolicy blockinbound\n限制RDP仅内网IP,外网无法访问3389,恢复防火墙允许规则,主机防护、RDP爆破、Windows、中风险
+HOST-003,主机防护,挖矿病毒,Linux Shell,高,CPU异常占用，存在挖矿程序,ps aux|grep miner|kill -9\nrm -rf /tmp/*miner*\n清理crontab,挖矿进程终止，CPU恢复,从备份恢复误删文件,主机防护、挖矿、Linux、高风险
+HOST-004,主机防护,远控木马,Linux,高,存在CobaltStrike/木马,ps aux|grep c2|kill -9\nchmod 000 /root/.ssh/authorized_keys,远控连接断开，后门清理,恢复密钥文件,主机防护、远控、Linux、高风险
+HOST-005,主机防护,勒索病毒,Windows,高,文件被加密，勒索提示,关闭445/139端口\n启用Windows Defender\n隔离加密文件,端口关闭，防护生效,开放端口，恢复隔离区,主机防护、勒索、Windows、高风险
+HOST-006,主机防护,SUID提权,Linux,高,存在高危SUID文件提权,find / -perm -4000|grep -v /usr/bin|chmod u-s -,移除非法SUID权限,恢复必要文件SUID,主机防护、SUID提权、Linux、高风险
+HOST-007,主机防护,Sudo提权,Linux,高,sudo配置不当导致提权,visudo\ndelete ALL=(ALL) NOPASSWD:ALL,普通用户无法无密码sudo,恢复sudo配置,主机防护、Sudo提权、Linux、高风险
+HOST-008,主机防护,脏牛漏洞,Linux内核,高,脏牛本地提权漏洞,uname -r\n升级内核到修复版本,内核修复，提权失效,回滚内核版本,主机防护、脏牛、Linux、高风险
+HOST-009,主机防护,恶意定时任务,Linux,中,crontab存在恶意脚本,crontab -l|grep -v miner>tmp\ncrontab tmp,恶意定时任务删除,恢复旧crontab,主机防护、定时任务、Linux、中风险
+HOST-010,主机防护,异常登录,Linux,中,异地/非工作时间登录,echo "auth required pam_time.so" >> /etc/pam.d/sshd\n限制登录时段,非工作时间无法登录,注释pam_time配置,主机防护、异常登录、Linux、中风险
+HOST-011,主机防护,异常端口监听,Linux,中,存在陌生端口监听,netstat -antp|grep LISTEN|grep -v 22/80/443|kill PID,陌生端口进程关闭,重启合法服务,主机防护、端口监听、Linux、中风险
+HOST-012,主机防护,恶意服务自启,Linux,高,恶意程序加入systemd,systemctl list-unit-files|grep enable\ndisable恶意服务,恶意服务无法自启,启用服务，恢复配置,主机防护、恶意服务、Linux、高风险
+HOST-013,主机防护,系统后门,Linux,高,存在bash后门、SU后门,chattr -i /bin/bash\nrpm -Va --nofiles --nodigest,系统文件校验修复,恢复旧文件,主机防护、系统后门、Linux、高风险
+HOST-014,主机防护,日志篡改,Linux,中,攻击者删除/清空日志,chattr +a /var/log/auth.log /var/log/syslog,日志无法删除/篡改,chattr -a恢复可写,主机防护、日志篡改、Linux、中风险
+HOST-015,主机防护,文件权限异常,Linux,中,关键文件权限777,chmod 600 /etc/shadow\nchmod 644 /etc/passwd,权限修复完成,恢复原有权限,主机防护、权限异常、Linux、中风险
+HOST-016,主机防护,Rootkit,Linux,高,系统被安装Rootkit隐藏进程,安装rkhunter\nrkhunter --check\n清理恶意模块,Rootkit被检测清除,重新安装系统组件,主机防护、Rootkit、Linux、高风险
+HOST-017,主机防护,进程注入,Linux,高,恶意代码注入正常进程,grep -r "inject" /proc/*/maps\nkill异常进程,注入进程终止,重启业务进程,主机防护、进程注入、Linux、高风险
+HOST-018,主机防护,对外异常流量,Linux,中,主机对外发起DDoS/扫描,iptables -A OUTPUT -d 0.0.0.0/0 -j DROP\n仅放行业务IP,异常外联被阻断,删除OUTPUT规则,主机防护、异常流量、iptables、中风险
+HOST-019,主机防护,主机弱口令,Linux/Windows,中,存在root/administrator弱口令,passwd root 修改强密码\nnet user administrator 强密码,弱口令无法登录,恢复旧密码,主机防护、弱口令、系统、中风险
+HOST-020,主机防护,系统漏洞修复,Linux,高,存在高危系统漏洞,apt update && apt upgrade -y\nyum update -y,漏洞补丁安装完成,回滚更新包,主机防护、系统漏洞、Linux、高风险
+NET-001,网络边界防护,SYN Flood DDoS,iptables,高,服务器遭受SYN洪水攻击,iptables -A INPUT -p tcp --syn -m limit --limit 1/s -j ACCEPT,攻击流量被限流,删除limit规则,网络防护、DDoS、iptables、高风险
+NET-002,网络边界防护,端口扫描,iptables,低,外部高频端口扫描,iptables -A INPUT -p tcp --syn -m recent --name scan --set\n--update --seconds 60 --hitcount 10 -j DROP,扫描IP被封禁,清空recent列表,网络防护、端口扫描、iptables、低风险
+NET-003,网络边界防护,恶意IP黑名单,iptables/ipset,中,已知恶意IP持续攻击,ipset create bl iphash\nipset add bl 恶意IP\niptables -A INPUT -m set --match-set bl src -j DROP,恶意IP被拦截,删除IP或销毁ipset,网络防护、恶意IP、ipset、中风险
+NET-004,网络边界防护,ARP欺骗,arpalert,中,内网ARP欺骗攻击,arpalert -i eth0\n绑定网关IP-MAC,ARP欺骗被告警并拦截,关闭arpalert服务,网络防护、ARP欺骗、arpalert、中风险
+NET-005,网络边界防护,DNS劫持,iptables,高,DNS被污染或劫持,iptables -A OUTPUT -p udp --dport 53 -j ACCEPT\n仅放行合法DNS,仅可信DNS可通信,恢复默认DNS规则,网络防护、DNS劫持、iptables、高风险
+NET-006,网络边界防护,非法端口映射,iptables,中,内网端口被映射到公网,iptables -A FORWARD -j DROP\n禁止内网端口转发,端口映射失效,允许FORWARD转发,网络防护、端口映射、iptables、中风险
+NET-007,网络边界防护,非法外联,iptables,中,内网主机主动外联黑产IP,iptables -A OUTPUT -d 恶意网段 -j DROP,非法外联被阻断,删除网段拦截规则,网络防护、非法外联、iptables、中风险
+NET-008,网络边界防护,内网横向探测,iptables,高,攻击者内网横向移动,iptables -A FORWARD -s 内网段 -d 内网段 -j DROP,内网互访受限,允许内网转发,网络防护、横向移动、iptables、高风险
+NET-009,网络边界防护,ICMP攻击,iptables,中,ICMP洪水ping攻击,iptables -A INPUT -p icmp -m limit --limit 1/s -j ACCEPT,ping被限流,删除icmp限流规则,网络防护、ICMP攻击、iptables、中风险
+NET-010,网络边界防护,UDP洪水,iptables,高,UDP Flood导致带宽打满,iptables -A INPUT -p udp -m limit --limit 10/s -j ACCEPT,UDP流量被限制,删除udp限流规则,网络防护、UDP洪水、iptables、高风险
