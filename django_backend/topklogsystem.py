@@ -47,17 +47,17 @@ class TopKLogSystem:
         llm: str,
         embedding_model: str,
     ) -> None:
-        # ...existing code...
-        # 初始化嵌入模型 (BGE-Large)
         self.embedding_model = OllamaEmbeddings(model=embedding_model)
         self._default_llm_name = llm
         self._llm_cache: Dict[str, OllamaLLM] = {}
         self._llm_lock = threading.RLock()
-        # 初始化大语言模型 (DeepSeek-R1:7B)
         self.llm = self._get_or_create_llm(llm)
 
         Settings.llm = self.llm
         Settings.embed_model = self.embedding_model
+        
+        Settings.chunk_size = 512
+        Settings.chunk_overlap = 50
 
         self.log_path = log_path
         self.log_index = None
@@ -260,54 +260,54 @@ class TopKLogSystem:
 
     def retrieve_logs(self, query: str, top_k: int = 10, use_keyword: bool = True, filter_func=None) -> List[Dict]:
         """
-        增强版检索：向量检索+关键词检索融合，支持分数重排序和可选过滤。
-        :param query: 检索内容
-        :param top_k: 返回条数
-        :param use_keyword: 是否融合关键词检索
-        :param filter_func: 可选过滤函数，接收一条日志dict，返回bool
+        增强版检索：融合向量与正则关键词提取，解决中英混合及无空格场景下的精确 ID 匹配问题。
+        注：已根据偏好移除不必要的 try-catch 包裹
         """
         if not self.log_index:
             logger.warning("Log index 未初始化，跳过检索。")
             return []
-        try:
-            # 1. 向量检索
-            retriever = self.log_index.as_retriever(similarity_top_k=top_k * 2 if use_keyword else top_k)
-            vector_results = retriever.retrieve(query)
-            vector_set = set()
-            formatted_vector = []
-            for result in vector_results:
-                key = result.text.strip()
-                vector_set.add(key)
-                formatted_vector.append({"content": key, "score": float(result.score), "source": "vector"})
 
-            # 2. 关键词检索（简单实现：全文包含query关键词，或分词后包含）
-            keyword_results = []
-            if use_keyword:
-                # 直接遍历所有日志（如数据量大可优化为倒排索引）
-                all_logs = self.log_index.docstore.docs.values() if hasattr(self.log_index, 'docstore') else []
-                qwords = set(query.lower().split())
-                for doc in all_logs:
-                    text = getattr(doc, 'text', str(doc)).strip()
-                    if text in vector_set:
-                        continue  # 避免重复
-                    # 简单分词匹配
-                    if any(word in text.lower() for word in qwords):
-                        keyword_results.append({"content": text, "score": 0.5, "source": "keyword"})
+        # 1. 向量检索
+        retriever = self.log_index.as_retriever(similarity_top_k=top_k * 2 if use_keyword else top_k)
+        vector_results = retriever.retrieve(query)
+        vector_set = set()
+        formatted_vector = []
+        
+        for result in vector_results:
+            key = result.text.strip()
+            vector_set.add(key)
+            formatted_vector.append({"content": key, "score": float(result.score), "source": "vector"})
 
-            # 3. 融合与重排序
-            all_results = formatted_vector + keyword_results
-            # 分数归一化/加权（可根据需要调整）
-            all_results.sort(key=lambda x: x["score"], reverse=True)
+        # 2. 关键词检索（使用正则提取编号/ID）
+        keyword_results = []
+        if use_keyword:
+            all_logs = self.log_index.docstore.docs.values() if hasattr(self.log_index, 'docstore') else []
+            
+            # 使用正则提取字母、数字、横线的组合，避免中文无空格导致分词失效
+            # 例如 "告诉我CVE-2025-13077的内容" 会被提取出 "cve-2025-13077"
+            qwords = set(re.findall(r'[a-zA-Z0-9\-]+', query.lower()))
+            
+            for doc in all_logs:
+                text = getattr(doc, 'text', str(doc)).strip()
+                if text in vector_set:
+                    continue  # 避免与向量结果重复
+                
+                # 命中逻辑：只要提取的词长度>=3（过滤掉无意义的单个字母/数字），且存在于日志文本中
+                hit = any(len(word) >= 3 and word in text.lower() for word in qwords)
+                if hit:
+                    # 赋予较高的分数 (0.85)，确保确切的 ID 命中排在普通的语义向量 (如 0.65) 前面
+                    keyword_results.append({"content": text, "score": 0.85, "source": "keyword"})
 
-            # 4. 可选过滤
-            if filter_func:
-                all_results = [item for item in all_results if filter_func(item)]
+        # 3. 融合与重排序
+        all_results = formatted_vector + keyword_results
+        all_results.sort(key=lambda x: x["score"], reverse=True)
 
-            # 5. 截断top_k
-            return all_results[:top_k]
-        except Exception as e:
-            logger.error(f"日志检索失败: {e}")
-            return []
+        # 4. 可选过滤
+        if filter_func:
+            all_results = [item for item in all_results if filter_func(item)]
+
+        # 5. 截断 top_k
+        return all_results[:top_k]
 
     # (修改) context 现在是一个字典
     def _get_or_create_llm(self, model_name: Optional[str]) -> OllamaLLM:
@@ -331,7 +331,6 @@ class TopKLogSystem:
         model_name: Optional[str] = None,
     ):
         prompt_messages = self._build_prompt(query, context, history)
-
         llm_to_use = self._get_or_create_llm(model_name)
 
         # 更新当前使用的 LLM，确保后续依赖 Settings.llm 的流程保持一致
@@ -353,52 +352,42 @@ class TopKLogSystem:
     ) -> List:
         log_data = context.get("log_context", []) 
         web_data = context.get("web_context", [])
-        user_message_template = ""
         
-        if not log_data and not web_data:
-            system_message = SystemMessagePromptTemplate.from_template("你是一个友好的AI助手，请直接回答用户的问题。")
-            user_message_template = HumanMessagePromptTemplate.from_template("{query}")
-        else:
-            system_message = SystemMessagePromptTemplate.from_template(
-                """
-                你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
+        # 统一使用 SRE 助手设定，保证无检索结果时仍具备系统排查思维
+        system_message = SystemMessagePromptTemplate.from_template(
+            """
+            你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
+            你有两种响应模式：
+            1.  **[SRE分析模式]**: 当用户的问题与故障排查、日志分析、系统错误相关时使用。
+            2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
+            
+            **[!!! 可用工具 (SRE模式专用) !!!]**
+            你现在有两种工具上下文：
+            1.  **[日志数据库 (Log DB)]**: 包含本地的、详细的系统日志。
+            2.  **[联网搜索 (Web Search)]**: 包含来自互联网的实时信息。
 
-                你有两种响应模式：
-                1.  **[SRE分析模式]**: 当用户的问题与故障排查、日志分析、系统错误相关时使用。
-                2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
-                
-                **[!!! 可用工具 (SRE模式专用) !!!]**
-                你现在有两种工具上下文：
-                1.  **[日志数据库 (Log DB)]**: 包含本地的、详细的系统日志。
-                2.  **[联网搜索 (Web Search)]**: 包含来自互联网的实时信息。
+            你的回答必须遵循以下质量要求：
+            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（[日志数据库] 和/或 [联网搜索]），严禁凭空猜测。
+            2.  **优先使用日志**：如果 [日志数据库] 提供了足够的信息，优先使用它。只有当日志信息不足或用户明确询问需要外部知识时，才使用 [联网搜索]。
+            3.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
+            4.  **上下文感知**：你必须能够 **自主判断** 是否需要结合 **历史对话** 来理解用户的真实意图或SRE问题。
 
-                你的回答必须遵循以下质量要求：
-                1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（[日志数据库] 和/或 [联网搜索]），严禁凭空猜测。
-                2.  **优先使用日志**：如果 [日志数据库] 提供了足够的信息，优先使用它。只有当日志信息不足或用户明确询问需要外部知识时，才使用 [联网搜索]。
-                3.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
-                4.  **上下文感知**：你必须能够 **自主判断** 是否需要结合 **历史对话** 来理解用户的真实意图或SRE问题。
+            **[!!! 绝对指令：输出格式 !!!]**
+            1.  你 **必须** 且 **只能** 使用 `<think>...</think>` 标签来包裹你的所有内部思考步骤 (包括意图分析、SRE分析框架等)。
+            2.  在 `<think>...</think>` 标签之外，你 **必须** 且 **只能** 输出 **最终的、直接面向用户** 的回复。
+            3.  最终回复中 **严禁** 包含 "步骤 1"、"步骤 2"、"意图分析"、"根本原因"、"最终回复草稿" 等任何思考过程的字样。
+            """
+        )
 
-                **[!!! 绝对指令：输出格式 !!!]**
-                1.  你 **必须** 且 **只能** 使用 `<think>...</think>` 标签来包裹你的所有内部思考步骤 (包括意图分析、SRE分析框架等)。
-                2.  在 `<think>...</think>` 标签之外，你 **必须** 且 **只能** 输出 **最终的、直接面向用户** 的回复。
-                3.  最终回复中 **严禁** 包含 "步骤 1"、"步骤 2"、"意图分析"、"根本原因"、"最终回复草稿" 等任何思考过程的字样。
-                """
-            )
-
-        # (修改) 2. 准备日志上下文 (Log DB)
         log_context_str = "## [可用工具 1: 日志数据库 (Log DB)]\n"
-        log_data = context.get("log_context", [])  # 从字典获取
         if not log_data:
             log_context_str += "（未从日志数据库检索到相关内容）\n"
         else:
             for i, log in enumerate(log_data, 1):
-                # 确保 score 是浮点数以便格式化
                 score = log.get("score", 0.0)
                 log_context_str += f"日志 {i} (Score: {score:.2f}): {log['content']}\n"
 
-        # (新增) 3. 准备联网搜索上下文 (Web Search)
         web_context_str = "## [可用工具 2: 联网搜索 (Web Search)]\n"
-        web_data = context.get("web_context", [])
         if not web_data:
             web_context_str += "（未启用或未从联网搜索检索到相关内容）\n"
         else:
@@ -406,8 +395,8 @@ class TopKLogSystem:
                 web_context_str += f"网页 {i} (Source: {web_result.get('source', 'N/A')}): {web_result['content']}\n"
 
         user_message_template = HumanMessagePromptTemplate.from_template(
-                "{log_context}\n{web_context}\n\n当前用户问题:\n{query}"
-            )
+            "{log_context}\n{web_context}\n\n当前用户问题:\n{query}"
+        )
 
         prompt_template = ChatPromptTemplate.from_messages(
             [system_message, MessagesPlaceholder(variable_name="chat_history"), user_message_template]
@@ -427,10 +416,8 @@ class TopKLogSystem:
                     )
                     formatted_history.append(AIMessage(content=clean_content.strip()))
                 else:
-                    # 兼容旧格式 (如果存在)
                     formatted_history.append(AIMessage(content=msg["content"]))
 
-        # (修改) 传递 web_context
         return prompt_template.format_prompt(
             chat_history=formatted_history,
             log_context=log_context_str,

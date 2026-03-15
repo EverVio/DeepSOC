@@ -9,7 +9,7 @@ const PROVIDER_OPTIONS = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'deepseek', label: 'DeepSeek' },
   { value: 'minimax', label: 'MiniMax' },
-  { value: 'siliconflow', label: 'SiliconFlow (硅基流动)' },
+  { value: 'siliconflow', label: 'SiliconFlow' },
 ]
 
 const MODELS_BY_PROVIDER = {

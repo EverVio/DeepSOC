@@ -206,6 +206,7 @@ def _build_openai_messages(
 
     user_content = "\n\n".join(context_blocks) + f"\n\n当前用户问题:\n{prompt}"
     messages.append({"role": "user", "content": user_content})
+    print("Prompt\n", messages)
     return messages
 
 
@@ -287,6 +288,11 @@ def model_api_call(
             else:
                 logger.info(f"执行数据库日志检索: {prompt}")
                 log_results = log_system.retrieve_logs(prompt, top_k=5)
+                print(f"针对查询 '{prompt}' 的 Top-K 检索结果：\n")
+                for index, result in enumerate(log_results, start=1):
+                    print(f"[{index}] 匹配分数: {result['score']:.4f} | 命中方式: {result['source']}")
+                    print(f"日志内容: {result['content']}")
+                    print("-" * 40)
 
         if use_web_search:
             logger.info(f"执行联网搜索: {prompt}")
@@ -311,6 +317,7 @@ def model_api_call(
             return
 
         combined_context = {"log_context": log_results, "web_context": web_results}
+        
         for chunk in log_system.generate_response(
             prompt,
             context=combined_context,
