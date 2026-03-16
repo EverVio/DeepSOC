@@ -28,9 +28,9 @@ const { chartRef } = useEcharts(
         textStyle: { color: '#d8f5ff', fontFamily: 'Roboto Mono', fontSize: 11 },
       },
       legend: {
-        orient: 'vertical',
-        right: 6,
-        top: 'center',
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 0,
         itemWidth: 8,
         itemHeight: 8,
         textStyle: { color: '#7ba7bc', fontFamily: 'Roboto Mono', fontSize: 10 },
@@ -39,8 +39,8 @@ const { chartRef } = useEcharts(
         {
           name: 'Category',
           type: 'pie',
-          radius: ['34%', '68%'],
-          center: ['34%', '52%'],
+          radius: ['36%', '64%'],
+          center: ['50%', '42%'],
           avoidLabelOverlap: true,
           label: { show: false },
           labelLine: { show: false },

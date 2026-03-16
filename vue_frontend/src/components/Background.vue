@@ -1,10 +1,7 @@
 <template>
   <div class="fui-bg" aria-hidden="true">
-    <!-- 透视网格层 -->
     <div class="grid-layer" />
-    <!-- 粒子星空 Canvas -->
     <canvas ref="canvasRef" class="particle-canvas" />
-    <!-- 顶部/底部渐变遮罩，让面板与背景自然融合 -->
     <div class="bg-vignette" />
   </div>
 </template>
@@ -15,12 +12,12 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 const canvasRef = ref(null)
 let animId = null
 
-/* ── 粒子配置 ────────────────────────────────────── */
-const STAR_COUNT  = 100   // 星点数量
-const STAR_SPEED  = 0.5  // 漂移速度
-const STAR_MAX_R  = 6   // 最大半径
-const LINE_DIST   = 100   // 连线最大距离（px）
-const LINE_ALPHA  = 0.18  // 连线最大透明度
+const STAR_COUNT  = 100   
+const STAR_SPEED  = 1  
+const STAR_MAX_R  = 6   
+const LINE_DIST   = 100   
+const LINE_ALPHA  = 0.18  
+const ALPHA_LEVELS = 8 // 将连续的透明度量化为 8 个离散层级进行合批绘制
 
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -38,7 +35,6 @@ function initStars(w, h) {
     r:  Math.random() * STAR_MAX_R + 0.3,
     vx: (Math.random() - 0.5) * STAR_SPEED,
     vy: (Math.random() - 0.5) * STAR_SPEED,
-    // 80% 霓虹蓝，20% 深紫
     color: Math.random() > 0.2 ? CYAN_RGB : PURPLE_RGB,
     alpha: Math.random() * 0.55 + 0.2,
   }))
@@ -59,7 +55,7 @@ onMounted(() => {
   function draw() {
     ctx.clearRect(0, 0, w, h)
 
-    // 更新并绘制星点
+    // 绘制星点（点数量较少，常规绘制即可）
     for (const s of stars) {
       s.x += s.vx
       s.y += s.vy
@@ -74,22 +70,38 @@ onMounted(() => {
       ctx.fill()
     }
 
-    // 绘制近邻连线
+    // 绘制连线：通过 Path2D 实现同等透明度线条的合批渲染，将几千次 API 调用降至 8 次
+    const paths = Array.from({ length: ALPHA_LEVELS }, () => new Path2D())
+    const lineDistSq = LINE_DIST * LINE_DIST
+
     for (let i = 0; i < stars.length; i++) {
       for (let j = i + 1; j < stars.length; j++) {
         const dx = stars[i].x - stars[j].x
         const dy = stars[i].y - stars[j].y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < LINE_DIST) {
+        const distSq = dx * dx + dy * dy
+        
+        if (distSq < lineDistSq) {
+          const dist = Math.sqrt(distSq)
           const alpha = LINE_ALPHA * (1 - dist / LINE_DIST)
-          ctx.beginPath()
-          ctx.moveTo(stars[i].x, stars[i].y)
-          ctx.lineTo(stars[j].x, stars[j].y)
-          ctx.strokeStyle = `rgba(${CYAN_RGB},${alpha})`
-          ctx.lineWidth = 0.5
-          ctx.stroke()
+          
+          // 将透明度映射到 0 到 (ALPHA_LEVELS - 1) 的索引
+          const levelIndex = Math.min(
+            ALPHA_LEVELS - 1, 
+            Math.floor((alpha / LINE_ALPHA) * ALPHA_LEVELS)
+          )
+          
+          paths[levelIndex].moveTo(stars[i].x, stars[i].y)
+          paths[levelIndex].lineTo(stars[j].x, stars[j].y)
         }
       }
+    }
+
+    // 统一提交各透明度层级的路径
+    ctx.lineWidth = 0.5
+    for (let i = 0; i < ALPHA_LEVELS; i++) {
+      const levelAlpha = LINE_ALPHA * ((i + 1) / ALPHA_LEVELS)
+      ctx.strokeStyle = `rgba(${CYAN_RGB},${levelAlpha})`
+      ctx.stroke(paths[i])
     }
 
     animId = requestAnimationFrame(draw)
@@ -97,7 +109,13 @@ onMounted(() => {
 
   resize()
   draw()
-  window.addEventListener('resize', resize)
+  
+  // 增加简单的防抖动，防止缩放窗口时卡死
+  let resizeTimer
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(resize, 150)
+  })
 })
 
 onBeforeUnmount(() => {
@@ -116,32 +134,32 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* 透视网格 */
 .grid-layer {
   position: absolute;
-  inset: -50% -20%;
+  inset: -50% -20% -50% -20%;
   background-image:
     linear-gradient(rgba(0, 229, 255, 0.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 229, 255, 0.07) 1px, transparent 1px);
   background-size: 48px 48px;
-  transform: perspective(600px) rotateX(55deg) translateY(10%);
+  /* 使用硬件加速的 transform 代替 background-position 重绘 */
+  transform: perspective(600px) rotateX(55deg) translateY(0);
   transform-origin: center bottom;
-  animation: gridScroll 14s linear infinite;
+  animation: gridScroll 7s linear infinite;
   will-change: transform;
 }
+
+/* 基于 48px 的网格尺寸移动，形成无缝滚动错觉 */
 @keyframes gridScroll {
-  from { background-position: 0 0; }
-  to   { background-position: 0 48px; }
+  from { transform: perspective(600px) rotateX(55deg) translateY(0); }
+  to   { transform: perspective(600px) rotateX(55deg) translateY(48px); }
 }
 
-/* 粒子 Canvas */
 .particle-canvas {
   position: absolute;
   inset: 0;
   display: block;
 }
 
-/* 四周渐变晕影，让背景与面板自然融合 */
 .bg-vignette {
   position: absolute;
   inset: 0;

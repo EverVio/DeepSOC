@@ -131,7 +131,7 @@ const customStyle = computed(() => ({
   background: var(--card-dot, var(--neon-cyan));
   box-shadow: 0 0 6px var(--card-dot, var(--neon-cyan));
   flex-shrink: 0;
-  animation: dotPulse 2.4s ease-in-out infinite;
+  animation: dotPulse 1.2s ease-in-out infinite;
 }
 
 @keyframes dotPulse {

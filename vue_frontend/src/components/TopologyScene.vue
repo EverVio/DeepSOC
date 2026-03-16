@@ -24,6 +24,7 @@ let pulseNode = null
 let activeLinkIndex = 0
 let linkVectors = []
 let particleT = 0
+let resizeObserver = null
 
 const severityColor = {
   high: 0xff0055,
@@ -167,22 +168,22 @@ const animate = () => {
   frameId = requestAnimationFrame(animate)
 
   if (networkGroup) {
-    networkGroup.rotation.y += 0.0028
-    networkGroup.rotation.x = Math.sin(Date.now() * 0.00026) * 0.08
+    networkGroup.rotation.y += 0.004
+    networkGroup.rotation.x = Math.sin(Date.now() * 0.0005) * 0.08
   }
 
   if (pulseNode && linkVectors.length > 0) {
     const activeLink = linkVectors[activeLinkIndex % linkVectors.length]
     pulseNode.material.color.setHex(activeLink.color)
 
-    particleT += 0.014
+    particleT += 0.03
     if (particleT >= 1) {
       particleT = 0
       activeLinkIndex += 1
     }
 
     pulseNode.position.lerpVectors(activeLink.from, activeLink.to, particleT)
-    const pulse = 0.6 + Math.sin(Date.now() * 0.012) * 0.18
+    const pulse = 0.6 + Math.sin(Date.now() * 0.025) * 0.18
     pulseNode.scale.setScalar(pulse)
   }
 
@@ -239,7 +240,12 @@ onMounted(() => {
 
   buildNetwork()
   resizeRenderer()
-  window.addEventListener('resize', resizeRenderer)
+
+  resizeObserver = new ResizeObserver(() => {
+    resizeRenderer()
+  })
+  resizeObserver.observe(mountRef.value)
+  
   animate()
 })
 
@@ -247,12 +253,14 @@ watch(
   () => props.topology,
   () => {
     buildNetwork()
-  },
-  { deep: true }
+  }
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeRenderer)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 
   if (frameId) cancelAnimationFrame(frameId)
   clearNetworkGroup()

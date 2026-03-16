@@ -66,19 +66,19 @@
       </button>
     </div>
 
-    <div class="wave-lane" aria-hidden="true">
+    <div class="wave-lane" aria-hidden="true" :class="{ 'is-active': isFocused || message.length > 0 }">
       <span
-        v-for="(bar, index) in waveBars"
+        v-for="index in 32"
         :key="`wave-${index}`"
         class="wave-bar"
-        :style="bar"
+        :style="`--delay: ${index * 20}ms; --hue: ${185 + (index % 7)}`"
       ></span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, defineEmits, defineExpose, defineProps, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, defineEmits, defineExpose, defineProps, nextTick, onMounted, ref } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import { DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon } from 'vue-tabler-icons'
 import { uploadFile as uploadFileApi } from '../api'
@@ -99,8 +99,6 @@ const fileInputRef = ref(null)
 const isFocused = ref(false)
 const attachmentText = ref('')
 const attachmentName = ref('')
-const wavePhase = ref(0)
-let waveTimer = null
 
 const useDbSearch = computed({
   get: () => appStore.useDbSearch,
@@ -112,33 +110,8 @@ const useWebSearch = computed({
   set: (value) => appStore.setUseWebSearch(value),
 })
 
-const waveBars = computed(() => {
-  const base = Math.min(message.value.length, 60)
-  return Array.from({ length: 32 }, (_, index) => {
-    const rhythm = Math.sin((index + wavePhase.value) * 0.5)
-    const energy = Math.max(0.08, (rhythm + 1) / 2)
-    const amplitude = 6 + (base * 0.12) + energy * 13
-    const hue = 185 + (index % 7)
-    return {
-      height: `${Math.max(5, Math.min(amplitude, 22))}px`,
-      background: `hsla(${hue}, 100%, 62%, ${0.25 + energy * 0.7})`,
-      boxShadow: `0 0 10px hsla(${hue}, 100%, 62%, 0.5)`,
-      animationDelay: `${index * 20}ms`,
-    }
-  })
-})
-
-const tickWave = () => {
-  wavePhase.value += isFocused.value || message.value ? 1 : 0.2
-}
-
 onMounted(() => {
-  waveTimer = setInterval(tickWave, 80)
   autoResize()
-})
-
-onUnmounted(() => {
-  if (waveTimer) clearInterval(waveTimer)
 })
 
 const setFocusState = (value) => {
@@ -148,8 +121,11 @@ const setFocusState = (value) => {
 const autoResize = () => {
   const el = textareaRef.value
   if (!el) return
-  el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, 220)}px`
+
+  requestAnimationFrame(() => {
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`
+  })
 }
 
 const onInput = () => {
@@ -447,15 +423,30 @@ defineExpose({
 
 .wave-bar {
   width: 3px;
-  min-height: 5px;
+  min-height: 4px;
   border-radius: 1px;
   transform-origin: bottom;
-  animation: waveJitter 1.2s ease-in-out infinite;
+  background: hsla(var(--hue), 100%, 62%, 0.3);
+  box-shadow: 0 0 10px hsla(var(--hue), 100%, 62%, 0.5);
+  animation: waveIdle 1.5s ease-in-out infinite;
+  animation-delay: var(--delay);
+  will-change: transform;
 }
 
-@keyframes waveJitter {
+.is-active .wave-bar {
+  animation: waveActive 1.5s ease-in-out infinite;
+  animation-delay: var(--delay);
+  background: hsla(var(--hue), 100%, 62%, 0.8);
+}
+
+@keyframes waveIdle {
   0%, 100% { transform: scaleY(0.85); }
   50% { transform: scaleY(1.15); }
+}
+
+@keyframes waveActive {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(4.5); }
 }
 
 @media (max-width: 900px) {

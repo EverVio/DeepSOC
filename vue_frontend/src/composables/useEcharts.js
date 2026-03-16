@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 export function useEcharts(buildOption, watchSource, { deep = true } = {}) {
   const chartRef = ref(null)
   let chart = null
+  let resizeObserver = null
 
   const renderChart = () => {
     if (!chart) return
@@ -21,7 +22,12 @@ export function useEcharts(buildOption, watchSource, { deep = true } = {}) {
 
     chart = echarts.init(chartRef.value)
     renderChart()
-    window.addEventListener('resize', resizeChart)
+
+    // 核心修改：使用 ResizeObserver 监听当前 DOM 容器的尺寸变化
+    resizeObserver = new ResizeObserver(() => {
+      resizeChart()
+    })
+    resizeObserver.observe(chartRef.value)
   })
 
   if (watchSource) {
@@ -29,7 +35,10 @@ export function useEcharts(buildOption, watchSource, { deep = true } = {}) {
   }
 
   onBeforeUnmount(() => {
-    window.removeEventListener('resize', resizeChart)
+    if (resizeObserver) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
     if (chart) {
       chart.dispose()
       chart = null

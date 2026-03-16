@@ -225,7 +225,17 @@ onMounted(() => {
 }
 
 .soc-main.sidebar-collapsed {
-  grid-template-columns: 0 minmax(480px, 1fr) minmax(280px, 360px);
+  grid-template-columns: 0px minmax(480px, 1fr) minmax(280px, 360px);
+}
+
+.panel-left {
+  grid-column: 1;
+}
+.panel-center {
+  grid-column: 2;
+}
+.panel-right {
+  grid-column: 3;
 }
 
 .panel-left,
