@@ -15,12 +15,57 @@
             <WorldIcon class="toggle-icon" /> WEB SEARCH
           </span>
         </label>
+
+        <label class="toggle-item" title="启用 RAG/Web 并行与综合输出">
+          <input type="checkbox" v-model="isMultiAgentEnabled" />
+          <span class="toggle-core">
+            <BoltIcon class="toggle-icon" /> MULTI AGENT
+          </span>
+        </label>
       </div>
 
       <div v-if="attachmentText" class="attachment-chip" title="附件将随本次消息发送">
         <PaperclipIcon class="toggle-icon" />
         <span class="attachment-name">{{ attachmentName }}</span>
         <button class="chip-close" @click="removeAttachment" :disabled="loading" aria-label="移除附件">x</button>
+      </div>
+    </div>
+
+    <div v-if="isMultiAgentEnabled" class="multi-agent-config">
+      <div class="multi-agent-config__title">TACTICAL MODEL MATRIX</div>
+      <div class="multi-agent-config__grid">
+        <label class="agent-model-field">
+          <span class="agent-model-label">RAG MODEL</span>
+          <input
+            v-model="multiAgentModels.rag"
+            class="agent-model-input"
+            type="text"
+            placeholder="deepseek-chat"
+            :disabled="loading"
+          />
+        </label>
+
+        <label class="agent-model-field">
+          <span class="agent-model-label">WEB MODEL</span>
+          <input
+            v-model="multiAgentModels.web"
+            class="agent-model-input"
+            type="text"
+            placeholder="gpt-4o-mini"
+            :disabled="loading"
+          />
+        </label>
+
+        <label class="agent-model-field">
+          <span class="agent-model-label">SYNTHESIS MODEL</span>
+          <input
+            v-model="multiAgentModels.synthesis"
+            class="agent-model-input"
+            type="text"
+            placeholder="deepseek-reasoner"
+            :disabled="loading"
+          />
+        </label>
       </div>
     </div>
 
@@ -80,7 +125,7 @@
 <script setup>
 import { computed, defineEmits, defineExpose, defineProps, nextTick, onMounted, ref } from 'vue'
 import { useAppStore } from '../stores/appStore'
-import { DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon } from 'vue-tabler-icons'
+import { BoltIcon, DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon } from 'vue-tabler-icons'
 import { uploadFile as uploadFileApi } from '../api'
 
 const props = defineProps({
@@ -99,6 +144,12 @@ const fileInputRef = ref(null)
 const isFocused = ref(false)
 const attachmentText = ref('')
 const attachmentName = ref('')
+const isMultiAgentEnabled = ref(false)
+const multiAgentModels = ref({
+  rag: 'deepseek-chat',
+  web: 'gpt-4o-mini',
+  synthesis: 'deepseek-reasoner',
+})
 
 const useDbSearch = computed({
   get: () => appStore.useDbSearch,
@@ -132,6 +183,12 @@ const onInput = () => {
   autoResize()
 }
 
+const buildAgentConfigs = () => ({
+  rag: { model: (multiAgentModels.value.rag || 'deepseek-chat').trim() },
+  web: { model: (multiAgentModels.value.web || 'gpt-4o-mini').trim() },
+  synthesis: { model: (multiAgentModels.value.synthesis || 'deepseek-reasoner').trim() },
+})
+
 const sendMessage = () => {
   const content = message.value.trim()
   if (!content || props.loading) return
@@ -139,6 +196,9 @@ const sendMessage = () => {
   emit('send', content, {
     attachmentText: attachmentText.value,
     attachmentName: attachmentName.value,
+    mode: isMultiAgentEnabled.value ? 'multi_agent' : null,
+    agentConfigs: isMultiAgentEnabled.value ? buildAgentConfigs() : null,
+    isMultiAgent: isMultiAgentEnabled.value,
   })
 
   message.value = ''
@@ -321,6 +381,57 @@ defineExpose({
   clip-path: none;
 }
 
+.multi-agent-config {
+  margin: 0.15rem 0 0.65rem;
+  border: 1px solid var(--border-dim);
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.08) 0%, rgba(0, 229, 255, 0.03) 55%, rgba(0, 0, 0, 0.15) 100%);
+  padding: 0.48rem 0.55rem 0.55rem;
+}
+
+.multi-agent-config__title {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  color: var(--neon-cyan);
+  margin-bottom: 0.45rem;
+  text-shadow: var(--neon-cyan-glow);
+}
+
+.multi-agent-config__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.agent-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.agent-model-label {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.agent-model-input {
+  border: 1px solid var(--border-dim);
+  background: rgba(2, 8, 22, 0.66);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.28rem 0.4rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.agent-model-input:focus {
+  outline: none;
+  border-color: rgba(0, 229, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.15);
+}
+
 .input-stage {
   display: grid;
   grid-template-columns: auto auto 1fr auto;
@@ -450,6 +561,10 @@ defineExpose({
 }
 
 @media (max-width: 900px) {
+  .multi-agent-config__grid {
+    grid-template-columns: 1fr;
+  }
+
   .input-stage {
     grid-template-columns: auto 1fr auto;
   }

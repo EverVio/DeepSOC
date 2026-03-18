@@ -3,6 +3,11 @@ import { computed, nextTick, ref } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import { useChatStore } from '../stores/chatStore'
 
+const DEFAULT_AGENT_DATA = () => ({
+  rag: { status: 'idle', content: '' },
+  web: { status: 'idle', content: '' },
+})
+
 export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }) {
   const chatStore = useChatStore()
   const appStore = useAppStore()
@@ -102,7 +107,13 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     })
     await scrollToBottom()
 
-    chatStore.addMessage(sessionId, false, { content: '', think_process: '' })
+    const isMultiAgent = extra?.mode === 'multi_agent'
+    const aiMessageId = chatStore.addMessage(sessionId, false, {
+      content: '',
+      think_process: '',
+      isMultiAgent,
+      agentData: DEFAULT_AGENT_DATA(),
+    })
     await scrollToBottom()
 
     appStore.setLoading(true)
@@ -114,11 +125,15 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       input,
       (data) => {
         if (data.type === 'content') {
-          chatStore.updateLastMessage(sessionId, { content_chunk: data.chunk })
+          chatStore.updateAgentChunk(sessionId, aiMessageId, 'synthesis', data.chunk || '')
         } else if (data.type === 'think') {
           chatStore.updateLastMessage(sessionId, { think_chunk: data.chunk })
         } else if (data.type === 'metadata') {
           chatStore.updateLastMessage(sessionId, { duration: data.duration })
+        } else if (data.type === 'agent_chunk') {
+          chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.content || '')
+        } else if (data.type === 'agent_status') {
+          chatStore.updateAgentStatus(sessionId, aiMessageId, data.agent_id, data.status)
         } else if (data.type === 'error') {
           appStore.setError(data.chunk || '流式响应出错')
         }
@@ -137,7 +152,19 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       null,
       useDbSearch.value,
       useWebSearch.value,
-      buildModelOptions()
+      buildModelOptions(),
+      {
+        mode: extra?.mode,
+        agentConfigs: extra?.agentConfigs,
+        onAgentData: (data) => {
+          chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.content || '')
+          scrollToBottom()
+        },
+        onAgentStatus: (data) => {
+          chatStore.updateAgentStatus(sessionId, aiMessageId, data.agent_id, data.status)
+          scrollToBottom()
+        },
+      }
     )
   }
 
@@ -170,6 +197,8 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
         content: '',
         think_process: '',
         duration: null,
+        isMultiAgent: false,
+        agentData: DEFAULT_AGENT_DATA(),
         timestamp: new Date(),
       })
       aiMessageIndex = editIndex + 1
@@ -177,6 +206,8 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       history[aiMessageIndex].content = ''
       history[aiMessageIndex].think_process = ''
       history[aiMessageIndex].duration = null
+      history[aiMessageIndex].isMultiAgent = false
+      history[aiMessageIndex].agentData = DEFAULT_AGENT_DATA()
     }
 
     if (editIndex + 2 < history.length) {

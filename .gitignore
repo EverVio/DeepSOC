@@ -24,3 +24,11 @@ vue_frontend/node_modules/
 # 忽略测试结果
 output_cloud.txt
 output_local.txt
+
+Web_Attack_Patterns.csv
+Web_Attack_Patterns.md
+Web_Attack_Patterns.zip
+attack_patterns.csv
+build_attack_patterns.py
+coreruleset
+generate_csv.py

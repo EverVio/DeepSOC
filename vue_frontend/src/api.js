@@ -38,7 +38,8 @@ async function streamChat(
   context = null,
   useDbSearch,
   useWebSearch,
-  modelOptions = {}
+  modelOptions = {},
+  streamOptions = {}
 ) {
   const token = localStorage.getItem('apiKey');
 
@@ -68,6 +69,17 @@ async function streamChat(
 
     if (providerApiKey) {
       body.provider_api_key = providerApiKey;
+    }
+
+    const mode = streamOptions.mode?.trim();
+    const agentConfigs = streamOptions.agentConfigs;
+
+    if (mode) {
+      body.mode = mode;
+    }
+
+    if (mode === 'multi_agent' && agentConfigs) {
+      body.agent_configs = agentConfigs;
     }
 
     const response = await fetch('/api/chat', {
@@ -116,20 +128,41 @@ async function streamChat(
         const line = buffer.substring(0, eolIndex).trim();
         buffer = buffer.substring(eolIndex + 2);
 
-        if (line.startsWith('data:')) {
-          const dataStr = line.substring(5).trim();
-          try {
-            const data = JSON.parse(dataStr);
+        if (!line.startsWith('data:')) {
+          continue;
+        }
 
-            if (onData) onData(data);
+        const dataStr = line.substring(5).trim();
+        if (!dataStr) {
+          continue;
+        }
 
-            if (data.type === 'metadata') {
-              if (onComplete) onComplete(data.duration);
+        try {
+          const data = JSON.parse(dataStr);
+
+          if (data.type === 'agent_chunk') {
+            if (data.agent_id === 'rag' || data.agent_id === 'web') {
+              if (streamOptions.onAgentData) {
+                streamOptions.onAgentData(data);
+              }
+            } else if (onData) {
+              onData(data);
             }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', dataStr, e);
-            if (onError) onError('Failed to parse stream data');
+          } else if (data.type === 'agent_status') {
+            if (streamOptions.onAgentStatus) {
+              streamOptions.onAgentStatus(data);
+            }
+          } else if (onData) {
+            // Backward compatible path for single-model stream events.
+            onData(data);
           }
+
+          if (data.type === 'metadata') {
+            if (onComplete) onComplete(data.duration);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE data:', dataStr, e);
+          if (onError) onError('Failed to parse stream data');
         }
       }
     }

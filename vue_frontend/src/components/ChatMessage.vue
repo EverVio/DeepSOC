@@ -22,7 +22,46 @@
 
     <section class="terminal-message__body">
       <pre v-if="isUser" class="terminal-text">{{ content || '' }}</pre>
-      <div v-else class="terminal-text markdown-body" v-html="renderedContent"></div>
+      <template v-else>
+        <section v-if="isMultiAgent" class="agent-accordion">
+          <button
+            class="agent-accordion__trigger"
+            type="button"
+            @click="toggleAgentPanel"
+            :aria-expanded="showAgentPanel"
+          >
+            <span>VIEW TACTICAL ANALYSIS PROCESS</span>
+            <ChevronDownIcon v-if="!showAgentPanel" class="icon-mini" />
+            <ChevronUpIcon v-else class="icon-mini" />
+          </button>
+
+          <div v-if="showAgentPanel" class="agent-accordion__body">
+            <div class="agent-grid">
+              <article class="agent-node">
+                <header class="agent-node__header">
+                  <span class="agent-node__name">RAG AGENT</span>
+                  <span class="agent-node__status" :class="statusClass(agentDataSafe.rag.status)">
+                    {{ formatAgentStatus(agentDataSafe.rag.status) }}
+                  </span>
+                </header>
+                <pre class="agent-node__content">{{ agentDataSafe.rag.content || '...' }}</pre>
+              </article>
+
+              <article class="agent-node">
+                <header class="agent-node__header">
+                  <span class="agent-node__name">WEB AGENT</span>
+                  <span class="agent-node__status" :class="statusClass(agentDataSafe.web.status)">
+                    {{ formatAgentStatus(agentDataSafe.web.status) }}
+                  </span>
+                </header>
+                <pre class="agent-node__content">{{ agentDataSafe.web.content || '...' }}</pre>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <div class="terminal-text markdown-body" v-html="renderedContent"></div>
+      </template>
       <span v-if="!isUser && !content" class="stream-cursor">_</span>
     </section>
 
@@ -70,11 +109,20 @@ const props = defineProps({
   duration: { type: Number, default: null },
   allowRegenerate: { type: Boolean, default: false },
   messageId: { type: [String, Number], default: null },
+  isMultiAgent: { type: Boolean, default: false },
+  agentData: {
+    type: Object,
+    default: () => ({
+      rag: { status: 'idle', content: '' },
+      web: { status: 'idle', content: '' },
+    }),
+  },
 })
 
 const emit = defineEmits(['regenerate', 'edit'])
 
 const showThink = ref(false)
+const showAgentPanel = ref(false)
 const copied = ref(false)
 const displayTime = ref(props.duration ? props.duration.toFixed(1) : '0.0')
 let timerId = null
@@ -84,14 +132,41 @@ const promptLabel = computed(() => {
   return 'ai@DeepSOC:/analysis#'
 })
 
+const agentDataSafe = computed(() => ({
+  rag: {
+    status: props.agentData?.rag?.status || 'idle',
+    content: props.agentData?.rag?.content || '',
+  },
+  web: {
+    status: props.agentData?.web?.status || 'idle',
+    content: props.agentData?.web?.content || '',
+  },
+}))
+
 const toggleThink = () => {
   showThink.value = !showThink.value
+}
+
+const toggleAgentPanel = () => {
+  showAgentPanel.value = !showAgentPanel.value
 }
 
 const renderedContent = computed(() => {
   if (!props.content) return ''
   return marked.parse(props.content)
 })
+
+const formatAgentStatus = (status) => {
+  if (status === 'started') return 'ANALYZING...'
+  if (status === 'done') return 'DONE'
+  return 'IDLE'
+}
+
+const statusClass = (status) => {
+  if (status === 'done') return 'is-done'
+  if (status === 'started') return 'is-running'
+  return 'is-idle'
+}
 
 watch(
   () => props.thinkProcess,
@@ -253,6 +328,93 @@ const formatTime = (date) => {
   min-height: 1.2rem;
 }
 
+.agent-accordion {
+  margin: 0 0 0.58rem;
+  border: 1px solid var(--border-dim);
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.08) 0%, rgba(0, 229, 255, 0.03) 52%, rgba(0, 0, 0, 0.16) 100%);
+}
+
+.agent-accordion__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: none;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.18);
+  background: rgba(2, 8, 22, 0.55);
+  color: var(--neon-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 0.52rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-accordion__body {
+  padding: 0.52rem;
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.agent-node {
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  background: rgba(0, 0, 0, 0.22);
+  min-height: 120px;
+}
+
+.agent-node__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.34rem 0.42rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.14);
+}
+
+.agent-node__name {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.09em;
+  color: var(--text-secondary);
+}
+
+.agent-node__status {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+}
+
+.agent-node__status.is-running {
+  color: var(--neon-cyan);
+}
+
+.agent-node__status.is-done {
+  color: var(--neon-green);
+}
+
+.agent-node__status.is-idle {
+  color: var(--text-muted);
+}
+
+.agent-node__content {
+  margin: 0;
+  padding: 0.42rem;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: #8fe8ff;
+}
+
 .terminal-text {
   margin: 0;
   font-family: var(--font-mono);
@@ -326,7 +488,6 @@ const formatTime = (date) => {
   height: 0.78rem;
 }
 
-/* 新增 Markdown 基础样式调整 */
 :deep(.markdown-body) {
   font-family: var(--font-mono);
   font-size: 0.84rem;
@@ -363,6 +524,10 @@ const formatTime = (date) => {
   .terminal-message__meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .agent-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

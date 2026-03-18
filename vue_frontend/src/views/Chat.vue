@@ -40,6 +40,8 @@
           :duration="msg.duration"
           :timestamp="msg.timestamp"
           :message-id="msg.id"
+          :is-multi-agent="msg.isMultiAgent"
+          :agent-data="msg.agentData"
           :allow-regenerate="!msg.isUser && index === messages.length - 1 && !loading"
           @regenerate="onRegenerate"
           @edit="onEditMessage"
