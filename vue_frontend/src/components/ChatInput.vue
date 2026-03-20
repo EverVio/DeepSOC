@@ -1,28 +1,22 @@
 <template>
   <NCard class="terminal-input-shell" :class="{ 'terminal-input-shell--focused': isFocused }" :bordered="false" embedded>
     <div class="terminal-controls">
-      <div class="toggle-group">
-        <label class="toggle-item" title="查询本地知识库">
-          <input type="checkbox" v-model="useDbSearch" />
-          <span class="toggle-core">
-            <DatabaseIcon class="toggle-icon" /> DB SEARCH
-          </span>
-        </label>
+      <NForm inline label-placement="left" :show-feedback="false" class="toggle-form">
+        <NFormItem class="toggle-item" label="">
+          <NSwitch v-model:value="useDbSearch" size="small" />
+          <span class="toggle-core"><DatabaseIcon class="toggle-icon" /> DB SEARCH</span>
+        </NFormItem>
 
-        <label class="toggle-item" title="使用互联网搜索">
-          <input type="checkbox" v-model="useWebSearch" />
-          <span class="toggle-core">
-            <WorldIcon class="toggle-icon" /> WEB SEARCH
-          </span>
-        </label>
+        <NFormItem class="toggle-item" label="">
+          <NSwitch v-model:value="useWebSearch" size="small" />
+          <span class="toggle-core"><WorldIcon class="toggle-icon" /> WEB SEARCH</span>
+        </NFormItem>
 
-        <label class="toggle-item" title="启用 RAG/Web 并行与综合输出">
-          <input type="checkbox" v-model="isMultiAgentEnabled" />
-          <span class="toggle-core">
-            <BoltIcon class="toggle-icon" /> MULTI AGENT
-          </span>
-        </label>
-      </div>
+        <NFormItem class="toggle-item" label="">
+          <NSwitch v-model:value="isMultiAgentEnabled" size="small" />
+          <span class="toggle-core"><BoltIcon class="toggle-icon" /> MULTI AGENT</span>
+        </NFormItem>
+      </NForm>
 
       <div v-if="attachmentText" class="attachment-chip" title="附件将随本次消息发送">
         <PaperclipIcon class="toggle-icon" />
@@ -31,32 +25,27 @@
       </div>
     </div>
 
-    <div v-if="isMultiAgentEnabled" class="multi-agent-config">
+    <NForm v-if="isMultiAgentEnabled" label-placement="top" :show-feedback="false" class="multi-agent-config">
       <div class="multi-agent-config__title">TACTICAL MODEL MATRIX</div>
       <div class="multi-agent-provider">PROVIDER: {{ normalizedProvider.toUpperCase() }}</div>
-      <div class="multi-agent-config__grid">
-        <label class="agent-model-field">
-          <span class="agent-model-label">RAG MODEL</span>
-          <select v-model="multiAgentModels.rag" class="agent-model-select" :disabled="loading">
-            <option v-for="model in providerModelOptions" :key="`rag-${model}`" :value="model">{{ model }}</option>
-          </select>
-        </label>
-
-        <label class="agent-model-field">
-          <span class="agent-model-label">WEB MODEL</span>
-          <select v-model="multiAgentModels.web" class="agent-model-select" :disabled="loading">
-            <option v-for="model in providerModelOptions" :key="`web-${model}`" :value="model">{{ model }}</option>
-          </select>
-        </label>
-
-        <label class="agent-model-field">
-          <span class="agent-model-label">SYNTHESIS MODEL</span>
-          <select v-model="multiAgentModels.synthesis" class="agent-model-select" :disabled="loading">
-            <option v-for="model in providerModelOptions" :key="`synthesis-${model}`" :value="model">{{ model }}</option>
-          </select>
-        </label>
-      </div>
-    </div>
+      <NGrid class="multi-agent-config__grid" cols="1 s:1 m:3" :x-gap="8" :y-gap="8" responsive="screen">
+        <NGi>
+          <NFormItem label="RAG MODEL" class="agent-model-field">
+            <NSelect v-model:value="multiAgentModels.rag" :options="modelSelectOptions" :disabled="loading" />
+          </NFormItem>
+        </NGi>
+        <NGi>
+          <NFormItem label="WEB MODEL" class="agent-model-field">
+            <NSelect v-model:value="multiAgentModels.web" :options="modelSelectOptions" :disabled="loading" />
+          </NFormItem>
+        </NGi>
+        <NGi>
+          <NFormItem label="SYNTHESIS MODEL" class="agent-model-field">
+            <NSelect v-model:value="multiAgentModels.synthesis" :options="modelSelectOptions" :disabled="loading" />
+          </NFormItem>
+        </NGi>
+      </NGrid>
+    </NForm>
 
     <div class="input-stage">
       <input
@@ -77,7 +66,7 @@
 
       <NInput
         ref="textareaRef"
-        v-model:value="message"
+        v-model:value="draftMessage"
         class="terminal-textarea"
         type="textarea"
         :autosize="{ minRows: 1, maxRows: 8 }"
@@ -93,7 +82,7 @@
         quaternary
         circle
         @click="sendMessage"
-        :disabled="!message.trim() || loading"
+        :disabled="!draftMessage.trim() || loading"
         title="发送"
       >
         <span v-if="loading" class="loading-dot"></span>
@@ -101,7 +90,7 @@
       </NButton>
     </div>
 
-    <div class="wave-lane" aria-hidden="true" :class="{ 'is-active': isFocused || message.length > 0 }">
+    <div class="wave-lane" aria-hidden="true" :class="{ 'is-active': isFocused || draftMessage.length > 0 }">
       <span
         v-for="index in 32"
         :key="`wave-${index}`"
@@ -114,8 +103,19 @@
 
 <script setup>
 import { computed, defineEmits, defineExpose, defineProps, nextTick, ref, watch } from 'vue'
-import { NButton, NCard, NInput } from 'naive-ui'
+import {
+  NButton,
+  NCard,
+  NForm,
+  NFormItem,
+  NGi,
+  NGrid,
+  NInput,
+  NSelect,
+  NSwitch,
+} from 'naive-ui'
 import { useAppStore } from '../stores/appStore'
+import { useChatStore } from '../stores/chatStore'
 import { BoltIcon, DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon } from 'vue-tabler-icons'
 import { uploadFile as uploadFileApi } from '../api'
 
@@ -124,11 +124,17 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  currentSession: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['send'])
 
 const appStore = useAppStore()
+const chatStore = useChatStore()
+
 const PROVIDER_MODEL_CANDIDATES = {
   ollama: ['DeepSeek-R1:7b', 'Qwen3:8b', 'Llama3:8b'],
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini'],
@@ -137,7 +143,6 @@ const PROVIDER_MODEL_CANDIDATES = {
   siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen2.5-72B'],
 }
 
-const message = ref('')
 const textareaRef = ref(null)
 const fileInputRef = ref(null)
 const isFocused = ref(false)
@@ -154,6 +159,8 @@ const providerModelOptions = computed(() => {
   }
   return [appStore.llmModel || 'DeepSeek-R1:7b']
 })
+
+const modelSelectOptions = computed(() => providerModelOptions.value.map((model) => ({ label: model, value: model })))
 
 const resolvePreferredModel = () => {
   const preferred = (appStore.llmModel || '').trim()
@@ -193,6 +200,20 @@ const useWebSearch = computed({
   set: (value) => appStore.setUseWebSearch(value),
 })
 
+const resolvedSessionId = computed(() => {
+  const candidate = (props.currentSession || chatStore.currentSession || '').trim()
+  return candidate || '默认对话'
+})
+
+const draftMessage = computed({
+  get: () => {
+    return chatStore.draftInputs?.[resolvedSessionId.value] || ''
+  },
+  set: (value) => {
+    chatStore.setSessionDraft(resolvedSessionId.value, value || '')
+  },
+})
+
 const setFocusState = (value) => {
   isFocused.value = value
 }
@@ -219,7 +240,7 @@ const buildAgentConfigs = () => {
 }
 
 const sendMessage = () => {
-  const content = message.value.trim()
+  const content = draftMessage.value.trim()
   if (!content || props.loading) return
 
   emit('send', content, {
@@ -230,17 +251,17 @@ const sendMessage = () => {
     isMultiAgent: isMultiAgentEnabled.value,
   })
 
-  message.value = ''
+  chatStore.clearSessionDraft(resolvedSessionId.value)
   attachmentText.value = ''
   attachmentName.value = ''
 }
 
 const setContent = (content) => {
-  message.value = content || ''
+  draftMessage.value = content || ''
 }
 
 const clearInput = () => {
-  message.value = ''
+  chatStore.clearSessionDraft(resolvedSessionId.value)
 }
 
 const focus = () => {
@@ -315,24 +336,20 @@ defineExpose({
   flex-wrap: wrap;
 }
 
-.toggle-group {
+.toggle-form {
   display: inline-flex;
-  align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.toggle-item {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+.toggle-form :deep(.n-form-item) {
+  margin-bottom: 0;
 }
 
-.toggle-item input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
+.toggle-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .toggle-core {
@@ -345,10 +362,14 @@ defineExpose({
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  transition: all 0.15s ease;
 }
 
-.toggle-item input:checked + .toggle-core {
+.toggle-item :deep(.n-switch) {
+  --n-rail-color: rgba(0, 229, 255, 0.12);
+  --n-rail-color-active: rgba(0, 229, 255, 0.36);
+}
+
+.toggle-item :deep(.n-switch.n-switch--active) + .toggle-core {
   border-color: rgba(0, 229, 255, 0.55);
   color: var(--neon-cyan);
   background: rgba(0, 229, 255, 0.1);
@@ -365,16 +386,6 @@ defineExpose({
   color: #7ba7bc;
   letter-spacing: 0.08em;
   margin-bottom: 0.45rem;
-}
-
-.agent-model-select {
-  width: 100%;
-  border: 1px solid var(--border-dim);
-  background: rgba(2, 8, 22, 0.85);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  padding: 0.35rem 0.45rem;
 }
 
 .attachment-chip {
@@ -412,6 +423,18 @@ defineExpose({
   padding: 0.48rem 0.55rem 0.55rem;
 }
 
+.multi-agent-config :deep(.n-form-item-label__text) {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.multi-agent-config :deep(.n-base-selection) {
+  background: rgba(2, 8, 22, 0.85);
+  border: 1px solid var(--border-dim);
+}
+
 .multi-agent-config__title {
   font-family: var(--font-mono);
   font-size: 0.58rem;
@@ -419,25 +442,6 @@ defineExpose({
   color: var(--neon-cyan);
   margin-bottom: 0.45rem;
   text-shadow: var(--neon-cyan-glow);
-}
-
-.multi-agent-config__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
-}
-
-.agent-model-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.22rem;
-}
-
-.agent-model-label {
-  font-family: var(--font-mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
 }
 
 .input-stage {
@@ -575,10 +579,6 @@ defineExpose({
 }
 
 @media (max-width: 900px) {
-  .multi-agent-config__grid {
-    grid-template-columns: 1fr;
-  }
-
   .input-stage {
     grid-template-columns: auto 1fr auto;
   }

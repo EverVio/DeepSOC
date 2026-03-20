@@ -1,5 +1,5 @@
 import * as echarts from 'echarts'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 
 export function useEcharts(
   buildOption,
@@ -60,8 +60,8 @@ export function useEcharts(
     }, debounceMs)
   }
 
-  onMounted(() => {
-    if (!chartRef.value) return
+  const initChart = () => {
+    if (!chartRef.value || chart) return
 
     chart = echarts.init(chartRef.value)
     renderChart()
@@ -71,13 +71,9 @@ export function useEcharts(
     })
     resizeObserver.observe(chartRef.value)
     scheduleResize()
-  })
-
-  if (watchSource) {
-    watch(watchSource, renderChart, { deep })
   }
 
-  onBeforeUnmount(() => {
+  const destroyChart = () => {
     if (resizeObserver) {
       resizeObserver.disconnect()
       resizeObserver = null
@@ -87,6 +83,26 @@ export function useEcharts(
       chart.dispose()
       chart = null
     }
+  }
+
+  onMounted(() => {
+    initChart()
+  })
+
+  onActivated(() => {
+    initChart()
+  })
+
+  onDeactivated(() => {
+    destroyChart()
+  })
+
+  if (watchSource) {
+    watch(watchSource, renderChart, { deep })
+  }
+
+  onBeforeUnmount(() => {
+    destroyChart()
   })
 
   return {

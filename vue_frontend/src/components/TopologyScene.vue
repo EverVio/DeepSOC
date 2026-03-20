@@ -48,6 +48,29 @@ const ensureVector = (node, idx, total) => {
   )
 }
 
+const disposeMaterial = (material) => {
+  if (!material) return
+
+  const disposeSingleMaterial = (mat) => {
+    if (!mat) return
+    for (const key of ['map', 'alphaMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap']) {
+      if (mat[key] && typeof mat[key].dispose === 'function') {
+        mat[key].dispose()
+      }
+    }
+    if (typeof mat.dispose === 'function') {
+      mat.dispose()
+    }
+  }
+
+  if (Array.isArray(material)) {
+    material.forEach((item) => disposeSingleMaterial(item))
+    return
+  }
+
+  disposeSingleMaterial(material)
+}
+
 const clearNetworkGroup = () => {
   if (!networkGroup) return
 
@@ -56,19 +79,28 @@ const clearNetworkGroup = () => {
     networkGroup.remove(child)
 
     if (child.geometry) child.geometry.dispose()
-    if (child.material) {
-      if (Array.isArray(child.material)) {
-        child.material.forEach((mat) => mat.dispose())
-      } else {
-        child.material.dispose()
-      }
-    }
+    disposeMaterial(child.material)
   }
 
   pulseNode = null
   linkVectors = []
   activeLinkIndex = 0
   particleT = 0
+}
+
+const disposeSceneResources = () => {
+  if (!scene) return
+
+  scene.traverse((object) => {
+    if (object.geometry) {
+      object.geometry.dispose()
+    }
+    disposeMaterial(object.material)
+  })
+
+  while (scene.children.length) {
+    scene.remove(scene.children[0])
+  }
 }
 
 const buildNetwork = () => {
@@ -181,7 +213,7 @@ const resizeRenderer = () => {
 
   camera.aspect = width / Math.max(height, 1)
   camera.updateProjectionMatrix()
-  renderer.setSize(width, height, false)
+  renderer.setSize(width, height)
 }
 
 const clearResizeTimers = () => {
@@ -323,12 +355,22 @@ onBeforeUnmount(() => {
   }
   clearResizeTimers()
 
-  if (frameId) cancelAnimationFrame(frameId)
+  if (frameId) {
+    cancelAnimationFrame(frameId)
+    frameId = null
+  }
 
   clearNetworkGroup()
+  disposeSceneResources()
 
   if (renderer) {
+    if (renderer.renderLists && typeof renderer.renderLists.dispose === 'function') {
+      renderer.renderLists.dispose()
+    }
     renderer.dispose()
+    if (typeof renderer.forceContextLoss === 'function') {
+      renderer.forceContextLoss()
+    }
     if (renderer.domElement && renderer.domElement.parentNode) {
       renderer.domElement.parentNode.removeChild(renderer.domElement)
     }
@@ -339,6 +381,7 @@ onBeforeUnmount(() => {
   renderer = null
   networkGroup = null
   pulseNode = null
+  linkVectors = []
 })
 </script>
 
@@ -348,5 +391,17 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 230px;
   background: radial-gradient(circle at 50% 45%, rgba(0, 229, 255, 0.05), transparent 68%);
+  overflow: hidden; 
+  position: relative;
 }
+
+.topology-scene :deep(canvas) {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
 </style>

@@ -69,58 +69,50 @@
     </div>
   </div>
 
-  <Teleport to="body">
-    <div
-      v-if="fallbackPanelKey"
-      class="chart-modal-mask"
-      role="dialog"
-      aria-modal="true"
-      @click.self="closeExpanded"
-    >
-      <div class="chart-modal-wrap">
-        <NCard class="chart-modal-card" :bordered="false" embedded>
-          <template #header>
-            <span class="chart-modal-title">{{ expandedTitle }}</span>
-          </template>
-          <template #header-extra>
-            <NButton
-              class="panel-action-btn panel-action-btn--close"
-              quaternary
-              circle
-              aria-label="Close expanded chart"
-              @click="closeExpanded"
-            >
-              <XIcon class="action-icon" />
-            </NButton>
-          </template>
+  <NModal :show="Boolean(fallbackPanelKey)" :mask-closable="true" :auto-focus="false" @update:show="handleModalVisibleChange">
+    <div class="chart-modal-wrap">
+      <NCard class="chart-modal-card" :bordered="false" embedded>
+        <template #header>
+          <span class="chart-modal-title">{{ expandedTitle }}</span>
+        </template>
+        <template #header-extra>
+          <NButton
+            class="panel-action-btn panel-action-btn--close"
+            quaternary
+            circle
+            aria-label="Close expanded chart"
+            @click="closeExpanded"
+          >
+            <XIcon class="action-icon" />
+          </NButton>
+        </template>
 
-          <div class="expanded-chart-content" v-if="fallbackPanelKey === 'radar'">
-            <ThreatRadarChart :stats="dashboardStats" :loading="statsLoading" />
-          </div>
+        <div class="expanded-chart-content" v-if="fallbackPanelKey === 'radar'">
+          <ThreatRadarChart :stats="dashboardStats" :loading="statsLoading" />
+        </div>
 
-          <div class="expanded-chart-content" v-else-if="fallbackPanelKey === 'stream'">
-            <LogInflowChart :stats="dashboardStats" :loading="statsLoading" />
-          </div>
+        <div class="expanded-chart-content" v-else-if="fallbackPanelKey === 'stream'">
+          <LogInflowChart :stats="dashboardStats" :loading="statsLoading" />
+        </div>
 
-          <div class="expanded-chart-content" v-else>
-            <div class="summary-strip summary-strip--expanded">
-              <span>RECORDS {{ dashboardStats.summary?.total_records || 0 }}</span>
-              <span>SOURCES {{ dashboardStats.summary?.total_sources || 0 }}</span>
-              <span>CAT {{ dashboardStats.summary?.total_categories || 0 }}</span>
-            </div>
-            <div class="expanded-chart-fill">
-              <CategoryDonutChart :stats="dashboardStats" :loading="statsLoading" />
-            </div>
+        <div class="expanded-chart-content" v-else>
+          <div class="summary-strip summary-strip--expanded">
+            <span>RECORDS {{ dashboardStats.summary?.total_records || 0 }}</span>
+            <span>SOURCES {{ dashboardStats.summary?.total_sources || 0 }}</span>
+            <span>CAT {{ dashboardStats.summary?.total_categories || 0 }}</span>
           </div>
-        </NCard>
-      </div>
+          <div class="expanded-chart-fill">
+            <CategoryDonutChart :stats="dashboardStats" :loading="statsLoading" />
+          </div>
+        </div>
+      </NCard>
     </div>
-  </Teleport>
+  </NModal>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import { NButton, NCard } from 'naive-ui'
+import { NButton, NCard, NModal } from 'naive-ui'
 import { XIcon } from 'vue-tabler-icons'
 import FuiCard from '../FuiCard.vue'
 import LogInflowChart from '../charts/LogInflowChart.vue'
@@ -158,6 +150,12 @@ const toggleChartPanel = (panelKey) => {
 
 const closeExpanded = () => {
   closeFallbackPanel()
+}
+
+const handleModalVisibleChange = (show) => {
+  if (!show) {
+    closeExpanded()
+  }
 }
 </script>
 
@@ -255,15 +253,8 @@ const closeExpanded = () => {
   flex-direction: column;
 }
 
-.chart-modal-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
+:deep(.n-modal-mask) {
   background: rgba(3, 8, 18, 0.92);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.2rem;
 }
 
 .chart-modal-wrap {
@@ -338,34 +329,31 @@ const closeExpanded = () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.38rem;
+  margin-bottom: 0.55rem;
 }
 
 .summary-strip span {
-  border: 1px solid rgba(0, 229, 255, 0.18);
-  padding: 0.2rem 0.44rem;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: rgba(0, 229, 255, 0.08);
+  color: #97d7ec;
   font-family: var(--font-mono);
-  font-size: 0.56rem;
-  letter-spacing: 0.07em;
-  color: #89a8ba;
+  font-size: 0.57rem;
+  letter-spacing: 0.08em;
+  padding: 0.12rem 0.35rem;
 }
 
 .summary-strip--expanded {
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
 }
 
 @media (max-width: 1024px) {
-  .chart-card {
-    min-height: 280px;
-  }
-
   .chart-modal-wrap {
     width: min(980px, 96vw);
   }
 
   .chart-modal-card {
-    height: min(72vh, 760px);
-    min-height: 430px;
+    height: min(70vh, 760px);
+    min-height: 420px;
   }
 }
 </style>

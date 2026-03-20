@@ -1,7 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/authStore'
 import Login from './views/Login.vue'
-import SocLayout from './layouts/SocLayout.vue'
+import GlobalLayout from './layouts/GlobalLayout.vue'
+import Dashboard from './views/Dashboard.vue'
+import ChatPage from './views/ChatPage.vue'
+import Settings from './views/Settings.vue'
 
 const routes = [
   {
@@ -11,13 +14,33 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Chat',
-    component: SocLayout,
+    component: GlobalLayout,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: '/dashboard',
+      },
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: Dashboard,
+      },
+      {
+        path: 'chat',
+        name: 'Chat',
+        component: ChatPage,
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: Settings,
+      },
+    ],
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/',
+    redirect: '/dashboard',
   },
 ]
 

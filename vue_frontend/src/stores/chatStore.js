@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 const DEFAULT_SESSION = '默认对话';
+const DRAFT_INPUTS_KEY = 'draftInputs';
 
 const createDefaultAgentNode = () => ({
   status: 'idle',
@@ -19,6 +20,7 @@ export const useChatStore = defineStore('chat', () => {
   const currentSession = ref(localStorage.getItem('currentSession') || DEFAULT_SESSION);
   const sessions = ref(JSON.parse(localStorage.getItem('sessions') || '["默认对话"]'));
   const messages = ref({});
+  const draftInputs = ref(JSON.parse(localStorage.getItem(DRAFT_INPUTS_KEY) || '{}'));
 
   const persistSessions = () => {
     localStorage.setItem('sessions', JSON.stringify(sessions.value));
@@ -26,6 +28,34 @@ export const useChatStore = defineStore('chat', () => {
 
   const persistCurrentSession = () => {
     localStorage.setItem('currentSession', currentSession.value);
+  };
+
+  const persistDraftInputs = () => {
+    localStorage.setItem(DRAFT_INPUTS_KEY, JSON.stringify(draftInputs.value));
+  };
+
+  const setSessionDraft = (sessionId, draftText) => {
+    if (!sessionId) return;
+
+    const normalized = typeof draftText === 'string' ? draftText : '';
+    if (normalized.length === 0) {
+      if (!(sessionId in draftInputs.value)) return;
+      const nextDrafts = { ...draftInputs.value };
+      delete nextDrafts[sessionId];
+      draftInputs.value = nextDrafts;
+      persistDraftInputs();
+      return;
+    }
+
+    draftInputs.value = {
+      ...draftInputs.value,
+      [sessionId]: normalized,
+    };
+    persistDraftInputs();
+  };
+
+  const clearSessionDraft = (sessionId) => {
+    setSessionDraft(sessionId, '');
   };
 
   const addSession = (sessionId) => {
@@ -44,6 +74,7 @@ export const useChatStore = defineStore('chat', () => {
   const removeSession = (sessionId) => {
     sessions.value = sessions.value.filter((id) => id !== sessionId);
     persistSessions();
+    clearSessionDraft(sessionId);
 
     if (sessionId === currentSession.value) {
       const nextSession = sessions.value.length > 0 ? sessions.value[0] : DEFAULT_SESSION;
@@ -243,8 +274,12 @@ export const useChatStore = defineStore('chat', () => {
     currentSession,
     sessions,
     messages,
+    draftInputs,
     persistSessions,
     persistCurrentSession,
+    persistDraftInputs,
+    setSessionDraft,
+    clearSessionDraft,
     addSession,
     setCurrentSession,
     removeSession,

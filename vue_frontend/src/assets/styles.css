@@ -448,25 +448,6 @@ textarea {
   font-weight: 600;
 }
 
-/* ----------------------------------------------------------
- * 10. 滚动条 FUI 化
- * ---------------------------------------------------------- */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 229, 255, 0.3);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 229, 255, 0.6);
-}
 
 /* ----------------------------------------------------------
  * 11. 工具类

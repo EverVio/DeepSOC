@@ -27,15 +27,6 @@
       </div>
     </div>
 
-    <div class="header-controls">
-      <button class="hud-btn" @click="$emit('toggle-sidebar')" :title="isSidebarOpen ? '收起左栏' : '展开左栏'">
-        <MenuIcon class="hud-icon" />
-      </button>
-      <button class="hud-btn" @click="$emit('open-settings')" title="设置">
-        <SettingsIcon class="hud-icon" />
-      </button>
-    </div>
-
     <div class="header-line" aria-hidden="true">
       <div class="header-line-fill" />
     </div>
@@ -43,15 +34,10 @@
 </template>
 
 <script setup>
-import { MenuIcon, SettingsIcon } from 'vue-tabler-icons'
-
 defineProps({
   currentSession: { type: String, default: '' },
   currentTime: { type: String, default: '' },
-  isSidebarOpen: { type: Boolean, default: true },
 })
-
-defineEmits(['toggle-sidebar', 'open-settings'])
 </script>
 
 <style scoped>
@@ -65,6 +51,7 @@ defineEmits(['toggle-sidebar', 'open-settings'])
   z-index: 10;
   gap: 1.5rem;
   flex-shrink: 0;
+  height: 100%;
 }
 
 .brand-name {
@@ -144,46 +131,6 @@ defineEmits(['toggle-sidebar', 'open-settings'])
   background: linear-gradient(to bottom, transparent, rgba(0, 229, 255, 0.45), transparent);
 }
 
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-left: 0.8rem;
-}
-
-.hud-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(0, 229, 255, 0.28);
-  background: rgba(0, 229, 255, 0.08);
-  color: var(--neon-cyan);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
-  transition: all 0.2s ease;
-}
-
-.hud-btn:hover {
-  border-color: rgba(0, 229, 255, 0.68);
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.24), inset 0 0 8px rgba(0, 229, 255, 0.2);
-  transform: translateY(-1px);
-}
-
-.hud-icon {
-  width: 17px;
-  height: 17px;
-  display: block;
-  flex-shrink: 0;
-}
-
-.hud-btn :deep(svg),
-.hud-btn :deep(svg *) {
-  color: currentColor;
-  stroke: currentColor;
-}
-
 .header-line {
   position: absolute;
   left: 0;
@@ -218,10 +165,6 @@ defineEmits(['toggle-sidebar', 'open-settings'])
 @media (max-width: 1024px) {
   .header-brand {
     flex: 1;
-  }
-
-  .header-controls {
-    margin-left: 0;
   }
 }
 

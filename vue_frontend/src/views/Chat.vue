@@ -12,9 +12,12 @@
         </div>
       </template>
 
-      <div v-if="error" class="fui-error-bar">
-        <AlertIcon class="btn-icon" /> {{ error }}
-      </div>
+      <NAlert v-if="error" class="terminal-alert" type="error" :show-icon="true">
+        <template #icon>
+          <AlertIcon class="btn-icon" />
+        </template>
+        {{ error }}
+      </NAlert>
 
       <NScrollbar class="messages-viewport" :ref="messagesContainerRef">
         <div class="messages-viewport-inner">
@@ -59,7 +62,7 @@
       </NScrollbar>
 
       <div class="terminal-input-zone">
-        <ChatInput :ref="chatInputRef" :loading="loading" @send="onSendMessage" />
+        <ChatInput :ref="chatInputRef" :loading="loading" :current-session="currentSession" @send="onSendMessage" />
       </div>
     </FuiCard>
   </div>
@@ -67,7 +70,7 @@
 
 <script setup>
 import { computed, toRefs } from 'vue'
-import { NScrollbar } from 'naive-ui'
+import { NAlert, NScrollbar } from 'naive-ui'
 import FuiCard from '../components/FuiCard.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
@@ -111,7 +114,6 @@ const hasRenderablePayload = (message) => {
 }
 
 const displayMessages = computed(() => (messages.value || []).filter((message) => hasRenderablePayload(message)))
-
 const isEmptyState = computed(() => displayMessages.value.length === 0)
 
 const lastDisplayMessage = computed(() => {
@@ -191,24 +193,13 @@ const lastDisplayMessage = computed(() => {
   color: currentColor;
 }
 
-.fui-error-bar {
-  min-height: 30px;
-  border: 1px solid rgba(255, 0, 85, 0.35);
-  background: rgba(255, 0, 85, 0.1);
-  color: #ff8ab2;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.6rem;
+.terminal-alert {
   margin-bottom: 0.58rem;
 }
 
-.fui-error-bar :deep(svg),
-.fui-error-bar :deep(svg *) {
-  color: currentColor;
-  stroke: currentColor;
+.terminal-alert :deep(.n-alert-body__content) {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
 }
 
 .messages-viewport {
@@ -218,15 +209,6 @@ const lastDisplayMessage = computed(() => {
 
 .messages-viewport :deep(.n-scrollbar-container) {
   padding: 0.35rem 0.2rem 0.35rem 0;
-}
-
-.messages-viewport :deep(.n-scrollbar-rail.n-scrollbar-rail--vertical) {
-  width: 6px;
-  right: 0;
-}
-
-.messages-viewport :deep(.n-scrollbar-rail__scrollbar) {
-  background: rgba(0, 229, 255, 0.35);
 }
 
 .messages-viewport-inner {
@@ -297,11 +279,5 @@ const lastDisplayMessage = computed(() => {
   margin-top: 0.5rem;
   border-top: 1px solid rgba(0, 229, 255, 0.16);
   padding-top: 0.56rem;
-}
-
-@media (max-width: 640px) {
-  .fui-error-bar {
-    font-size: 0.6rem;
-  }
 }
 </style>
