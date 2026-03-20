@@ -6,6 +6,7 @@
 </template>
 
 <script setup>
+import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -20,6 +21,8 @@ const props = defineProps({
 })
 
 const buildOption = () => {
+  const rawStats = toRaw(props.stats) || {}
+
   const threat = props.stats?.threat_distribution || []
   const high = threat.find((item) => item.level === 'high')?.value || 0
   const medium = threat.find((item) => item.level === 'medium')?.value || 0
@@ -100,7 +103,7 @@ const buildOption = () => {
 }
 
 const { chartRef } = useEcharts(buildOption, () => props.stats, {
-  deep: true,
+  deep: false,
   throttleMs: 90,
   debounceMs: 180,
 })

@@ -68,6 +68,7 @@ defineEmits([
 <style scoped>
 .session-card {
   min-height: 260px;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

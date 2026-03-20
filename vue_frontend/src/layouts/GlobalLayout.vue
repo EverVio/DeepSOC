@@ -2,7 +2,6 @@
   <n-layout has-sider class="global-layout">
     <n-layout-sider
       class="global-sider"
-      position="absolute"
       :collapsed="isCollapsed"
       :collapsed-width="68"
       :width="236"
@@ -69,12 +68,12 @@ const menuOptions = [
     icon: renderMenuIcon(MenuIcon),
   },
   {
-    label: '战术分析终端',
+    label: '分析终端',
     key: '/chat',
     icon: renderMenuIcon(TerminalIcon),
   },
   {
-    label: '系统配置',
+    label: '系统设置',
     key: '/settings',
     icon: renderMenuIcon(SettingsIcon),
   },
@@ -111,9 +110,6 @@ const handleSiderLeave = () => {
 }
 
 .global-sider {
-  top: 0;
-  bottom: 0;
-  left: 0;
   z-index: 130;
   background: linear-gradient(180deg, rgba(6, 14, 30, 0.96), rgba(4, 10, 22, 0.96));
   box-shadow: 8px 0 24px rgba(0, 0, 0, 0.42);

@@ -338,7 +338,7 @@ defineExpose({
 
 .toggle-form {
   display: inline-flex;
-  gap: 0.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
@@ -349,12 +349,12 @@ defineExpose({
 .toggle-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
 }
 
 .toggle-core {
   display: inline-flex;
   align-items: center;
+  margin-left: 0.75rem;
   gap: 0.28rem;
   padding: 0.22rem 0.5rem;
   border: 1px solid var(--border-dim);

@@ -7,6 +7,7 @@
 
 <script setup>
 import * as echarts from 'echarts'
+import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -21,6 +22,8 @@ const props = defineProps({
 })
 
 const buildOption = () => {
+  const rawStats = toRaw(props.stats) || {}
+
   const sourceSeries = (props.stats?.source_counts || []).slice(0, 8)
   const timeline = (props.stats?.timeline || []).slice(-8)
 
@@ -144,7 +147,7 @@ const buildOption = () => {
 }
 
 const { chartRef } = useEcharts(buildOption, () => props.stats, {
-  deep: true,
+  deep: false,
   throttleMs: 90,
   debounceMs: 180,
 })

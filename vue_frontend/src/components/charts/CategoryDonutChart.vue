@@ -6,6 +6,7 @@
 </template>
 
 <script setup>
+import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -22,6 +23,8 @@ const props = defineProps({
 const colorPool = ['#00e5ff', '#00ff9d', '#7b2cbf', '#ff0055', '#ff6a00', '#89a6ff', '#47d3ff']
 
 const buildOption = () => {
+  const rawStats = toRaw(props.stats) || {}
+
   const categories = (props.stats?.category_counts || []).slice(0, 7)
 
   return {
@@ -88,7 +91,7 @@ const buildOption = () => {
 }
 
 const { chartRef } = useEcharts(buildOption, () => props.stats, {
-  deep: true,
+  deep: false,
   throttleMs: 90,
   debounceMs: 180,
 })

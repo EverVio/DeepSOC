@@ -84,10 +84,12 @@ onMounted(() => {
 .chat-page-sider-inner {
   height: 100%;
   min-height: 0;
+  padding: 0 0 0 15px; 
 }
 
 .chat-page-content {
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

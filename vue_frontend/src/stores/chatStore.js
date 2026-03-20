@@ -30,8 +30,15 @@ export const useChatStore = defineStore('chat', () => {
     localStorage.setItem('currentSession', currentSession.value);
   };
 
+  // 增加防抖定时器变量
+  let draftTimeout = null;
+
   const persistDraftInputs = () => {
-    localStorage.setItem(DRAFT_INPUTS_KEY, JSON.stringify(draftInputs.value));
+    // 使用防抖，避免每次按键都触发 JSON.stringify 和同步磁盘写入
+    if (draftTimeout) clearTimeout(draftTimeout);
+    draftTimeout = setTimeout(() => {
+      localStorage.setItem(DRAFT_INPUTS_KEY, JSON.stringify(draftInputs.value));
+    }, 500);
   };
 
   const setSessionDraft = (sessionId, draftText) => {

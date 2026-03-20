@@ -345,7 +345,7 @@ watch(
   () => {
     buildNetwork()
   },
-  { deep: true }
+  { deep: false }
 )
 
 onBeforeUnmount(() => {
