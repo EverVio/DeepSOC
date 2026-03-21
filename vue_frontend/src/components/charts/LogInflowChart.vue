@@ -1,3 +1,9 @@
+<!--
+  组件职责：展示日志流入趋势图并映射时间序列。
+  业务模块：仪表盘图表模块
+  主要数据流：时间序列数据 -> ECharts option -> 折线图渲染
+-->
+
 <template>
   <div class="chart-wrap">
     <div ref="chartRef" class="chart-canvas"></div>
@@ -7,7 +13,6 @@
 
 <script setup>
 import * as echarts from 'echarts'
-import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -22,7 +27,6 @@ const props = defineProps({
 })
 
 const buildOption = () => {
-  const rawStats = toRaw(props.stats) || {}
 
   const sourceSeries = (props.stats?.source_counts || []).slice(0, 8)
   const timeline = (props.stats?.timeline || []).slice(-8)

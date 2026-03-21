@@ -1,3 +1,9 @@
+<!--
+  组件职责：登录页面容器，处理账号输入与登录提交流程。
+  业务模块：认证模块
+  主要数据流：用户凭据输入 -> 登录请求 -> 鉴权状态更新
+-->
+
 <template>
   <div class="login-container">
     <div class="login-wrapper">

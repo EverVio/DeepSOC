@@ -1,3 +1,9 @@
+<!--
+  组件职责：承载右侧信息面板并展示辅助状态信息。
+  业务模块：布局侧边模块
+  主要数据流：统计/状态 props -> 右侧面板展示
+-->
+
 <template>
   <div class="soc-right-panel">
     <div ref="radarPanelRef" class="panel-host">

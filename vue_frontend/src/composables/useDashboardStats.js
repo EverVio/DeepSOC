@@ -1,3 +1,9 @@
+/**
+ * 模块职责：拉取并维护仪表盘统计数据状态。
+ * 业务模块：看板数据模块
+ * 主要数据流：组件触发 -> 统计请求 -> dashboardStats
+ */
+
 import { onMounted, ref, shallowRef } from 'vue'
 
 const DEFAULT_STATS = {
@@ -21,12 +27,14 @@ export function useDashboardStats(apiClient) {
     inFlight = true
     statsLoading.value = true
 
-    // 直接请求获取数据
-    const response = await apiClient.getDashboardStats()
-    dashboardStats.value = response?.data || dashboardStats.value
-
-    inFlight = false
-    statsLoading.value = false
+    await apiClient.getDashboardStats()
+      .then((response) => {
+        dashboardStats.value = response?.data || { ...DEFAULT_STATS }
+      })
+      .finally(() => {
+        inFlight = false
+        statsLoading.value = false
+      })
   }
 
   onMounted(() => {

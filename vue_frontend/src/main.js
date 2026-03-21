@@ -1,3 +1,9 @@
+/**
+ * 模块职责：初始化 Vue 应用、注册插件与挂载根实例。
+ * 业务模块：应用启动层
+ * 主要数据流：依赖注册 -> 根组件创建 -> DOM 挂载
+ */
+
 import { createApp, h } from 'vue';
 import { createPinia } from 'pinia';
 import { NConfigProvider, darkTheme } from 'naive-ui';

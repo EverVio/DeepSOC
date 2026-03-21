@@ -1,3 +1,9 @@
+<!--
+  组件职责：定义全局页面框架，组织侧栏、头部与内容区。
+  业务模块：全局布局模块
+  主要数据流：路由与布局状态 -> 框架容器 -> 页面出口
+-->
+
 <template>
   <n-layout has-sider class="global-layout">
     <n-layout-sider

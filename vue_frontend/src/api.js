@@ -1,3 +1,9 @@
+/**
+ * 模块职责：统一封装前端到后端 API 调用入口。
+ * 业务模块：网络请求层
+ * 主要数据流：页面/Store 调用 -> API 封装 -> 后端响应
+ */
+
 import axios from 'axios';
 
 const axiosApi = axios.create({

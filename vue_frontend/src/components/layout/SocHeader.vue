@@ -1,3 +1,9 @@
+<!--
+  组件职责：渲染系统顶部状态栏与全局操作入口。
+  业务模块：布局头部模块
+  主要数据流：全局状态/时间/操作事件 -> 顶部 UI
+-->
+
 <template>
   <header class="soc-header">
     <div class="header-brand">

@@ -1,3 +1,9 @@
+/**
+ * 模块职责：维护应用级 UI 状态与全局开关。
+ * 业务模块：全局状态模块
+ * 主要数据流：组件交互 -> Store 状态 -> 全局 UI
+ */
+
 import { defineStore } from 'pinia'
 
 const DEFAULT_PROVIDER = localStorage.getItem('llmProvider') || 'ollama'

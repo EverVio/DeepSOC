@@ -1,3 +1,9 @@
+<!--
+  组件职责：展示威胁维度雷达图并映射各维度评分。
+  业务模块：仪表盘图表模块
+  主要数据流：威胁分布数据 -> ECharts option -> 雷达图渲染
+-->
+
 <template>
   <div class="chart-wrap">
     <div ref="chartRef" class="chart-canvas"></div>
@@ -6,7 +12,6 @@
 </template>
 
 <script setup>
-import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -21,7 +26,6 @@ const props = defineProps({
 })
 
 const buildOption = () => {
-  const rawStats = toRaw(props.stats) || {}
 
   const threat = props.stats?.threat_distribution || []
   const high = threat.find((item) => item.level === 'high')?.value || 0

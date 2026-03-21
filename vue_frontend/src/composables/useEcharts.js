@@ -1,3 +1,9 @@
+/**
+ * 模块职责：统一管理 ECharts 实例生命周期与重绘策略。
+ * 业务模块：图表基础能力模块
+ * 主要数据流：数据变化/尺寸变化 -> option 更新 -> 图表渲染
+ */
+
 import * as echarts from 'echarts'
 import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 
@@ -14,18 +20,15 @@ export function useEcharts(
   let resizeDebounceTimer = null
   let lastResizeTime = 0
   let isInViewport = false
-  let pendingRender = false
 
   const renderChart = (force = false) => {
     if (!chart) return
 
     if (!force && !isInViewport) {
-      pendingRender = true
       return
     }
 
     chart.setOption(buildOption(), true)
-    pendingRender = false
   }
 
   const resizeChart = () => {
@@ -130,7 +133,6 @@ export function useEcharts(
     }
 
     isInViewport = false
-    pendingRender = false
   }
 
   onMounted(() => {

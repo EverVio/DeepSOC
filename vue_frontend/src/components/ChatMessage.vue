@@ -369,7 +369,7 @@ const formatTime = (date) => {
 }
 
 .agent-accordion {
-  margin: 0 0 0.58rem;
+  margin: 0 0 2rem;
   border: 1px solid var(--border-dim);
   background: linear-gradient(90deg, rgba(0, 229, 255, 0.08) 0%, rgba(0, 229, 255, 0.03) 52%, rgba(0, 0, 0, 0.16) 100%);
 }
@@ -413,13 +413,13 @@ const formatTime = (date) => {
   align-items: center;
   justify-content: space-between;
   gap: 0.35rem;
-  padding: 0.34rem 0.42rem;
+  padding: 0.5rem 1rem;
   border-bottom: 1px solid rgba(0, 229, 255, 0.14);
 }
 
 .agent-node__name {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.8rem;
   letter-spacing: 0.09em;
   color: var(--text-secondary);
 }
@@ -448,18 +448,18 @@ const formatTime = (date) => {
 
 .agent-node__content {
   margin: 0;
-  padding: 0.42rem;
-  max-height: 220px;
+  padding: 1rem 1.5rem;
+  max-height: 400px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 1rem;
   line-height: 1.55;
   color: #8fe8ff;
 }
 
 .agent-node__content :deep(p),
 .agent-node__content :deep(li) {
-  font-size: 0.72rem;
+  font-size: 1rem;
   margin-bottom: 0.4rem;
 }
 
@@ -561,7 +561,8 @@ const formatTime = (date) => {
 }
 
 :deep(.markdown-body p) {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.2rem 0 !important;
+  line-height: 1.6;
 }
 
 :deep(.markdown-body pre) {
@@ -599,12 +600,18 @@ const formatTime = (date) => {
 
 :deep(.markdown-body ul),
 :deep(.markdown-body ol) {
-  margin: -3rem 0 -2.5rem 0;
+  margin: 0.1rem 0 !important;
   padding-left: 2.5rem; 
 }
 
+:deep(.agent-node__content.markdown-body ul),
+:deep(.agent-node__content.markdown-body ol) {
+  margin: 0.5rem 0;
+  padding-left: 2rem;
+}
+
 :deep(.markdown-body li) {
-  margin-bottom: 0.2rem; 
+  margin-bottom: 0.1rem;
 }
 
 :deep(.markdown-body li > ul),

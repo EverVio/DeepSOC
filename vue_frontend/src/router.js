@@ -1,3 +1,9 @@
+/**
+ * 模块职责：定义路由表与导航守卫。
+ * 业务模块：路由模块
+ * 主要数据流：URL/导航事件 -> 路由匹配 -> 页面组件
+ */
+
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/authStore'
 import Login from './views/Login.vue'

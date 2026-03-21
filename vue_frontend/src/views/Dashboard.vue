@@ -1,3 +1,9 @@
+<!--
+  组件职责：安全态势总览页，组合拓扑与图表卡片并驱动标题动效。
+  业务模块：态势看板页面
+  主要数据流：dashboardStats -> 指标与图表组件 -> 看板展示
+-->
+
 <template>
   <div class="dashboard-page">
     <n-grid :x-gap="14" :y-gap="14" cols="1" responsive="screen">
@@ -32,21 +38,18 @@
       <n-gi>
         <n-grid cols="1 s:1 m:3" responsive="screen" :x-gap="14" :y-gap="14">
           <n-gi>
-            <!-- 替换为响应式标题变量 -->
             <FuiCard :title="threatRadarTitle" class="chart-card">
               <ThreatRadarChart :stats="dashboardStats" :loading="statsLoading" />
             </FuiCard>
           </n-gi>
 
           <n-gi>
-            <!-- 替换为响应式标题变量 -->
             <FuiCard :title="logIngestStreamTitle" class="chart-card">
               <LogInflowChart :stats="dashboardStats" :loading="statsLoading" />
             </FuiCard>
           </n-gi>
 
           <n-gi>
-            <!-- 替换为响应式标题变量 -->
             <FuiCard :title="categoryDistributionTitle" class="chart-card">
               <div class="summary-strip">
                 <span>RECORDS <strong class="ticker-value">{{ recordsTicker }}</strong></span>
@@ -110,12 +113,13 @@ import LogInflowChart from '../components/charts/LogInflowChart.vue'
 import ThreatRadarChart from '../components/charts/ThreatRadarChart.vue'
 import { useDashboardStats } from '../composables/useDashboardStats'
 import { useFullscreenPanel } from '../composables/useFullscreenPanel'
+import { useTextScramble } from '../composables/useTextScramble'
 
 const isTopologyCollapsed = ref(false)
 const topologyPanelRef = ref(null)
-// 1. 定义拓扑图标题响应式变量
+// 标题文本由乱码动画驱动，避免直接写死在模板中
 const topologyTitle = ref('GLOBAL ATTACK TOPOLOGY')
-// 2. 定义三个新标题的响应式变量
+// 图表卡标题响应式状态
 const threatRadarTitle = ref('THREAT RADAR')
 const logIngestStreamTitle = ref('LOG INGEST STREAM')
 const categoryDistributionTitle = ref('CATEGORY DISTRIBUTION')
@@ -159,96 +163,45 @@ watch(
     summaryTargets.sources.value = Number(summary?.total_sources) || 0
     summaryTargets.categories.value = Number(summary?.total_categories) || 0
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
-// 保持原有 TextScramble 类不变
-class TextScramble {
-  constructor(onFrame) {
-    this.onFrame = onFrame
-    this.rafId = 0
-    this.symbols = '&!#%*^ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  }
-
-  start(targetText, duration = 300) {
-    this.stop()
-    const text = String(targetText || '')
-    const totalFrames = Math.max(1, Math.round((duration / 1000) * 60))
-    let currentFrame = 0
-
-    const tick = () => {
-      currentFrame += 1
-      const progress = currentFrame / totalFrames
-      const stableCount = Math.floor(text.length * progress)
-
-      let scrambled = ''
-      for (let i = 0; i < text.length; i += 1) {
-        const char = text[i]
-        if (char === ' ') {
-          scrambled += ' '
-          continue
-        }
-
-        if (i < stableCount) {
-          scrambled += char
-          continue
-        }
-
-        const randomIndex = Math.floor(Math.random() * this.symbols.length)
-        scrambled += this.symbols[randomIndex]
-      }
-
-      this.onFrame(scrambled)
-
-      if (currentFrame < totalFrames) {
-        this.rafId = requestAnimationFrame(tick)
-      } else {
-        this.onFrame(text)
-      }
-    }
-
-    this.rafId = requestAnimationFrame(tick)
-  }
-
-  stop() {
-    if (!this.rafId) return
-    cancelAnimationFrame(this.rafId)
-    this.rafId = 0
-  }
-}
-
-// 3. 为每个标题创建 TextScramble 实例
-const topologyScramble = new TextScramble((value) => {
+const topologyScramble = useTextScramble((value) => {
   topologyTitle.value = value
 })
-const threatRadarScramble = new TextScramble((value) => {
+const threatRadarScramble = useTextScramble((value) => {
   threatRadarTitle.value = value
 })
-const logIngestStreamScramble = new TextScramble((value) => {
+const logIngestStreamScramble = useTextScramble((value) => {
   logIngestStreamTitle.value = value
 })
-const categoryDistributionScramble = new TextScramble((value) => {
+const categoryDistributionScramble = useTextScramble((value) => {
   categoryDistributionTitle.value = value
 })
 
+const animationTimers = []
+
 onMounted(() => {
-  // 4. 启动所有标题的乱码动画（添加轻微延迟让效果更自然）
+  // 启动标题动画，并通过小延迟形成分层入场效果
   topologyScramble.start('GLOBAL ATTACK TOPOLOGY', 300)
   threatRadarScramble.start('THREAT RADAR', 300)
-  setTimeout(() => {
+  animationTimers.push(setTimeout(() => {
     logIngestStreamScramble.start('LOG INGEST STREAM', 300)
-  }, 50)
-  setTimeout(() => {
+  }, 50))
+  animationTimers.push(setTimeout(() => {
     categoryDistributionScramble.start('CATEGORY DISTRIBUTION', 300)
-  }, 100)
+  }, 100))
 })
 
 onBeforeUnmount(() => {
-  // 5. 停止所有动画实例，避免内存泄漏
+  // 页面离开时回收动画帧，避免后台继续占用资源
   topologyScramble.stop()
   threatRadarScramble.stop()
   logIngestStreamScramble.stop()
   categoryDistributionScramble.stop()
+  while (animationTimers.length) {
+    clearTimeout(animationTimers.pop())
+  }
 })
 
 const toggleTopology = () => {
@@ -271,7 +224,7 @@ const handleTopologyModalChange = (show) => {
 </script>
 
 <style scoped>
-/* 原有样式保持不变 */
+/* 仪表盘布局与视觉样式 */
 .dashboard-page {
   min-height: 0;
   height: 100%;

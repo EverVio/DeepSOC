@@ -1,3 +1,9 @@
+<!--
+  组件职责：聊天页外层容器，负责页面级装配与路由承接。
+  业务模块：对话业务页面
+  主要数据流：路由进入 -> 页面容器 -> Chat 业务组件
+-->
+
 <template>
   <n-layout has-sider class="chat-page-layout">
     <n-layout-sider class="chat-page-sider" :width="292" bordered>

@@ -1,3 +1,9 @@
+/**
+ * 模块职责：管理面板全屏态与降级弹窗状态。
+ * 业务模块：交互状态模块
+ * 主要数据流：全屏操作事件 -> 面板状态 -> UI 展示
+ */
+
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 export function useFullscreenPanel(panelRefMap) {

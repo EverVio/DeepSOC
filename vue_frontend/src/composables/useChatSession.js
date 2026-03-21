@@ -1,3 +1,9 @@
+/**
+ * 模块职责：管理聊天会话请求、流式回包与消息拼接。
+ * 业务模块：对话数据层
+ * 主要数据流：用户输入 -> 会话请求 -> 流式消息状态
+ */
+
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref } from 'vue'
 import { useAppStore } from '../stores/appStore'

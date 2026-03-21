@@ -1,3 +1,9 @@
+<!--
+  组件职责：系统设置页面，管理参数配置与保存行为。
+  业务模块：系统配置模块
+  主要数据流：设置表单数据 -> 保存动作 -> 配置状态反馈
+-->
+
 <template>
   <div class="settings-page">
     <NCard title="SYSTEM CONFIG" class="settings-card" :bordered="false" embedded>

@@ -1,3 +1,9 @@
+<!--
+  组件职责：聊天页面容器，组织消息流、输入区与会话控制。
+  业务模块：对话业务页面
+  主要数据流：会话状态/消息列表 -> 子组件渲染 -> 用户交互事件
+-->
+
 <template>
   <div class="terminal-shell">
     <FuiCard class="terminal-card">

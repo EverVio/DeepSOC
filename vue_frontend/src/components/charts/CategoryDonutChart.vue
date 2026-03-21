@@ -1,3 +1,9 @@
+<!--
+  组件职责：展示分类占比环形图并处理空态/加载态。
+  业务模块：仪表盘图表模块
+  主要数据流：统计数据 -> ECharts option -> 环形图渲染
+-->
+
 <template>
   <div class="chart-wrap">
     <div ref="chartRef" class="chart-canvas"></div>
@@ -6,7 +12,6 @@
 </template>
 
 <script setup>
-import { toRaw } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 
 const props = defineProps({
@@ -23,7 +28,6 @@ const props = defineProps({
 const colorPool = ['#00e5ff', '#00ff9d', '#7b2cbf', '#ff0055', '#ff6a00', '#89a6ff', '#47d3ff']
 
 const buildOption = () => {
-  const rawStats = toRaw(props.stats) || {}
 
   const categories = (props.stats?.category_counts || []).slice(0, 7)
 

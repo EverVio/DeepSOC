@@ -1,3 +1,9 @@
+<!--
+  组件职责：采集用户输入、附件与会话参数并触发发送事件。
+  业务模块：对话输入模块
+  主要数据流：用户输入/配置 -> 发送载荷 -> 上层会话容器
+-->
+
 <template>
   <NCard class="terminal-input-shell" :class="{ 'terminal-input-shell--focused': isFocused }" :bordered="false" embedded>
     <div class="terminal-controls">

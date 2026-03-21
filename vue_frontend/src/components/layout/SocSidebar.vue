@@ -1,3 +1,9 @@
+<!--
+  组件职责：渲染主导航侧栏并处理菜单跳转。
+  业务模块：布局导航模块
+  主要数据流：路由状态 -> 菜单项高亮/导航事件 -> 页面切换
+-->
+
 <template>
   <FuiCard title="TACTICAL SESSIONS" class="session-card">
     <template #actions>

@@ -1,3 +1,9 @@
+/**
+ * 模块职责：管理聊天参数配置与持久化读取。
+ * 业务模块：对话配置模块
+ * 主要数据流：配置输入 -> 本地状态/存储 -> 会话参数
+ */
+
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '../stores/appStore'

@@ -1,3 +1,9 @@
+<!--
+  组件职责：渲染攻击拓扑 3D 场景并响应拓扑数据变化。
+  业务模块：可视化拓扑模块
+  主要数据流：topology 数据 -> Three.js 场景更新 -> WebGL 画面
+-->
+
 <template>
   <div ref="mountRef" class="topology-scene"></div>
 </template>
