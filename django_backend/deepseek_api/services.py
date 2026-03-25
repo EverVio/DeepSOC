@@ -327,6 +327,50 @@ def _build_openai_messages(
 ) -> list[dict[str, str]]:
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S %A")
     dynamic_system_prompt = f"{SRE_SYSTEM_PROMPT}\n\n[系统环境信息]\n当前系统时间：{current_time}"
+
+    def _format_log_evidence(item: Dict[str, Any], index: int) -> str:
+        score = float(item.get("score", 0.0))
+        metadata = item.get("metadata", {}) or {}
+        evidence = item.get("evidence", {}) or {}
+
+        parts = [f"日志 {index}", f"Score: {score:.2f}"]
+
+        db_type = metadata.get("db_type") or evidence.get("db_type")
+        if db_type:
+            parts.append(f"DB: {db_type}")
+
+        risk_level = metadata.get("risk_level") or evidence.get("risk_level")
+        if risk_level:
+            parts.append(f"Risk: {risk_level}")
+
+        confidence = metadata.get("confidence") or evidence.get("confidence")
+        if confidence is not None:
+            parts.append(f"Confidence: {confidence}")
+
+        source = metadata.get("source") or evidence.get("source")
+        if source:
+            parts.append(f"Source: {source}")
+
+        raw_content_hash = metadata.get("raw_content_hash") or evidence.get("raw_content_hash")
+        if raw_content_hash:
+            parts.append(f"Hash: {raw_content_hash}")
+
+        record_file = metadata.get("record_file")
+        if record_file:
+            record_line = metadata.get("record_line")
+            location = f"{record_file}:{record_line}" if record_line is not None else record_file
+            parts.append(f"Location: {location}")
+
+        mitre_attack_id = metadata.get("mitre_attack_id")
+        if mitre_attack_id:
+            parts.append(f"MITRE: {mitre_attack_id}")
+
+        tags = metadata.get("tags")
+        if tags:
+            parts.append(f"Tags: {tags}")
+
+        content = item.get("content", "")
+        return f"{' | '.join(parts)}\n内容: {content}"
     
     messages: list[dict[str, str]] = [{"role": "system", "content": dynamic_system_prompt}]
 
@@ -346,8 +390,7 @@ def _build_openai_messages(
         log_lines.append("（未从日志数据库检索到相关内容）")
     else:
         for i, item in enumerate(log_results, 1):
-            score = float(item.get("score", 0.0))
-            log_lines.append(f"日志 {i} (Score: {score:.2f}): {item.get('content', '')}")
+            log_lines.append(_format_log_evidence(item, i))
     context_blocks.append("\n".join(log_lines))
 
     web_lines = ["## [可用工具 2: 联网搜索 (Web Search)]"]
@@ -361,7 +404,6 @@ def _build_openai_messages(
 
     user_content = "\n\n".join(context_blocks) + f"\n\n当前用户问题:\n{prompt}"
     messages.append({"role": "user", "content": user_content})
-    print("Prompt\n", messages)
     return messages
 
 
@@ -519,11 +561,27 @@ def model_api_call(
             else:
                 logger.info(f"执行数据库日志检索: {prompt}")
                 log_results = log_system.retrieve_logs(prompt, top_k=5)
-                print(f"针对查询 '{prompt}' 的 Top-K 检索结果：\n")
+                logger.info(f"针对查询 '{prompt}' 的 Top-K 检索结果：")
                 for index, result in enumerate(log_results, start=1):
-                    print(f"[{index}] 匹配分数: {result['score']:.4f} | 命中方式: {result['source']}")
-                    print(f"日志内容: {result['content']}")
-                    print("-" * 40)
+                    metadata = result.get("metadata", {}) or {}
+                    evidence = result.get("evidence", {}) or {}
+                    db_type = metadata.get("db_type") or evidence.get("db_type") or "unknown"
+                    risk_level = metadata.get("risk_level") or evidence.get("risk_level") or "unknown"
+                    confidence = metadata.get("confidence") or evidence.get("confidence") or "unknown"
+                    source = metadata.get("source") or evidence.get("source") or "unknown"
+                    hash_value = metadata.get("raw_content_hash") or evidence.get("raw_content_hash") or "unknown"
+                    logger.info(
+                        "[%s] 匹配分数: %.4f | 命中方式: %s | DB: %s | Risk: %s | Confidence: %s | Source: %s | Hash: %s | 内容: %s",
+                        index,
+                        float(result.get("score", 0.0)),
+                        result.get("source", "unknown"),
+                        db_type,
+                        risk_level,
+                        confidence,
+                        source,
+                        hash_value,
+                        result.get("content", ""),
+                    )
 
         if use_web_search:
             logger.info(f"执行联网搜索: {prompt}")

@@ -1,5 +1,4 @@
 import os
-import csv
 
 os.environ["ANONYMIZED_TELEMETRY"] = "false"
 os.environ["DISABLE_TELEMETRY"] = "1"
@@ -26,9 +25,9 @@ from langchain_ollama import OllamaLLM, OllamaEmbeddings
 
 # llama-index & chroma
 import chromadb
-from llama_index.core import Settings  # 全局
+from llama_index.core import Settings
 from llama_index.core import Document
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, StorageContext
+from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 # 日志
@@ -55,7 +54,6 @@ class TopKLogSystem:
 
         Settings.llm = self.llm
         Settings.embed_model = self.embedding_model
-        
         Settings.chunk_size = 400
         Settings.chunk_overlap = 40
 
@@ -64,163 +62,220 @@ class TopKLogSystem:
         self.vector_store = None
         self._build_vectorstore()
 
-    """
-    基于 DeepSeek-R1:7B 的日志分析系统
-
-    使用模型:
-    - LLM: DeepSeek-R1:7B (deepseek-r1:7b)
-      * 架构: 基于 Qwen2 架构的 DeepSeek-R1 模型
-      * 参数量: 7.6B
-      * 上下文长度: 131072 tokens
-      * 特性: 支持思考过程 (thinking)，使用 <think> 标签
-      * Temperature: 0.1 (低温度保证输出稳定性)
-    - Embedding: BGE-Large (bge-large:latest)
-      * 用于向量检索和文档嵌入
-    """
-
-    # 构建向量数据库的核心函数
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
 
-        # 检查 vector_stores 文件夹是否存在
         if os.path.exists(vector_store_path):
-            logger.info(f"向量数据库文件夹已存在，加载现有索引: {vector_store_path}")
+            logger.info(f"加载现有向量数据库索引: {vector_store_path}")
+            chroma_client = chromadb.PersistentClient(path=vector_store_path)
+            log_collection = chroma_client.get_collection("log_collection")
+            log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
 
-            try:
-                # 1. 连接到现有的 ChromaDB
-                chroma_client = chromadb.PersistentClient(path=vector_store_path)
+            self.log_index = VectorStoreIndex.from_vector_store(
+                vector_store=log_vector_store
+            )
+            self.vector_store = log_vector_store
+            return
 
-                # 2. 获取集合
-                log_collection = chroma_client.get_collection("log_collection")
-
-                # 3. 实例化 LlamaIndex 的 VectorStore
-                log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
-
-                # 4.从 VectorStore 加载索引
-                self.log_index = VectorStoreIndex.from_vector_store(
-                    vector_store=log_vector_store
-                )
-                self.vector_store = log_vector_store
-
-                logger.info("成功从现有数据库加载索引。")
-
-            except Exception as e:
-                logger.error(f"加载现有向量数据库失败: {e}. 系统将无法进行日志检索。")
-
-            return  # 结束函数
-
-        logger.info(f"向量数据库文件夹不存在，开始构建: {vector_store_path}")
+        logger.info(f"构建新向量数据库: {vector_store_path}")
         os.makedirs(vector_store_path, exist_ok=True)
 
         chroma_client = chromadb.PersistentClient(path=vector_store_path)
         log_collection = chroma_client.get_or_create_collection("log_collection")
 
         log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
-        self.vector_store = log_vector_store  # 保持一致性
+        self.vector_store = log_vector_store
 
         log_storage_context = StorageContext.from_defaults(
             vector_store=log_vector_store
         )
-        if log_documents := self._load_documents(self.log_path):
+        
+        log_documents = self._load_documents(self.log_path)
+        if log_documents:
             self.log_index = VectorStoreIndex.from_documents(
                 log_documents,
                 storage_context=log_storage_context,
                 show_progress=True,
             )
-            logger.info(f"日志库索引构建完成，共 {len(log_documents)} 条日志")
-        else:
-            logger.info("未加载到任何日志文档，向量数据库未更新")
+            logger.info(f"日志库索引构建完成，共 {len(log_documents)} 条数据")
 
-    # 函数用来读取文档,添加可读取文档类型,并支持遍历子文件夹下的文件
     @staticmethod
     def _load_documents(data_path: str) -> List[Document]:
-        """
-        递归遍历 data_path 下所有文件（包括子文件夹），加载支持的文档类型。
-        """
         if not os.path.exists(data_path):
-            logger.warning(f"数据路径不存在: {data_path}")
             return []
         documents = []
-        # 使用 os.walk 递归遍历所有文件
-        for root, dirs, files in os.walk(data_path):
+        for root, _, files in os.walk(data_path):
             for file in files:
                 ext = os.path.splitext(file)[1]
                 if ext not in [
-                    ".txt",
-                    ".md",
-                    ".json",
-                    ".jsonl",
-                    ".csv",
-                    ".log",
-                    ".xml",
-                    ".yaml",
-                    ".yml",
-                    ".docx",
-                    ".pdf",
+                    ".txt", ".md", ".json", ".jsonl", ".csv",
+                    ".log", ".xml", ".yaml", ".yml", ".docx", ".pdf",
                 ]:
                     continue
+                
                 file_path = os.path.join(root, file)
-                try:
-                    if ext == ".csv":
-                        documents.extend(TopKLogSystem._process_csv(file_path))
-                    elif ext in [".json", ".jsonl"]:
-                        documents.extend(TopKLogSystem._process_json(file_path, ext))
-                    elif ext in [".yaml", ".yml"]:
-                        documents.extend(TopKLogSystem._process_yaml(file_path))
-                    elif ext == ".xml":
-                        documents.extend(TopKLogSystem._process_xml(file_path))
-                    elif ext == ".log":
-                        documents.extend(TopKLogSystem._process_log(file_path))
-                    elif ext == ".docx":
-                        documents.extend(TopKLogSystem._process_docx(file_path))
-                    elif ext == ".pdf":
-                        documents.extend(TopKLogSystem._process_pdf(file_path))
-                    else:
-                        documents.extend(TopKLogSystem._process_text(file_path))
-                except Exception as e:
-                    logger.error(f"加载文档失败 {file_path}: {e}")
+                
+                if ext == ".csv":
+                    documents.extend(TopKLogSystem._process_csv(file_path))
+                elif ext in [".json", ".jsonl"]:
+                    documents.extend(TopKLogSystem._process_json(file_path, ext))
+                elif ext in [".yaml", ".yml"]:
+                    documents.extend(TopKLogSystem._process_yaml(file_path))
+                elif ext == ".xml":
+                    documents.extend(TopKLogSystem._process_xml(file_path))
+                elif ext == ".log":
+                    documents.extend(TopKLogSystem._process_log(file_path))
+                elif ext == ".docx":
+                    documents.extend(TopKLogSystem._process_docx(file_path))
+                elif ext == ".pdf":
+                    documents.extend(TopKLogSystem._process_pdf(file_path))
+                else:
+                    documents.extend(TopKLogSystem._process_text(file_path))
+                    
         return documents
 
-    # 各种文件类型的处理函数
     @staticmethod
     def _process_csv(file_path: str) -> List[Document]:
         documents = []
-        chunk_size = 1000
-        for chunk in pd.read_csv(file_path, chunksize=chunk_size, on_bad_lines="skip"):
+        for chunk in pd.read_csv(file_path, chunksize=1000, on_bad_lines="skip"):
             for row in chunk.itertuples(index=False):
                 content = str(row).replace("Pandas", " ")
                 documents.append(Document(text=content))
         return documents
 
     @staticmethod
+    def _normalize_risk_level(raw_value: Any) -> str:
+        lowered = str(raw_value or "").strip().lower()
+        mapping = {
+            "critical": "Critical",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low",
+            "info": "Info",
+        }
+        return mapping.get(lowered, "Info")
+
+    @staticmethod
+    def _normalize_tags(raw_tags: Any) -> List[str]:
+        if raw_tags is None:
+            return []
+        if isinstance(raw_tags, list):
+            return [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+        if isinstance(raw_tags, str):
+            return [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+        return []
+
+    @staticmethod
+    def _normalize_mitre_ids(raw_ids: Any) -> List[str]:
+        if raw_ids is None:
+            return []
+        if isinstance(raw_ids, list):
+            return [str(item).strip() for item in raw_ids if str(item).strip()]
+        if isinstance(raw_ids, str):
+            extracted = re.findall(r"T\d{4}(?:\.\d{3})?", raw_ids.upper())
+            return sorted(set(extracted))
+        return []
+
+    @staticmethod
+    def _serialize_metadata_list(values: List[str]) -> Optional[str]:
+        cleaned_values = [str(item).strip() for item in values if str(item).strip()]
+        if not cleaned_values:
+            return None
+        return ",".join(cleaned_values)
+
+    @staticmethod
+    def _to_int(raw_value: Any) -> Optional[int]:
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, bool):
+            return int(raw_value)
+        if isinstance(raw_value, (int, float)):
+            return int(raw_value)
+        text = str(raw_value).strip()
+        if not text:
+            return None
+        if text.isdigit():
+            return int(text)
+        return None
+
+    @staticmethod
+    def _build_structured_doc(
+        record: Dict[str, Any], file_path: str, line_no: Optional[int] = None
+    ) -> Optional[Document]:
+        search_content = str(record.get("search_content") or "").strip()
+        if not search_content:
+            return None
+
+        metadata: Dict[str, Any] = {
+            "_id": record.get("_id"),
+            "db_type": record.get("db_type"),
+            "risk_level": TopKLogSystem._normalize_risk_level(record.get("risk_level")),
+            "cve_id": record.get("cve_id"),
+            "ioc_value": record.get("ioc_value"),
+            "source": record.get("source"),
+            "confidence": TopKLogSystem._to_int(record.get("confidence")),
+            "raw_content_hash": record.get("raw_content_hash"),
+            "verified": int(bool(record.get("verified", False))),
+            "source_dataset": record.get("source_dataset"),
+            "source_priority": TopKLogSystem._to_int(record.get("source_priority")),
+            "mitre_attack_id": TopKLogSystem._serialize_metadata_list(
+                TopKLogSystem._normalize_mitre_ids(record.get("mitre_attack_id"))
+            ),
+            "tags": TopKLogSystem._serialize_metadata_list(
+                TopKLogSystem._normalize_tags(record.get("tags"))
+            ),
+        }
+        metadata = {k: v for k, v in metadata.items() if v not in (None, "", [], {})}
+        metadata["record_file"] = os.path.basename(file_path)
+        if line_no is not None:
+            metadata["record_line"] = line_no
+
+        return Document(text=search_content, metadata=metadata)
+
+    @staticmethod
     def _process_json(file_path: str, ext: str) -> List[Document]:
-        documents = []
+        documents: List[Document] = []
         with open(file_path, "r", encoding="utf-8") as f:
             if ext == ".json":
                 data = json.load(f)
-                documents.append(Document(text=json.dumps(data, ensure_ascii=False)))
+                if isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict):
+                            doc = TopKLogSystem._build_structured_doc(item, file_path)
+                            if doc is not None:
+                                documents.append(doc)
+                elif isinstance(data, dict):
+                    doc = TopKLogSystem._build_structured_doc(data, file_path)
+                    if doc is not None:
+                        documents.append(doc)
             elif ext == ".jsonl":
-                for line in f:
-                    data = json.loads(line.strip())
-                    documents.append(
-                        Document(text=json.dumps(data, ensure_ascii=False))
-                    )
+                for line_no, line in enumerate(f, start=1):
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    data = json.loads(stripped)
+                    if isinstance(data, dict):
+                        doc = TopKLogSystem._build_structured_doc(
+                            data,
+                            file_path,
+                            line_no=line_no,
+                        )
+                        if doc is not None:
+                            documents.append(doc)
         return documents
 
     @staticmethod
     def _process_yaml(file_path: str) -> List[Document]:
         documents = []
         with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            documents.append(Document(text=content))
+            documents.append(Document(text=f.read()))
         return documents
 
     @staticmethod
     def _process_xml(file_path: str) -> List[Document]:
         documents = []
         with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            documents.append(Document(text=content))
+            documents.append(Document(text=f.read()))
         return documents
 
     @staticmethod
@@ -254,62 +309,242 @@ class TopKLogSystem:
     def _process_text(file_path: str) -> List[Document]:
         documents = []
         with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            documents.append(Document(text=content))
+            documents.append(Document(text=f.read()))
         return documents
 
-    def retrieve_logs(self, query: str, top_k: int = 10, use_keyword: bool = True, filter_func=None) -> List[Dict]:
+    @staticmethod
+    def _normalize_source_priority(source: str, source_priority: Any) -> float:
+        if isinstance(source_priority, (int, float)):
+            return max(0.0, min(float(source_priority), 100.0)) / 100.0
+
+        source_rank = {
+            "nvd": 0.95,
+            "cisa": 0.92,
+            "threatfox": 0.85,
+            "urlhaus": 0.8,
+            "otx": 0.78,
+        }
+        return source_rank.get(str(source or "").strip().lower(), 0.6)
+
+    @staticmethod
+    def _build_query_terms(query: str) -> List[str]:
+        lowered = query.lower()
+        tokens = set(re.findall(r"[a-zA-Z0-9\-_.]+", lowered))
+        tokens.update(
+            match.lower()
+            for match in re.findall(r"CVE-\d{4}-\d+", query, flags=re.IGNORECASE)
+        )
+        tokens.update(
+            match.lower()
+            for match in re.findall(r"T\d{4}(?:\.\d{3})?", query, flags=re.IGNORECASE)
+        )
+        return sorted(token for token in tokens if len(token) >= 3)
+
+    @staticmethod
+    def _matches_filters(metadata: Dict[str, Any], filters: Optional[Dict[str, Any]]) -> bool:
+        if not filters:
+            return True
+
+        for key, expected in filters.items():
+            actual = metadata.get(key)
+            if expected is None:
+                continue
+
+            if isinstance(expected, list):
+                expected_set = {str(item).strip().lower() for item in expected if str(item).strip()}
+                if not expected_set:
+                    continue
+
+                if isinstance(actual, list):
+                    actual_set = {str(item).strip().lower() for item in actual if str(item).strip()}
+                elif isinstance(actual, str):
+                    actual_set = {
+                        item.strip().lower()
+                        for item in re.split(r"[;,]", actual)
+                        if item.strip()
+                    }
+                else:
+                    actual_set = {str(actual).strip().lower()} if actual is not None else set()
+
+                if expected_set.isdisjoint(actual_set):
+                    return False
+            else:
+                expected_text = str(expected).strip().lower()
+                actual_text = str(actual).strip().lower() if actual is not None else ""
+                if expected_text and actual_text != expected_text:
+                    return False
+
+        return True
+
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 10,
+        use_keyword: bool = True,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """
-        增强版检索：融合向量与正则关键词提取，解决中英混合及无空格场景下的精确 ID 匹配问题。
-        注：已根据偏好移除不必要的 try-catch 包裹
+        统一检索接口：意图短路精准识别 -> 召回(向量+关键词) -> 重排(结构化字段加权) -> 去重(raw_content_hash)。
         """
         if not self.log_index:
-            logger.warning("Log index 未初始化，跳过检索。")
             return []
 
-        # 1. 向量检索
-        retriever = self.log_index.as_retriever(similarity_top_k=top_k * 2 if use_keyword else top_k)
-        vector_results = retriever.retrieve(query)
-        vector_set = set()
-        formatted_vector = []
-        
-        for result in vector_results:
-            key = result.text.strip()
-            vector_set.add(key)
-            formatted_vector.append({"content": key, "score": float(result.score), "source": "vector"})
+        # 核心改动 1：提前正则提取目标意图，用于后续的绝对一票否决权或保送
+        query_cve = re.search(r'(?i)CVE-\d{4}-\d+', query)
+        cve_target = query_cve.group(0).upper() if query_cve else None
 
-        # 2. 关键词检索（使用正则提取编号/ID）
-        keyword_results = []
-        if use_keyword:
-            all_logs = self.log_index.docstore.docs.values() if hasattr(self.log_index, 'docstore') else []
+        query_ip = re.search(r'\b\d{1,3}(?:\.\d{1,3}){3}\b', query)
+        ip_target = query_ip.group(0) if query_ip else None
+
+        retriever = self.log_index.as_retriever(similarity_top_k=max(top_k * 4, 20))
+        vector_hits = retriever.retrieve(query)
+        candidate_map: Dict[str, Dict[str, Any]] = {}
+
+        def _candidate_key(text: str, metadata: Dict[str, Any]) -> str:
+            return str(metadata.get("raw_content_hash") or metadata.get("_id") or text)
+
+        for node in vector_hits:
+            text = (getattr(node, "text", "") or "").strip()
+            if not text:
+                continue
+
+            metadata = dict(getattr(node, "metadata", {}) or {})
+            if not self._matches_filters(metadata, filters):
+                continue
+
+            key = _candidate_key(text, metadata)
+            vector_score = float(getattr(node, "score", 0.0) or 0.0)
+            item = candidate_map.setdefault(
+                key,
+                {
+                    "content": text,
+                    "metadata": metadata,
+                    "vector_score": 0.0,
+                    "keyword_score": 0.0,
+                    "channels": set(),
+                },
+            )
+            item["vector_score"] = max(item["vector_score"], vector_score)
+            item["channels"].add("vector")
+
+        if use_keyword and hasattr(self.log_index, "docstore"):
+            query_terms = self._build_query_terms(query)
+            all_docs = self.log_index.docstore.docs.values()
+
+            for doc in all_docs:
+                text = (getattr(doc, "text", "") or "").strip()
+                if not text:
+                    continue
+
+                metadata = dict(getattr(doc, "metadata", {}) or {})
+                if not self._matches_filters(metadata, filters):
+                    continue
+
+                haystack = text.lower()
+                hit_count = sum(1 for term in query_terms if term in haystack)
+                if hit_count == 0:
+                    continue
+
+                keyword_score = min(1.0, 0.55 + 0.1 * hit_count)
+                key = _candidate_key(text, metadata)
+                item = candidate_map.setdefault(
+                    key,
+                    {
+                        "content": text,
+                        "metadata": metadata,
+                        "vector_score": 0.0,
+                        "keyword_score": 0.0,
+                        "channels": set(),
+                    },
+                )
+                item["keyword_score"] = max(item["keyword_score"], keyword_score)
+                item["channels"].add("keyword")
+
+        risk_weight = {
+            "Critical": 1.0,
+            "High": 0.85,
+            "Medium": 0.65,
+            "Low": 0.4,
+            "Info": 0.25,
+        }
+        ranked_items: List[Dict[str, Any]] = []
+
+        for item in candidate_map.values():
+            metadata = item["metadata"]
             
-            # 使用正则提取字母、数字、横线的组合，避免中文无空格导致分词失效
-            # 例如 "告诉我CVE-2025-13077的内容" 会被提取出 "cve-2025-13077"
-            qwords = set(re.findall(r'[a-zA-Z0-9\-]+', query.lower()))
-            
-            for doc in all_logs:
-                text = getattr(doc, 'text', str(doc)).strip()
-                if text in vector_set:
-                    continue  # 避免与向量结果重复
-                
-                # 命中逻辑：只要提取的词长度>=3（过滤掉无意义的单个字母/数字），且存在于日志文本中
-                hit = any(len(word) >= 3 and word in text.lower() for word in qwords)
-                if hit:
-                    # 赋予较高的分数 (0.85)，确保确切的 ID 命中排在普通的语义向量 (如 0.65) 前面
-                    keyword_results.append({"content": text, "score": 0.85, "source": "keyword"})
+            # 核心改动 2：意图精准匹配带来降维打击的分数奖励（+1.0）
+            exact_match_boost = 0.0
+            if cve_target and metadata.get("cve_id", "").upper() == cve_target:
+                exact_match_boost = 1.0
+            if ip_target and metadata.get("ioc_value", "") == ip_target:
+                exact_match_boost = 1.0
 
-        # 3. 融合与重排序
-        all_results = formatted_vector + keyword_results
-        all_results.sort(key=lambda x: x["score"], reverse=True)
+            confidence = metadata.get("confidence")
+            confidence_norm = 0.0
+            if isinstance(confidence, (int, float)):
+                confidence_norm = max(0.0, min(float(confidence), 100.0)) / 100.0
 
-        # 4. 可选过滤
+            source_priority = self._normalize_source_priority(
+                str(metadata.get("source", "")),
+                metadata.get("source_priority"),
+            )
+            risk_level = self._normalize_risk_level(metadata.get("risk_level"))
+            risk_score = risk_weight.get(risk_level, 0.25)
+
+            # 加入强匹配分 exact_match_boost
+            final_score = (
+                item["vector_score"] * 0.5
+                + item["keyword_score"] * 0.2
+                + confidence_norm * 0.15
+                + source_priority * 0.1
+                + risk_score * 0.05
+                + exact_match_boost
+            )
+
+            ranked_items.append(
+                {
+                    "content": item["content"],
+                    "score": round(final_score, 6),
+                    "source": "+".join(sorted(item["channels"])) or "hybrid",
+                    "metadata": metadata,
+                    "evidence": {
+                        "db_type": metadata.get("db_type"),
+                        "risk_level": risk_level,
+                        "source": metadata.get("source"),
+                        "confidence": metadata.get("confidence"),
+                        "raw_content_hash": metadata.get("raw_content_hash"),
+                    },
+                }
+            )
+
+        ranked_items.sort(key=lambda x: x["score"], reverse=True)
+
+        deduped: List[Dict[str, Any]] = []
+        seen_keys = set()
+        for item in ranked_items:
+            metadata = item.get("metadata", {}) or {}
+            dedup_key = metadata.get("raw_content_hash") or metadata.get("_id") or item["content"]
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+            deduped.append(item)
+            if len(deduped) >= top_k:
+                break
+
+        return deduped
+
+    def retrieve_logs(
+        self,
+        query: str,
+        top_k: int = 10,
+        use_keyword: bool = True,
+        filter_func=None,
+    ) -> List[Dict]:
+        all_results = self.retrieve(query, top_k=top_k, use_keyword=use_keyword)
         if filter_func:
             all_results = [item for item in all_results if filter_func(item)]
-
-        # 5. 截断 top_k
         return all_results[:top_k]
 
-    # (修改) context 现在是一个字典
     def _get_or_create_llm(self, model_name: Optional[str]) -> OllamaLLM:
         target_name = (model_name or self._default_llm_name or "").strip()
         if not target_name:
@@ -333,34 +568,26 @@ class TopKLogSystem:
         prompt_messages = self._build_prompt(query, context, history)
         llm_to_use = self._get_or_create_llm(model_name)
 
-        # 更新当前使用的 LLM，确保后续依赖 Settings.llm 的流程保持一致
         with self._llm_lock:
             self.llm = llm_to_use
             Settings.llm = llm_to_use
 
-        try:
-            for chunk in llm_to_use.stream(prompt_messages):
-                yield chunk
+        for chunk in llm_to_use.stream(prompt_messages):
+            yield chunk
 
-        except Exception as e:
-            logger.error(f"LLM调用失败: {e}")
-            yield f"生成响应时出错: {str(e)}"
-
-    # (修改) context 现在是一个字典, 并更新 Prompt
     def _build_prompt(
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
-        log_data = context.get("log_context", []) 
+        log_data = context.get("log_context", [])
         web_data = context.get("web_context", [])
-        
-        # 统一使用 SRE 助手设定，保证无检索结果时仍具备系统排查思维
+
         system_message = SystemMessagePromptTemplate.from_template(
             """
             你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
             你有两种响应模式：
             1.  **[SRE分析模式]**: 当用户的问题与故障排查、日志分析、系统错误相关时使用。
             2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
-            
+
             **[!!! 可用工具 (SRE模式专用) !!!]**
             你现在有两种工具上下文：
             1.  **[日志数据库 (Log DB)]**: 包含本地的、详细的系统日志。
@@ -385,21 +612,34 @@ class TopKLogSystem:
         else:
             for i, log in enumerate(log_data, 1):
                 score = log.get("score", 0.0)
-                log_context_str += f"日志 {i} (Score: {score:.2f}): {log['content']}\n"
+                metadata = log.get("metadata", {}) or {}
+                db_type = metadata.get("db_type", "unknown")
+                source = metadata.get("source", "unknown")
+                log_context_str += (
+                    f"证据 {i} (Score: {score:.2f}, DB: {db_type}, Source: {source}): "
+                    f"{log['content']}\n"
+                )
 
         web_context_str = "## [可用工具 2: 联网搜索 (Web Search)]\n"
         if not web_data:
             web_context_str += "（未启用或未从联网搜索检索到相关内容）\n"
         else:
             for i, web_result in enumerate(web_data, 1):
-                web_context_str += f"网页 {i} (Source: {web_result.get('source', 'N/A')}): {web_result['content']}\n"
+                web_context_str += (
+                    f"网页 {i} (Source: {web_result.get('source', 'N/A')}): "
+                    f"{web_result['content']}\n"
+                )
 
         user_message_template = HumanMessagePromptTemplate.from_template(
             "{log_context}\n{web_context}\n\n当前用户问题:\n{query}"
         )
 
         prompt_template = ChatPromptTemplate.from_messages(
-            [system_message, MessagesPlaceholder(variable_name="chat_history"), user_message_template]
+            [
+                system_message,
+                MessagesPlaceholder(variable_name="chat_history"),
+                user_message_template,
+            ]
         )
 
         formatted_history = []
@@ -425,7 +665,6 @@ class TopKLogSystem:
             query=query,
         ).to_messages()
 
-    # (修改) 更新 query 方法以适应新的 generate_response 签名 (主要用于内部测试)
     def query(
         self,
         query: str,
@@ -440,7 +679,6 @@ class TopKLogSystem:
 
         web_results = []
         if use_web_search:
-            # 内部测试无法调用 services.py 的 mock，这里简单模拟
             logger.info(f"[MOCK-QUERY] 联网搜索: {query}")
             web_results = [{"content": "模拟网页结果", "source": "mock.com"}]
 
@@ -453,62 +691,3 @@ class TopKLogSystem:
             model_name=model_name,
         ):
             yield chunk
-
-
-if __name__ == "__main__":
-    # 测试使用 DeepSeek-R1:7B 和 BGE-Large 嵌入模型
-    system = TopKLogSystem(
-        log_path="./data/log",
-        llm="deepseek-r1:7b",  # DeepSeek-R1:7B - 基于 Qwen2 架构
-        embedding_model="bge-large:latest",  # BGE-Large 嵌入模型
-    )
-
-    query1 = "我遇到了数据库问题"
-    print("查询1:", query1)
-    print("响应1 (流式 - 仅数据库):")
-    full_response_1 = ""
-    # (修改) 测试调用
-    for chunk in system.query(query1, use_db_search=True, use_web_search=False):
-        print(chunk, end="", flush=True)
-        full_response_1 += chunk
-    print("\n--- 流结束 ---")
-
-    history_example = [
-        {"role": "user", "content": query1},
-        {"role": "assistant", "content": full_response_1},
-    ]
-
-    query2 = "我刚才问了什么？"
-    print("\n查询2 (测试历史对话):", query2)
-    print("响应2 (流式 - 无搜索):")
-    full_response_2 = ""
-    for chunk in system.query(
-        query2, history=history_example, use_db_search=False, use_web_search=False
-    ):
-        print(chunk, end="", flush=True)
-        full_response_2 += chunk
-    print("\n--- 流结束 ---")
-
-    query3 = "是连接池耗尽的问题，如何解决？"
-    history_example.append({"role": "user", "content": query2})
-    history_example.append({"role": "assistant", "content": full_response_2})
-    print("\n查询3 (测试日志分析 + 联网):", query3)
-    print("响应3 (流式):")
-    full_response_3 = ""
-    for chunk in system.query(
-        query3, history=history_example, use_db_search=True, use_web_search=True
-    ):
-        print(chunk, end="", flush=True)
-        full_response_3 += chunk
-    print("\n--- 流结束 ---")
-
-    query4 = "你好"
-    history_example.append({"role": "user", "content": query3})
-    history_example.append({"role": "assistant", "content": full_response_3})
-    print("\n查询4 (测试常规对话):", query4)
-    print("响应4 (流式):")
-    for chunk in system.query(
-        query4, history=history_example, use_db_search=False, use_web_search=False
-    ):
-        print(chunk, end="", flush=True)
-    print("\n--- 流结束 ---")

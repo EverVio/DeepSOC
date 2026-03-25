@@ -306,3 +306,43 @@ ollama pull bge-large:latest
 - 展示层：SOC 控制台骨架完整，但真实性和流畅度仍需要继续打磨。
 
 这与当前阶段目标一致：先跑通经典场景，再逐步扩充数据与分析深度。
+
+---
+
+## 新版 JSONL 数据集接入与检索质量升级（2026-03）
+
+后端已完成对统一 JSONL Schema 的结构化接入，不再把整条 JSON 原文粗暴拼接入向量。
+
+### 1. 文档加载器（Document Loader）升级
+
+- `TopKLogSystem._process_json` 在读取 `.jsonl` 时，仅使用 `search_content` 作为 `Document.text`。
+- 以下字段已写入 `Document.metadata`：`_id`、`db_type`、`risk_level`、`cve_id`、`ioc_value`、`source`、`confidence`、`raw_content_hash`、`mitre_attack_id`、`tags` 等。
+- 增加记录位置信息：`record_file`、`record_line`，便于检索证据回溯。
+
+收益：向量空间只承载语义文本，不再被键名、URL、时间戳等噪声污染，召回质量更稳定。
+
+### 2. 检索链路升级（召回 -> 重排 -> 去重 -> 证据返回）
+
+`TopKLogSystem` 新增统一接口：
+
+- `retrieve(query, top_k=..., use_keyword=..., filters=...)`
+
+完整链路：
+
+1. 召回：向量召回 + 关键词召回（支持 CVE 编号、ATT&CK 编号和通用 token）。
+2. 重排：综合向量分、关键词命中、`confidence`、`source_priority`、`risk_level` 进行加权排序。
+3. 去重：优先使用 `raw_content_hash` 去重，其次 `_id`，最后 `content` 兜底。
+4. 返回证据：每条结果均返回 `content + score + metadata + evidence`，便于解释与审计。
+
+同时保留 `retrieve_logs(...)` 作为兼容包装，现已委托到 `retrieve(...)`，不影响现有调用方。
+
+### 3. Dashboard 结构化聚合升级
+
+`deepseek_api/dashboard_stats.py` 已从 CSV 关键词猜测切换为 JSONL 字段聚合：
+
+- Threat Radar：直接聚合 `risk_level`（Critical/High/Medium/Low/Info）。
+- Category 分布：直接聚合 `db_type`。
+- Topology：以 `db_type` 作为核心节点，以 `tags` 作为次级节点连线。
+- 时间线：按 JSONL 文件记录数与 `fetched_at`/文件更新时间汇总。
+
+收益：态势大屏统计结果由结构化情报直接驱动，语义更准确、可解释性更强。
