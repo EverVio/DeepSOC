@@ -6,9 +6,18 @@
 
 <template>
   <n-layout has-sider class="chat-page-layout">
-    <n-layout-sider class="chat-page-sider" :width="292" bordered>
-      <div class="chat-page-sider-inner">
+    <n-layout-sider
+      class="chat-page-sider"
+      :class="{ 'chat-page-sider--collapsed': isSessionSiderCollapsed }"
+      :collapsed="isSessionSiderCollapsed"
+      :collapsed-width="56"
+      :width="292"
+      collapse-mode="width"
+      bordered
+    >
+      <div class="chat-page-sider-inner" :class="{ 'chat-page-sider-inner--collapsed': isSessionSiderCollapsed }">
         <SocSidebar
+          :collapsed="isSessionSiderCollapsed"
           :search-query="searchQuery"
           :filtered-sessions="filteredSessions"
           :current-session="currentSession"
@@ -17,6 +26,7 @@
           @delete-session="handleDeleteSession"
           @create-session="handleCreateSession"
           @clear-history="handleClearHistory"
+          @toggle-collapse="isSessionSiderCollapsed = !isSessionSiderCollapsed"
         />
       </div>
     </n-layout-sider>
@@ -27,10 +37,16 @@
         :messages="messages"
         :loading="loading"
         :error="error"
-        :entry-hint="drilldownHint"
+        :entry-hint="analysisJumpHint"
+        :analysis-jump-entry="analysisJumpEntry"
+        :analysis-jump-history="analysisJumpHistory"
         :on-send-message="handleSendMessageWithHintClear"
         :on-regenerate="handleRegenerate"
         :on-edit-message="handleEditMessage"
+        :on-apply-analysis-jump="applyAnalysisJump"
+        :on-send-analysis-jump="sendAnalysisJump"
+        :on-dismiss-analysis-jump="dismissAnalysisJump"
+        :on-reuse-analysis-jump="reuseAnalysisJump"
         :messages-container-ref="messagesContainerRef"
         :chat-input-ref="chatInputRef"
       />
@@ -39,7 +55,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '../stores/chatStore'
 import { NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
@@ -50,10 +66,12 @@ import ChatTerminal from './Chat.vue'
 
 const messagesContainerRef = ref(null)
 const chatInputRef = ref(null)
+const isSessionSiderCollapsed = ref(false)
 const route = useRoute()
 const router = useRouter()
 const chatStore = useChatStore()
-const drilldownHint = ref('')
+const analysisJumpHint = ref('')
+const analysisJumpEntry = ref(null)
 
 const {
   searchQuery,
@@ -76,20 +94,81 @@ const {
   chatInputRef,
 })
 
+const analysisJumpHistory = computed(() => chatStore.getAnalysisJumpHistory(currentSession.value, 3))
+
+watch(
+  currentSession,
+  (nextSession, previousSession) => {
+    if (nextSession === previousSession) return
+    analysisJumpEntry.value = null
+    analysisJumpHint.value = ''
+  },
+  { flush: 'post' },
+)
+
 const handleSendMessageWithHintClear = (...args) => {
-  drilldownHint.value = ''
+  analysisJumpHint.value = ''
+  analysisJumpEntry.value = null
   return handleSendMessage(...args)
+}
+
+const applyAnalysisJump = (entry = analysisJumpEntry.value) => {
+  if (!entry) return
+
+  analysisJumpEntry.value = entry
+  analysisJumpHint.value = '已预填图表分析问题，可直接编辑后发送。'
+  chatInputRef.value?.setContent(entry.prompt || '')
+  nextTick(() => chatInputRef.value?.focus())
+}
+
+const sendAnalysisJump = async (entry = analysisJumpEntry.value) => {
+  if (!entry) return
+
+  analysisJumpHint.value = ''
+  analysisJumpEntry.value = null
+  const input = chatInputRef.value
+  if (input?.submit) {
+    await input.submit()
+    return
+  }
+
+  const currentDraft = input?.getContent?.()
+  const content = (currentDraft || entry.prompt || '').trim()
+  if (!content) return
+
+  await handleSendMessage(content)
+}
+
+const dismissAnalysisJump = () => {
+  analysisJumpEntry.value = null
+  analysisJumpHint.value = ''
+}
+
+const reuseAnalysisJump = (entry) => {
+  if (!entry) return
+
+  analysisJumpEntry.value = entry
+  analysisJumpHint.value = '已切换为最近的图表分析入口。'
+  chatInputRef.value?.setContent(entry.prompt || '')
+  nextTick(() => chatInputRef.value?.focus())
 }
 
 onMounted(async () => {
   await initializeChatSession()
 
+  const pendingAnalysisJump = chatStore.consumeAnalysisJumpDraft()
+  if (pendingAnalysisJump) {
+    analysisJumpEntry.value = pendingAnalysisJump
+  }
+
   if (route.query.autoSend === 'true') {
-    const draftText = chatStore.draftInputs?.[currentSession.value]
+    const draftText = analysisJumpEntry.value?.prompt || chatStore.draftInputs?.[currentSession.value]
     if (draftText && draftText.trim()) {
       const normalizedDraft = draftText.trim()
       chatInputRef.value?.setContent(normalizedDraft)
-      drilldownHint.value = '已预填看板下钻问题，可直接编辑后发送。'
+      analysisJumpHint.value = analysisJumpEntry.value
+        ? '已生成图表分析模板，可直接编辑后发送。'
+        : '已预填会话草稿，可直接编辑后发送。'
       await nextTick()
       chatInputRef.value?.focus()
       // 移除 url 中的 autoSend 参数，避免刷新后重复显示入口状态
@@ -112,10 +191,18 @@ onMounted(async () => {
   padding-right: 0.9rem;
 }
 
+.chat-page-sider--collapsed {
+  padding-right: 0.35rem;
+}
+
 .chat-page-sider-inner {
   height: 100%;
   min-height: 0;
   padding: 0 0 0 15px; 
+}
+
+.chat-page-sider-inner--collapsed {
+  padding-left: 2px;
 }
 
 .chat-page-content {

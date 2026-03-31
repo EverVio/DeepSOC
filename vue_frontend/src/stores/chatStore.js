@@ -9,6 +9,42 @@ import { ref } from 'vue';
 
 const DEFAULT_SESSION = '默认对话';
 const DRAFT_INPUTS_KEY = 'draftInputs';
+const ANALYSIS_JUMP_PENDING_KEY = 'analysisJumpPending';
+const ANALYSIS_JUMP_HISTORY_KEY = 'analysisJumpHistory';
+const ANALYSIS_JUMP_HISTORY_LIMIT = 50;
+
+const readStoredJson = (storage, key, fallback) => {
+  try {
+    const raw = storage?.getItem?.(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed === undefined ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeStoredJson = (storage, key, value) => {
+  try {
+    storage?.setItem?.(key, JSON.stringify(value));
+  } catch {
+    // ignore storage quota / serialization failures
+  }
+};
+
+const normalizeAnalysisJumpEntry = (payload) => {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId.trim() : '';
+  const createdAt = payload.createdAt || new Date().toISOString();
+
+  return {
+    ...payload,
+    id: payload.id || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    sessionId,
+    createdAt,
+  };
+};
 
 const createDefaultAgentNode = () => ({
   status: 'idle',
@@ -27,6 +63,8 @@ export const useChatStore = defineStore('chat', () => {
   const sessions = ref(JSON.parse(localStorage.getItem('sessions') || '["默认对话"]'));
   const messages = ref({});
   const draftInputs = ref(JSON.parse(localStorage.getItem(DRAFT_INPUTS_KEY) || '{}'));
+  const analysisJumpDraft = ref(readStoredJson(sessionStorage, ANALYSIS_JUMP_PENDING_KEY, null));
+  const analysisJumpHistory = ref(readStoredJson(localStorage, ANALYSIS_JUMP_HISTORY_KEY, []));
 
   const persistSessions = () => {
     localStorage.setItem('sessions', JSON.stringify(sessions.value));
@@ -45,6 +83,19 @@ export const useChatStore = defineStore('chat', () => {
     draftTimeout = setTimeout(() => {
       localStorage.setItem(DRAFT_INPUTS_KEY, JSON.stringify(draftInputs.value));
     }, 500);
+  };
+
+  const persistAnalysisJumpDraft = () => {
+    if (!analysisJumpDraft.value) {
+      sessionStorage.removeItem(ANALYSIS_JUMP_PENDING_KEY);
+      return;
+    }
+
+    writeStoredJson(sessionStorage, ANALYSIS_JUMP_PENDING_KEY, analysisJumpDraft.value);
+  };
+
+  const persistAnalysisJumpHistory = () => {
+    writeStoredJson(localStorage, ANALYSIS_JUMP_HISTORY_KEY, analysisJumpHistory.value);
   };
 
   const setSessionDraft = (sessionId, draftText) => {
@@ -71,6 +122,62 @@ export const useChatStore = defineStore('chat', () => {
     setSessionDraft(sessionId, '');
   };
 
+  const setAnalysisJumpDraft = (payload) => {
+    const normalized = normalizeAnalysisJumpEntry(payload);
+    if (!normalized) return null;
+
+    analysisJumpDraft.value = normalized;
+    persistAnalysisJumpDraft();
+    return normalized;
+  };
+
+  const clearAnalysisJumpDraft = () => {
+    analysisJumpDraft.value = null;
+    persistAnalysisJumpDraft();
+  };
+
+  const appendAnalysisJumpHistory = (payload) => {
+    const normalized = normalizeAnalysisJumpEntry(payload);
+    if (!normalized) return null;
+
+    const nextHistory = [
+      normalized,
+      ...analysisJumpHistory.value.filter((item) => item?.id !== normalized.id),
+    ].slice(0, ANALYSIS_JUMP_HISTORY_LIMIT);
+
+    analysisJumpHistory.value = nextHistory;
+    persistAnalysisJumpHistory();
+    return normalized;
+  };
+
+  const consumeAnalysisJumpDraft = () => {
+    const pending = analysisJumpDraft.value;
+    if (!pending) return null;
+
+    appendAnalysisJumpHistory(pending);
+    clearAnalysisJumpDraft();
+    return pending;
+  };
+
+  const clearAnalysisJumpHistory = (sessionId = '') => {
+    if (!sessionId) {
+      analysisJumpHistory.value = [];
+      persistAnalysisJumpHistory();
+      return;
+    }
+
+    analysisJumpHistory.value = analysisJumpHistory.value.filter((item) => item?.sessionId !== sessionId);
+    persistAnalysisJumpHistory();
+  };
+
+  const getAnalysisJumpHistory = (sessionId = '', limit = 5) => {
+    const history = sessionId
+      ? analysisJumpHistory.value.filter((item) => item?.sessionId === sessionId)
+      : analysisJumpHistory.value;
+
+    return history.slice(0, limit);
+  };
+
   const addSession = (sessionId) => {
     if (!sessions.value.includes(sessionId)) {
       sessions.value.push(sessionId);
@@ -88,6 +195,11 @@ export const useChatStore = defineStore('chat', () => {
     sessions.value = sessions.value.filter((id) => id !== sessionId);
     persistSessions();
     clearSessionDraft(sessionId);
+    clearAnalysisJumpHistory(sessionId);
+
+    if (analysisJumpDraft.value?.sessionId === sessionId) {
+      clearAnalysisJumpDraft();
+    }
 
     if (sessionId === currentSession.value) {
       const nextSession = sessions.value.length > 0 ? sessions.value[0] : DEFAULT_SESSION;
@@ -288,11 +400,21 @@ export const useChatStore = defineStore('chat', () => {
     sessions,
     messages,
     draftInputs,
+    analysisJumpDraft,
+    analysisJumpHistory,
     persistSessions,
     persistCurrentSession,
     persistDraftInputs,
+    persistAnalysisJumpDraft,
+    persistAnalysisJumpHistory,
     setSessionDraft,
     clearSessionDraft,
+    setAnalysisJumpDraft,
+    clearAnalysisJumpDraft,
+    appendAnalysisJumpHistory,
+    consumeAnalysisJumpDraft,
+    clearAnalysisJumpHistory,
+    getAnalysisJumpHistory,
     addSession,
     setCurrentSession,
     removeSession,

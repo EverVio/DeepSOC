@@ -27,7 +27,7 @@
           :banner-visible="isBannerVisible('radar')"
           :intro-visible="isIntroVisible('radar')"
           banner-text="点击图例或高亮区域进入分析终端 · Esc 退出"
-          intro-title="雷达图下钻"
+          intro-title="雷达图分析入口"
           intro-text="进入全屏后，可点击图例、高亮区域或峰值进入分析终端。"
           @dismiss="dismissIntro('radar')"
         />
@@ -35,7 +35,7 @@
           :stats="dashboardStats"
           :loading="statsLoading"
           :fullscreen="isPanelActive('radar')"
-          @chart-click="handleChartDrillDown"
+          @chart-click="handleRadarChartClick"
         />
       </FuiCard>
     </div>
@@ -61,7 +61,7 @@
           :banner-visible="isBannerVisible('stream')"
           :intro-visible="isIntroVisible('stream')"
           banner-text="点击图例或峰值进入分析终端 · Esc 退出"
-          intro-title="日志流下钻"
+          intro-title="日志流分析入口"
           intro-text="进入全屏后，点击图例、柱形峰值或折线高点即可跳转分析终端。"
           @dismiss="dismissIntro('stream')"
         />
@@ -70,7 +70,7 @@
           :loading="statsLoading"
           :enable-zoom="isPanelActive('stream')"
           :fullscreen="isPanelActive('stream')"
-          @chart-click="handleChartDrillDown"
+          @chart-click="handleStreamChartClick"
         />
       </FuiCard>
     </div>
@@ -101,7 +101,7 @@
           :banner-visible="isBannerVisible('category')"
           :intro-visible="isIntroVisible('category')"
           banner-text="点击扇区或图例进入分析终端 · Esc 退出"
-          intro-title="分类分布下钻"
+          intro-title="分类分布分析入口"
           intro-text="进入全屏后，可点击扇区或图例查看对应维度的分析入口。"
           @dismiss="dismissIntro('category')"
         />
@@ -109,7 +109,7 @@
           :stats="dashboardStats"
           :loading="statsLoading"
           :fullscreen="isPanelActive('category')"
-          @chart-click="handleChartDrillDown"
+          @chart-click="handleCategoryChartClick"
         />
       </FuiCard>
     </div>
@@ -138,13 +138,13 @@
             :stats="dashboardStats"
             :loading="statsLoading"
             :fullscreen="true"
-            @chart-click="handleChartDrillDown"
+              @chart-click="handleRadarChartClick"
           />
           <ChartDrillGuidance
             :banner-visible="isBannerVisible('radar')"
             :intro-visible="isIntroVisible('radar')"
             banner-text="点击图例或高亮区域进入分析终端 · Esc 退出"
-            intro-title="雷达图下钻"
+            intro-title="雷达图分析入口"
             intro-text="进入全屏后，可点击图例、高亮区域或峰值进入分析终端。"
             @dismiss="dismissIntro('radar')"
           />
@@ -156,13 +156,13 @@
             :loading="statsLoading"
             :enable-zoom="true"
             :fullscreen="true"
-            @chart-click="handleChartDrillDown"
+              @chart-click="handleStreamChartClick"
           />
           <ChartDrillGuidance
             :banner-visible="isBannerVisible('stream')"
             :intro-visible="isIntroVisible('stream')"
             banner-text="点击图例或峰值进入分析终端 · Esc 退出"
-            intro-title="日志流下钻"
+            intro-title="日志流分析入口"
             intro-text="进入全屏后，点击图例、柱形峰值或折线高点即可跳转分析终端。"
             @dismiss="dismissIntro('stream')"
           />
@@ -179,13 +179,13 @@
               :stats="dashboardStats"
               :loading="statsLoading"
               :fullscreen="true"
-              @chart-click="handleChartDrillDown"
+                @chart-click="handleCategoryChartClick"
             />
             <ChartDrillGuidance
               :banner-visible="isBannerVisible('category')"
               :intro-visible="isIntroVisible('category')"
               banner-text="点击扇区或图例进入分析终端 · Esc 退出"
-              intro-title="分类分布下钻"
+              intro-title="分类分布分析入口"
               intro-text="进入全屏后，可点击扇区或图例查看对应维度的分析入口。"
               @dismiss="dismissIntro('category')"
             />
@@ -200,16 +200,18 @@
 import { computed, ref, watch } from 'vue'
 import { NButton, NCard, NModal } from 'naive-ui'
 import { XIcon } from 'vue-tabler-icons'
+import { useRouter } from 'vue-router'
 import FuiCard from '../FuiCard.vue'
 import ChartDrillGuidance from './ChartDrillGuidance.vue'
 import LogInflowChart from '../charts/LogInflowChart.vue'
 import ThreatRadarChart from '../charts/ThreatRadarChart.vue'
 import CategoryDonutChart from '../charts/CategoryDonutChart.vue'
+import { buildAnalysisJumpEntry } from '../../composables/useAnalysisJump'
 import { useChatStore } from '../../stores/chatStore'
 import { useFullscreenPanel } from '../../composables/useFullscreenPanel'
 import { useChartDrillGuidance } from '../../composables/useChartDrillGuidance'
 
-defineProps({
+const props = defineProps({
   dashboardStats: { type: Object, default: () => ({}) },
   statsLoading: { type: Boolean, default: false },
 })
@@ -276,13 +278,23 @@ const closeExpanded = () => {
   closeFallbackPanel()
 }
 
-const handleChartDrillDown = (params) => {
-  if (!params.name) return
-  const draftText = `对近期的大盘指标进行下钻分析，当前关注维度/数据点：${params.name}\n请给出相关的态势评估。`
-  chatStore.setSessionDraft(chatStore.currentSession, draftText)
+const openAnalysisTerminal = (sourceKey, params) => {
+  const analysisJumpEntry = buildAnalysisJumpEntry({
+    sourceKey,
+    params,
+    stats: props.dashboardStats,
+    sessionId: chatStore.currentSession,
+  })
+
+  chatStore.setSessionDraft(chatStore.currentSession, analysisJumpEntry.prompt)
+  chatStore.setAnalysisJumpDraft(analysisJumpEntry)
   router.push({ path: '/chat', query: { autoSend: 'true' } })
   closeExpanded()
 }
+
+const handleRadarChartClick = (params) => openAnalysisTerminal('radar', params)
+const handleStreamChartClick = (params) => openAnalysisTerminal('stream', params)
+const handleCategoryChartClick = (params) => openAnalysisTerminal('category', params)
 
 const handleModalVisibleChange = (show) => {
   if (!show) {

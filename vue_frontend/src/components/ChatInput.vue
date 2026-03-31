@@ -270,6 +270,8 @@ const clearInput = () => {
   chatStore.clearSessionDraft(resolvedSessionId.value)
 }
 
+const getContent = () => draftMessage.value
+
 const focus = () => {
   nextTick(() => {
     if (textareaRef.value && typeof textareaRef.value.focus === 'function') {
@@ -309,6 +311,8 @@ const removeAttachment = () => {
 defineExpose({
   setContent,
   clearInput,
+  getContent,
+  submit: sendMessage,
   focus,
 })
 </script>

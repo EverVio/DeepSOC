@@ -25,6 +25,82 @@
         {{ error }}
       </NAlert>
 
+      <NCard v-if="analysisJumpEntry" class="analysis-jump-card" :bordered="false" embedded>
+        <template #header>
+          <div class="analysis-jump-card__header">
+            <span class="analysis-jump-card__title">{{'图表分析模板' }}</span>
+          </div>
+        </template>
+
+        <template #header-extra>
+          <NButton
+            class="analysis-jump-card__close-btn"
+            quaternary
+            circle
+            aria-label="关闭分析入口框"
+            @click="onDismissAnalysisJump?.()"
+          >
+            <XIcon class="analysis-jump-card__close-icon" />
+          </NButton>
+        </template>
+
+        <div class="analysis-jump-card__summary-list">
+          <div
+            v-for="item in analysisJumpEntry.summaryCards"
+            :key="`${item.label}-${item.value}`"
+            class="analysis-jump-card__summary-item"
+            :class="{ 'analysis-jump-card__summary-item--wide': item.label === '看板摘要' }"
+          >
+            <span class="analysis-jump-card__summary-label">{{ item.label }}</span>
+            <span class="analysis-jump-card__summary-value">{{ item.value }}</span>
+          </div>
+        </div>
+
+        <div class="analysis-jump-card__prompt">
+          <div class="analysis-jump-card__prompt-label">拟定问题</div>
+          <div class="analysis-jump-card__prompt-text">{{ analysisJumpEntry.prompt }}</div>
+        </div>
+
+        <div v-if="analysisJumpEntry.followUps?.length" class="analysis-jump-card__followups">
+          <div class="analysis-jump-card__followups-label">建议追问</div>
+          <div class="analysis-jump-card__followups-list">
+            <span v-for="item in analysisJumpEntry.followUps" :key="item" class="analysis-jump-card__followup-item">{{ item }}</span>
+          </div>
+        </div>
+
+        <div class="analysis-jump-card__actions">
+          <NButton class="analysis-jump-card__button" secondary @click="onSendAnalysisJump?.(analysisJumpEntry)">直接发送</NButton>
+          <NButton class="analysis-jump-card__button" quaternary @click="onDismissAnalysisJump?.()">关闭提示</NButton>
+        </div>
+      </NCard>
+
+      <div v-if="analysisJumpHistory?.length && analysisHistoryVisible" class="analysis-history-strip">
+        <div class="analysis-history-strip__header">
+          <div class="analysis-history-strip__label">最近分析入口</div>
+          <NButton
+            class="analysis-history-strip__close-btn"
+            quaternary
+            circle
+            aria-label="关闭最近分析入口"
+            @click="analysisHistoryVisible = false"
+          >
+            <XIcon class="analysis-history-strip__close-icon" />
+          </NButton>
+        </div>
+        <div class="analysis-history-strip__items">
+          <button
+            v-for="item in analysisJumpHistory"
+            :key="item.id"
+            type="button"
+            class="analysis-history-strip__item"
+            @click="onReuseAnalysisJump?.(item)"
+          >
+            <span class="analysis-history-strip__source">{{ item.sourceLabel }}</span>
+            <span class="analysis-history-strip__focus">{{ item.focusLabel }}</span>
+          </button>
+        </div>
+      </div>
+
       <NScrollbar class="messages-viewport" :ref="messagesContainerRef">
         <div class="messages-viewport-inner">
           <NAlert v-if="entryHint" class="terminal-entry-hint" type="info" :show-icon="true">
@@ -78,12 +154,12 @@
 </template>
 
 <script setup>
-import { computed, toRefs } from 'vue'
-import { NAlert, NScrollbar } from 'naive-ui'
+import { computed, ref, toRefs } from 'vue'
+import { NAlert, NButton, NCard, NScrollbar } from 'naive-ui'
 import FuiCard from '../components/FuiCard.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
-import { AlertTriangleIcon as AlertIcon } from 'vue-tabler-icons'
+import { AlertTriangleIcon as AlertIcon, XIcon } from 'vue-tabler-icons'
 
 const props = defineProps({
   currentSession: { type: String, default: '' },
@@ -91,9 +167,15 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
     error: { type: String, default: '' },
     entryHint: { type: String, default: '' },
+    analysisJumpEntry: { type: Object, default: null },
+    analysisJumpHistory: { type: Array, default: () => [] },
   onSendMessage: { type: Function, required: true },
   onRegenerate: { type: Function, required: true },
   onEditMessage: { type: Function, required: true },
+  onApplyAnalysisJump: { type: Function, default: null },
+  onSendAnalysisJump: { type: Function, default: null },
+  onDismissAnalysisJump: { type: Function, default: null },
+  onReuseAnalysisJump: { type: Function, default: null },
   messagesContainerRef: { type: Object, default: null },
   chatInputRef: { type: Object, default: null },
 })
@@ -105,8 +187,14 @@ const {
   error,
     onSendMessage,
     entryHint,
+    analysisJumpEntry,
+    analysisJumpHistory,
   onRegenerate,
   onEditMessage,
+  onApplyAnalysisJump,
+  onSendAnalysisJump,
+  onDismissAnalysisJump,
+  onReuseAnalysisJump,
   messagesContainerRef,
   chatInputRef,
 } = toRefs(props)
@@ -127,6 +215,7 @@ const hasRenderablePayload = (message) => {
 
 const displayMessages = computed(() => (messages.value || []).filter((message) => hasRenderablePayload(message)))
 const isEmptyState = computed(() => displayMessages.value.length === 0)
+const analysisHistoryVisible = ref(true)
 
 const lastDisplayMessage = computed(() => {
   if (displayMessages.value.length === 0) return null
@@ -209,6 +298,185 @@ const lastDisplayMessage = computed(() => {
 
 .terminal-alert {
   margin-bottom: 0.58rem;
+}
+
+.analysis-jump-card {
+  margin-bottom: 0.68rem;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: linear-gradient(180deg, rgba(8, 18, 34, 0.98), rgba(4, 10, 22, 0.95));
+}
+
+.analysis-jump-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.analysis-jump-card__close-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  color: var(--neon-cyan);
+}
+
+.analysis-jump-card__close-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.analysis-jump-card__title {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+}
+
+.analysis-jump-card__summary-label,
+.analysis-jump-card__prompt-label,
+.analysis-jump-card__followups-label,
+.analysis-history-strip__label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: #6f95a9;
+  text-transform: uppercase;
+}
+
+.analysis-jump-card__summary-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.analysis-jump-card__summary-item {
+  border: 1px solid rgba(0, 229, 255, 0.14);
+  background: rgba(0, 229, 255, 0.04);
+  padding: 0.42rem 0.52rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.analysis-jump-card__summary-item--wide {
+  grid-column: 1 / -1;
+}
+
+.analysis-jump-card__summary-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.analysis-jump-card__summary-value {
+  color: #d9f6ff;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  line-height: 1.55;
+  word-break: break-word;
+  text-align: left;
+}
+
+.analysis-jump-card__prompt {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.72rem;
+  border: 1px solid rgba(0, 229, 255, 0.16);
+  background: rgba(2, 8, 22, 0.62);
+}
+
+.analysis-jump-card__prompt-text {
+  margin-top: 0.34rem;
+  color: #d8f5ff;
+  font-family: var(--font-mono);
+  font-size: 0.67rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.analysis-jump-card__followups {
+  margin-top: 0.65rem;
+}
+
+.analysis-jump-card__followups-list,
+.analysis-history-strip__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.analysis-jump-card__followup-item,
+.analysis-history-strip__item {
+  border: 1px solid rgba(0, 229, 255, 0.16);
+  background: rgba(0, 229, 255, 0.05);
+  color: #b9dced;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+
+.analysis-jump-card__followup-item {
+  padding: 0.2rem 0.42rem;
+}
+
+.analysis-jump-card__actions {
+  margin-top: 0.78rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.analysis-jump-card__button {
+  min-width: 0;
+}
+
+.analysis-history-strip {
+  margin-bottom: 0.72rem;
+  padding: 0.45rem 0.6rem 0.55rem;
+  border: 1px solid rgba(0, 229, 255, 0.14);
+  background: rgba(4, 12, 28, 0.72);
+}
+
+.analysis-history-strip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.analysis-history-strip__close-btn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--neon-cyan);
+}
+
+.analysis-history-strip__close-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.analysis-history-strip__items {
+  margin-top: 0.45rem;
+}
+
+.analysis-history-strip__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.44rem;
+  cursor: pointer;
+}
+
+.analysis-history-strip__source {
+  color: var(--neon-cyan);
+}
+
+.analysis-history-strip__focus {
+  color: #d8f5ff;
 }
 
 .terminal-alert :deep(.n-alert-body__content) {

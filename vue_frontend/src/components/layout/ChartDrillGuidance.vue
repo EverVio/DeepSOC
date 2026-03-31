@@ -1,5 +1,5 @@
 <!--
-  组件职责：展示图表全屏下钻引导提示。
+  组件职责：展示图表全屏分析入口引导提示。
   业务模块：图表交互引导模块
   主要数据流：全屏状态 -> 浮条/一次性引导层 -> 用户感知
 -->
@@ -8,7 +8,7 @@
   <div class="chart-drill-guidance" aria-hidden="true">
     <Transition name="chart-drill-fade">
       <div v-if="bannerVisible" class="chart-drill-banner">
-        <span class="chart-drill-banner__label">DRILL MODE</span>
+        <span class="chart-drill-banner__label">ANALYSIS MODE</span>
         <span class="chart-drill-banner__text">{{ bannerText }}</span>
       </div>
     </Transition>
@@ -43,7 +43,7 @@ defineProps({
   },
   introTitle: {
     type: String,
-    default: '下钻模式已开启',
+    default: '图表分析入口已开启',
   },
   introText: {
     type: String,
