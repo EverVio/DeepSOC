@@ -3,5 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('deepseek_api.urls')),
+    path('api/', include('deepseek_api.urls')),
 ]

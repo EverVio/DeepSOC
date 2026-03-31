@@ -6,9 +6,23 @@
 
 import { defineStore } from 'pinia'
 
+const TOKEN_KEY = 'apiKey'
+
+const getStoredApiKey = () => {
+  const sessionToken = sessionStorage.getItem(TOKEN_KEY)
+  if (sessionToken) return sessionToken
+
+  const legacyToken = localStorage.getItem(TOKEN_KEY)
+  if (!legacyToken) return null
+
+  sessionStorage.setItem(TOKEN_KEY, legacyToken)
+  localStorage.removeItem(TOKEN_KEY)
+  return legacyToken
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    apiKey: localStorage.getItem('apiKey') || null,
+    apiKey: getStoredApiKey(),
   }),
 
   getters: {
@@ -16,14 +30,20 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    syncFromStorage() {
+      this.apiKey = getStoredApiKey()
+    },
+
     setApiKey(apiKey) {
       this.apiKey = apiKey
-      localStorage.setItem('apiKey', apiKey)
+      sessionStorage.setItem(TOKEN_KEY, apiKey)
+      localStorage.removeItem(TOKEN_KEY)
     },
 
     clearApiKey() {
       this.apiKey = null
-      localStorage.removeItem('apiKey')
+      sessionStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_KEY)
     },
 
     logout() {

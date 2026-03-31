@@ -9,6 +9,8 @@ import { createPinia } from 'pinia';
 import { NConfigProvider, darkTheme } from 'naive-ui';
 import App from './App.vue';
 import router from './router';
+import { useAppStore } from './stores/appStore';
+import { useAuthStore } from './stores/authStore';
 import './assets/styles.css';
 import 'harmonyos-sans-sc-webfont-splitted';
 
@@ -54,7 +56,17 @@ const app = createApp({
     ),
 });
 
-app.use(createPinia());
+const pinia = createPinia();
+app.use(pinia);
 app.use(router);
+
+const authStore = useAuthStore(pinia);
+const appStore = useAppStore(pinia);
+window.addEventListener('deepsoc:unauthorized', () => {
+  authStore.logout();
+  appStore.clearSensitiveKeys();
+  appStore.clearEditing();
+  appStore.setLoading(false);
+});
 
 app.mount('#app');

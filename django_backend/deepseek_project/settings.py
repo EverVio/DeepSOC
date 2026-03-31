@@ -1,16 +1,45 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+
+
+def _get_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_int_env(name: str, default: int) -> int:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    raw_value = raw_value.strip()
+    normalized = raw_value.lstrip('-')
+    if normalized.isdigit():
+        return int(raw_value)
+    return default
+
+
+def _get_list_env(name: str, default: list[str]) -> list[str]:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    return values or default
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-example-key-for-development-only'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-example-key-for-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _get_bool_env('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = _get_list_env('DJANGO_ALLOWED_HOSTS', ['0.0.0.0', 'localhost', '127.0.0.1'])
 # ALLOWED_HOSTS = ['*']
 
 # Application definition
@@ -82,16 +111,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # 允许前端域名（根据实际前端地址修改）
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8090",  # 前端开发服务器地址
-    "http://127.0.0.1:8090",
-]
+CORS_ALLOWED_ORIGINS = _get_list_env('CORS_ALLOWED_ORIGINS', [
+    'http://localhost:8082',
+    'http://127.0.0.1:8082',
+])
+
+CSRF_TRUSTED_ORIGINS = _get_list_env('CSRF_TRUSTED_ORIGINS', CORS_ALLOWED_ORIGINS)
 
 # 允许请求头携带 Authorization
 CORS_ALLOW_HEADERS = [
     "authorization",
     "content-type",
 ]
+
+CORS_ALLOW_CREDENTIALS = _get_bool_env('CORS_ALLOW_CREDENTIALS', False)
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -107,8 +140,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 自定义配置
 API_KEY_LENGTH = 32
-TOKEN_EXPIRY_SECONDS = 360000
-RATE_LIMIT_MAX = 5000  # 每分钟最大请求数
-RATE_LIMIT_INTERVAL = 60
-CACHE_MAX_SIZE = 200
-CACHE_EXPIRY = 300
+AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD', 'secret')
+UPLOAD_MAX_BYTES = _get_int_env('UPLOAD_MAX_BYTES', 5 * 1024 * 1024)
+MAX_OFFICE_UNCOMPRESSED_SIZE = _get_int_env('MAX_OFFICE_UNCOMPRESSED_SIZE', 20 * 1024 * 1024)
+MAX_OFFICE_ARCHIVE_ENTRIES = _get_int_env('MAX_OFFICE_ARCHIVE_ENTRIES', 2000)
+TOKEN_EXPIRY_SECONDS = _get_int_env('TOKEN_EXPIRY_SECONDS', 360000)
+RATE_LIMIT_MAX = _get_int_env('RATE_LIMIT_MAX', 5000)  # 每分钟最大请求数
+RATE_LIMIT_INTERVAL = _get_int_env('RATE_LIMIT_INTERVAL', 60)
+CACHE_MAX_SIZE = _get_int_env('CACHE_MAX_SIZE', 200)
+CACHE_EXPIRY = _get_int_env('CACHE_EXPIRY', 300)
+SSE_IDLE_TIMEOUT_MS = _get_int_env('SSE_IDLE_TIMEOUT_MS', 30000)
+SSE_MAX_RETRIES = _get_int_env('SSE_MAX_RETRIES', 1)
+SSE_BUFFER_LIMIT_BYTES = _get_int_env('SSE_BUFFER_LIMIT_BYTES', 1024 * 1024)

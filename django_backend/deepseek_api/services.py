@@ -86,13 +86,13 @@ SRE_SYSTEM_PROMPT = """
 
 
 # 全局初始化 TopKLogSystem
-# 使用 DeepSeek-R1:7B 作为主模型，bge-large:latest 作为嵌入模型
+# 使用 DeepSeek-R1:7B 作为主模型，qwen3-embedding:4b 作为嵌入模型
 # 避免在每次 API 调用时都重新加载索引，极大提高效率
 try:
     log_system = TopKLogSystem(
         log_path="./data/log",
         llm="deepseek-r1:7b",
-        embedding_model="bge-large:latest",
+        embedding_model="qwen3-embedding:4b",
     )
     logger.info("TopKLogSystem 全局初始化成功。使用模型: DeepSeek-R1:7B")
 except Exception as e:

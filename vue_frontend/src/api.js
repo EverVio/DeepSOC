@@ -6,6 +6,35 @@
 
 import axios from 'axios';
 
+const TOKEN_KEY = 'apiKey';
+const SENSITIVE_KEYS = [TOKEN_KEY, 'providerApiKey', 'webSearchApiKey'];
+const DEFAULT_IDLE_TIMEOUT_MS = 30000;
+const DEFAULT_MAX_RETRIES = 1;
+const DEFAULT_BUFFER_LIMIT = 1024 * 1024;
+
+const getAuthToken = () => {
+  const sessionToken = sessionStorage.getItem(TOKEN_KEY);
+  if (sessionToken) return sessionToken;
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+const clearSensitiveSession = () => {
+  SENSITIVE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
+};
+
+const emitUnauthorized = () => {
+  window.dispatchEvent(new CustomEvent('deepsoc:unauthorized'));
+};
+
+const handleUnauthorized = () => {
+  clearSensitiveSession();
+  emitUnauthorized();
+  window.location.href = '/login';
+};
+
 const axiosApi = axios.create({
   baseURL: '/api',
   headers: {
@@ -15,7 +44,7 @@ const axiosApi = axios.create({
 
 axiosApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('apiKey');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,8 +57,7 @@ axiosApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('apiKey');
-      window.location.href = '/login';
+      handleUnauthorized();
     }
     return Promise.reject(error);
   }
@@ -37,6 +65,10 @@ axiosApi.interceptors.response.use(
 
 function toReadableErrorMessage(data, fallback = '请求失败') {
   if (!data || typeof data !== 'object') return fallback;
+
+  if (typeof data.message === 'string' && data.message.trim()) {
+    return data.message.trim();
+  }
 
   if (typeof data.chunk === 'string' && data.chunk.trim()) {
     return data.chunk.trim();
@@ -58,6 +90,36 @@ function toReadableErrorMessage(data, fallback = '请求失败') {
   return fallback;
 }
 
+function createRetryableError(message) {
+  const error = new Error(message);
+  error.retryable = true;
+  return error;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function readWithIdleTimeout(reader, timeoutMs) {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(createRetryableError(`流式响应超时（>${timeoutMs}ms）`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 function routeSseEvent(data, onData, streamOptions) {
   if (!data || typeof data !== 'object') return;
 
@@ -73,9 +135,11 @@ function routeSseEvent(data, onData, streamOptions) {
   if (data.type === 'agent_status') {
     streamOptions.onAgentStatus?.(data);
     if (data.status === 'error') {
+      const message = toReadableErrorMessage(data, '智能体执行失败');
       onData?.({
         type: 'error',
-        chunk: toReadableErrorMessage(data, '智能体执行失败'),
+        message,
+        chunk: message,
         error_detail: data.error_detail,
       });
     }
@@ -97,7 +161,16 @@ async function streamChat(
   modelOptions = {},
   streamOptions = {}
 ) {
-  const token = localStorage.getItem('apiKey');
+  const token = getAuthToken();
+  const idleTimeoutMs = Number(streamOptions.idleTimeoutMs) > 0
+    ? Number(streamOptions.idleTimeoutMs)
+    : DEFAULT_IDLE_TIMEOUT_MS;
+  const maxRetries = Number(streamOptions.maxRetries) >= 0
+    ? Number(streamOptions.maxRetries)
+    : DEFAULT_MAX_RETRIES;
+  const bufferLimit = Number(streamOptions.bufferLimitBytes) > 0
+    ? Number(streamOptions.bufferLimitBytes)
+    : DEFAULT_BUFFER_LIMIT;
 
   try {
     const body = {
@@ -126,90 +199,120 @@ async function streamChat(
     if (mode) body.mode = mode;
     if (mode === 'multi_agent' && agentConfigs) body.agent_configs = agentConfigs;
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let parsed = null;
+    const executeStream = async () => {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
 
-      try {
-        if (errorText.includes('data:')) {
-          parsed = JSON.parse(errorText.substring(errorText.indexOf('data:') + 5));
-        } else {
-          parsed = JSON.parse(errorText);
-        }
-      } catch {
-        parsed = null;
+      if (response.status === 401) {
+        handleUnauthorized();
+        throw new Error('登录状态已失效，请重新登录');
       }
 
-      throw new Error(toReadableErrorMessage(parsed, `HTTP error! status: ${response.status}`));
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        let parsed = null;
 
-    if (!response.body) {
-      throw new Error('Response body is null');
-    }
+        try {
+          if (errorText.includes('data:')) {
+            parsed = JSON.parse(errorText.substring(errorText.indexOf('data:') + 5));
+          } else {
+            parsed = JSON.parse(errorText);
+          }
+        } catch {
+          parsed = null;
+        }
 
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-    let completed = false;
-    let streamClosed = false;
+        throw new Error(toReadableErrorMessage(parsed, `HTTP error! status: ${response.status}`));
+      }
 
-    const notifyComplete = (duration) => {
-      if (completed) return;
-      completed = true;
-      onComplete?.(duration);
+      if (!response.body) {
+        throw createRetryableError('Response body is null');
+      }
+
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = '';
+      let completed = false;
+      let streamClosed = false;
+
+      const notifyComplete = (duration) => {
+        if (completed) return;
+        completed = true;
+        onComplete?.(duration);
+      };
+
+      while (true) {
+        const { value, done } = await readWithIdleTimeout(reader, idleTimeoutMs);
+
+        if (done) {
+          notifyComplete();
+          break;
+        }
+
+        buffer += value;
+        if (buffer.length > bufferLimit) {
+          throw createRetryableError('流式响应缓存超过上限，请重试');
+        }
+
+        let eolIndex;
+        while ((eolIndex = buffer.indexOf('\n\n')) !== -1) {
+          const line = buffer.substring(0, eolIndex).trim();
+          buffer = buffer.substring(eolIndex + 2);
+
+          if (!line.startsWith('data:')) continue;
+
+          const dataStr = line.substring(5).trim();
+          if (!dataStr) continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+            routeSseEvent(data, onData, streamOptions);
+
+            if (data.type === 'metadata') {
+              notifyComplete(data.duration);
+            } else if (data.type === 'done') {
+              notifyComplete(data.duration);
+              streamClosed = true;
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', dataStr, e);
+            onError?.('Failed to parse stream data');
+          }
+        }
+
+        if (streamClosed) {
+          try {
+            await reader.cancel();
+          } catch {
+            // ignore cancel errors
+          }
+          break;
+        }
+      }
     };
 
-    while (true) {
-      const { value, done } = await reader.read();
-
-      if (done) {
-        notifyComplete();
-        break;
-      }
-
-      buffer += value;
-
-      let eolIndex;
-      while ((eolIndex = buffer.indexOf('\n\n')) !== -1) {
-        const line = buffer.substring(0, eolIndex).trim();
-        buffer = buffer.substring(eolIndex + 2);
-
-        if (!line.startsWith('data:')) continue;
-
-        const dataStr = line.substring(5).trim();
-        if (!dataStr) continue;
-
-        try {
-          const data = JSON.parse(dataStr);
-          routeSseEvent(data, onData, streamOptions);
-
-          if (data.type === 'metadata') {
-            notifyComplete(data.duration);
-          } else if (data.type === 'done') {
-            notifyComplete(data.duration);
-            streamClosed = true;
-          }
-        } catch (e) {
-          console.error('Failed to parse SSE data:', dataStr, e);
-          onError?.('Failed to parse stream data');
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      try {
+        await executeStream();
+        return;
+      } catch (error) {
+        const isRetryable = Boolean(error?.retryable);
+        const canRetry = isRetryable && attempt < maxRetries;
+        if (!canRetry) {
+          throw error;
         }
-      }
 
-      if (streamClosed) {
-        try {
-          await reader.cancel();
-        } catch {
-          // ignore cancel errors
-        }
-        break;
+        const delayMs = Math.min(1000 * 2 ** attempt, 4000);
+        await sleep(delayMs);
       }
     }
   } catch (err) {
@@ -239,23 +342,31 @@ export default {
 };
 
 export async function uploadFile(file) {
-  const token = localStorage.getItem('apiKey');
+  const token = getAuthToken();
   const form = new FormData();
   form.append('file', file);
 
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const resp = await fetch('/api/upload_file', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: form,
   });
+
+  if (resp.status === 401) {
+    handleUnauthorized();
+    throw new Error('登录状态已失效，请重新登录');
+  }
 
   if (!resp.ok) {
     const txt = await resp.text();
     try {
       const data = JSON.parse(txt);
-      throw new Error(data.error || '文件上传失败');
+      throw new Error(data.error || data.message || '文件上传失败');
     } catch {
       throw new Error('文件上传失败');
     }

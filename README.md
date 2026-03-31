@@ -82,6 +82,8 @@ Browser (Vue 3 SOC Console)
 | `/api/history` | DELETE | 清空指定会话历史（`session_id`） |
 | `/api/upload_file` | POST | 上传并解析 `.txt/.docx/.xlsx` |
 | `/api/dashboard/stats` | GET | 仪表盘聚合数据 |
+| `/api/health` | GET | 基础健康检查（进程存活） |
+| `/api/ready` | GET | 就绪检查（DB + 向量检索组件） |
 
 ### 4.2 认证与会话
 
@@ -172,7 +174,7 @@ Browser (Vue 3 SOC Console)
 ### 6.2 单模型模式
 
 - 主要返回 `content` 分片事件。
-- 异常时返回 `error` 事件（可能携带结构化 `error_detail`）。
+- 异常时返回 `error` 事件（`message` + 兼容字段 `chunk`，可能携带结构化 `error_detail`）。
 
 ---
 
@@ -240,6 +242,21 @@ python manage.py runserver
 
 说明：默认端口为 `8081`，可通过环境变量 `DJANGO_PORT` 覆盖。
 
+建议启动前加载 `.env`（可复制 `django_backend/.env.example`）：
+
+```bash
+cd django_backend
+cp .env.example .env
+python manage.py runserver
+```
+
+健康检查：
+
+```bash
+curl http://localhost:8081/api/health
+curl http://localhost:8081/api/ready
+```
+
 ### 9.2 前端
 
 ```bash
@@ -269,13 +286,34 @@ ollama pull bge-large:latest
 ### 9.4 登录
 
 - 用户名：自定义
-- 密码：`secret`
+- 密码：默认 `secret`（可通过环境变量 `AUTH_PASSWORD` 覆盖）
 
 ---
 
 ## 10. 环境变量
 
 可选配置如下（也可在前端设置页填写）：
+
+后端提供示例模板：`django_backend/.env.example`
+
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `CORS_ALLOWED_ORIGINS`
+- `CSRF_TRUSTED_ORIGINS`
+- `CORS_ALLOW_CREDENTIALS`
+- `AUTH_PASSWORD`
+- `UPLOAD_MAX_BYTES`
+- `MAX_OFFICE_UNCOMPRESSED_SIZE`
+- `MAX_OFFICE_ARCHIVE_ENTRIES`
+- `TOKEN_EXPIRY_SECONDS`
+- `RATE_LIMIT_MAX`
+- `RATE_LIMIT_INTERVAL`
+- `CACHE_MAX_SIZE`
+- `CACHE_EXPIRY`
+- `SSE_IDLE_TIMEOUT_MS`
+- `SSE_MAX_RETRIES`
+- `SSE_BUFFER_LIMIT_BYTES`
 
 - `OPENAI_API_KEY`
 - `DEEPSEEK_API_KEY`
@@ -320,10 +358,9 @@ ollama pull bge-large:latest
 
 ## 12. 已知问题与边界
 
-1. Django CORS 默认配置仍含旧端口（`8090`），若出现跨域需在 `settings.py` 补充当前前端端口（`8082`）。
-2. Three.js 拓扑与背景粒子动画在低性能设备上可能存在 GPU/CPU 压力。
-3. 会话列表当前由前端本地维护，后端未提供“会话列表查询”接口。
-4. 看板属于结构化聚合呈现，深度研判能力仍依赖检索质量和模型能力。
+1. Three.js 拓扑与背景粒子动画在低性能设备上可能存在 GPU/CPU 压力。
+2. 会话列表当前由前端本地维护，后端未提供“会话列表查询”接口。
+3. 看板属于结构化聚合呈现，深度研判能力仍依赖检索质量和模型能力。
 
 ---
 

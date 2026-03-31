@@ -5,8 +5,9 @@
  */
 
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 
 const DEFAULT_AGENT_DATA = () => ({
@@ -29,6 +30,7 @@ function formatProviderError(detail, fallbackMessage = '流式响应出错') {
 export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }) {
   const chatStore = useChatStore()
   const appStore = useAppStore()
+  const authStore = useAuthStore()
 
   const { sessions, currentSession, messages: messagesBySession } = storeToRefs(chatStore)
   const {
@@ -63,6 +65,22 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     if (!candidate) return null
     return candidate?.value || candidate
   }
+
+  const handleUnauthorized = () => {
+    authStore.logout()
+    appStore.clearSensitiveKeys()
+    appStore.clearEditing()
+    appStore.setLoading(false)
+    appStore.setError('登录状态已失效，请重新登录')
+  }
+
+  onMounted(() => {
+    window.addEventListener('deepsoc:unauthorized', handleUnauthorized)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('deepsoc:unauthorized', handleUnauthorized)
+  })
 
   const scrollToBottom = async () => {
     await nextTick()
@@ -185,9 +203,10 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     }
 
     if (data.type === 'error') {
+      const fallbackMessage = data.message || data.chunk || '流式响应出错'
       const message = data.error_detail
-        ? formatProviderError(data.error_detail, data.chunk || '流式响应出错')
-        : data.chunk || '流式响应出错'
+        ? formatProviderError(data.error_detail, fallbackMessage)
+        : fallbackMessage
       appStore.setError(message)
     }
   }
@@ -238,6 +257,9 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       {
         mode: extra?.mode,
         agentConfigs: extra?.agentConfigs,
+        idleTimeoutMs: 30000,
+        maxRetries: 1,
+        bufferLimitBytes: 1024 * 1024,
         onAgentData: (data) => {
           chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.chunk || data.content || '')
           scrollToBottom()
@@ -311,9 +333,10 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
         } else if (data.type === 'metadata') {
           chatStore.updateMessageAtIndex(sessionId, aiMessageIndex, { duration: data.duration })
         } else if (data.type === 'error') {
+          const fallbackMessage = data.message || data.chunk || '流式响应出错'
           const message = data.error_detail
-            ? formatProviderError(data.error_detail, data.chunk || '流式响应出错')
-            : data.chunk || '流式响应出错'
+            ? formatProviderError(data.error_detail, fallbackMessage)
+            : fallbackMessage
           appStore.setError(message)
         }
 

@@ -89,6 +89,7 @@
 import { computed, defineEmits, defineProps, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CopyIcon, PencilIcon, RefreshIcon } from 'vue-tabler-icons'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 
@@ -102,12 +103,21 @@ marked.use({
   }
 })
 
+const sanitizeMarkdown = (markdownText) => {
+  const rendered = marked.parse(markdownText || '')
+  return DOMPurify.sanitize(rendered, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+  })
+}
+
 const ragRendered = computed(() => {
-  return marked.parse(props.agentData?.rag?.content || '...')
+  return sanitizeMarkdown(props.agentData?.rag?.content || '...')
 })
 
 const webRendered = computed(() => {
-  return marked.parse(props.agentData?.web?.content || '...')
+  return sanitizeMarkdown(props.agentData?.web?.content || '...')
 })
 
 const props = defineProps({
@@ -167,7 +177,7 @@ const toggleAgentPanel = () => {
 
 const renderedContent = computed(() => {
   if (!props.content) return ''
-  return marked.parse(props.content)
+  return sanitizeMarkdown(props.content)
 })
 
 const formatAgentStatus = (status) => {

@@ -1,16 +1,12 @@
 from django.db import models
-from django.db.models import F
 import string
 import random
 import time
 import logging
 from django.db.models.functions import Concat
 from django.db.models import Value
-import re
 
 logger = logging.getLogger(__name__)
-
-from django.db.models import indexes
 
 
 class APIKey(models.Model):
@@ -69,12 +65,27 @@ class ConversationSession(models.Model):
     class Meta:
         unique_together = ("session_id", "user")  # 确保用户+会话ID唯一
 
+    @staticmethod
+    def _escape_context_text(text: str) -> str:
+        normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+        escaped = normalized.replace("\n用户：", "\n\\用户：")
+        escaped = escaped.replace("\n回复：", "\n\\回复：")
+        return escaped
+
+    @staticmethod
+    def _unescape_context_text(text: str) -> str:
+        restored = (text or "").replace("\n\\用户：", "\n用户：")
+        restored = restored.replace("\n\\回复：", "\n回复：")
+        return restored
+
     def update_context(self, user_input, bot_reply):
         """
         原子更新上下文。
         [修复] 检查当前上下文，如果为空或格式错误（垃圾数据），则重写；否则追加。
         """
-        new_entry = f"用户：{user_input}\n回复：{bot_reply}\n"
+        safe_user_input = self._escape_context_text(user_input)
+        safe_bot_reply = self._escape_context_text(bot_reply)
+        new_entry = f"用户：{safe_user_input}\n回复：{safe_bot_reply}\n"
 
         # 获取当前上下文并去除首尾空白
         current_context = self.context.strip()
@@ -134,28 +145,34 @@ class ConversationSession(models.Model):
         if not self.context:
             return history
 
-        # 使用正则表达式（前瞻断言）按 "用户：" 分割，保留 "用户："
-        # 这样每个 'part' 都是一个 "用户：... \n回复：..." 块
-        parts = re.split(r"(?=用户：)", self.context.strip())
+        current_role = None
+        current_lines = []
 
-        for part in parts:
-            part_stripped = part.strip()
-            if not part_stripped:
+        def flush_current():
+            if not current_role:
+                return
+            joined = "\n".join(current_lines).strip()
+            content = self._unescape_context_text(joined)
+            if content:
+                history.append({"role": current_role, "content": content})
+
+        for line in self.context.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            if line.startswith("用户："):
+                flush_current()
+                current_role = "user"
+                current_lines = [line[3:]]
                 continue
 
-            # 按 "\n回复：" 分割用户和助手内容 (最多只分一次)
-            # 这样可以确保回复中的 \n 被保留
-            qa_split = re.split(r"\n回复：", part_stripped, maxsplit=1)
+            if line.startswith("回复："):
+                flush_current()
+                current_role = "assistant"
+                current_lines = [line[3:]]
+                continue
 
-            if len(qa_split) >= 1 and qa_split[0].startswith("用户："):
-                # 提取用户内容 (去掉 "用户：" 前缀)
-                user_content = qa_split[0][3:].strip()
-                history.append({"role": "user", "content": user_content})
+            if current_role:
+                current_lines.append(line)
 
-                # 如果存在回复内容
-                if len(qa_split) == 2:
-                    assistant_content = qa_split[1].strip()
-                    history.append({"role": "assistant", "content": assistant_content})
+        flush_current()
 
         return history
 

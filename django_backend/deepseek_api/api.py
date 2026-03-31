@@ -1,9 +1,12 @@
 import json
 import logging
+import os
 import re
+import zipfile
 from typing import Generator
 
 from django.conf import settings
+from django.db import connection
 from django.http import StreamingHttpResponse
 from ninja import File, NinjaAPI, Router
 from ninja.files import UploadedFile as NinjaUploadedFile
@@ -29,12 +32,60 @@ def api_key_auth(request):
         scheme, key = auth_header.split()
         if scheme.lower() != "bearer":
             return None
-        return APIKey.objects.get(key=key)
+        api_key = APIKey.objects.get(key=key)
+        if not api_key.is_valid():
+            api_key.delete()
+            return None
+        return api_key
     except (ValueError, APIKey.DoesNotExist):
         return None
 
 
 router = Router(auth=api_key_auth)
+
+
+def _sse_line(payload: dict) -> str:
+    return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+
+def _error_event(message: str, detail: dict | None = None) -> dict:
+    payload = {
+        "type": "error",
+        "message": message,
+        # 向后兼容旧前端字段
+        "chunk": message,
+    }
+    if isinstance(detail, dict) and detail:
+        payload["error_detail"] = detail
+    return payload
+
+
+def _sse_error_response(status_code: int, message: str) -> StreamingHttpResponse:
+    return StreamingHttpResponse(
+        _sse_line(_error_event(message)),
+        status=status_code,
+        content_type="text/event-stream",
+    )
+
+
+def _validate_office_archive(file_obj, filename: str) -> tuple[bool, str]:
+    file_obj.seek(0)
+    signature = file_obj.read(4)
+    file_obj.seek(0)
+    if signature != b"PK\x03\x04":
+        return False, f"{filename} 文件结构不合法"
+
+    with zipfile.ZipFile(file_obj) as archive:
+        entries = archive.infolist()
+        if len(entries) > settings.MAX_OFFICE_ARCHIVE_ENTRIES:
+            return False, "Office 文件内条目过多，疑似压缩炸弹"
+
+        total_uncompressed = sum(info.file_size for info in entries)
+        if total_uncompressed > settings.MAX_OFFICE_UNCOMPRESSED_SIZE:
+            return False, "Office 文件解压后体积过大，已拒绝"
+
+    file_obj.seek(0)
+    return True, ""
 
 
 def clean_llm_reply(reply: str) -> str:
@@ -80,29 +131,41 @@ def login(request, data: LoginIn):
     password = data.password.strip()
     if not username or not password:
         return 400, {"error": "用户名和密码不能为空"}
-    if password != "secret":
+    if password != settings.AUTH_PASSWORD:
         return 403, {"error": "密码错误"}
     key = services.create_api_key(username)
     return {"api_key": key, "expiry": settings.TOKEN_EXPIRY_SECONDS}
 
 
+@api.get("/health")
+def health(request):
+    return {
+        "status": "ok",
+        "service": "deepsoc-api",
+    }
+
+
+@api.get("/ready")
+def ready(request):
+    connection.ensure_connection()
+    log_ready = services.log_system is not None
+    status_code = 200 if log_ready else 503
+    return status_code, {
+        "status": "ready" if log_ready else "degraded",
+        "db": "ok",
+        "vector": "ok" if log_ready else "unavailable",
+    }
+
+
 @router.post("/chat")
 def chat(request, data: ChatIn):
     if not request.auth:
-        return StreamingHttpResponse(
-            "data: " + json.dumps({"type": "error", "chunk": "请先登录获取API Key"}, ensure_ascii=False) + "\n\n",
-            status=401,
-            content_type="text/event-stream",
-        )
+        return _sse_error_response(401, "请先登录获取API Key")
 
     session_id = data.session_id.strip() or "默认对话"
     user_input = data.user_input.strip()
     if not user_input:
-        return StreamingHttpResponse(
-            "data: " + json.dumps({"type": "error", "chunk": "请输入消息内容"}, ensure_ascii=False) + "\n\n",
-            status=400,
-            content_type="text/event-stream",
-        )
+        return _sse_error_response(400, "请输入消息内容")
 
     user = request.auth
     session = get_or_create_session(session_id, user)
@@ -169,10 +232,15 @@ def chat(request, data: ChatIn):
                         continue
 
                     if isinstance(raw_chunk, dict):
-                        yield "data: " + json.dumps(raw_chunk, ensure_ascii=False) + "\n\n"
+                        if raw_chunk.get("type") == "error":
+                            msg = (raw_chunk.get("message") or raw_chunk.get("chunk") or "模型调用失败").strip()
+                            detail = raw_chunk.get("error_detail")
+                            yield _sse_line(_error_event(msg, detail if isinstance(detail, dict) else None))
+                        else:
+                            yield _sse_line(raw_chunk)
                         continue
 
-                    yield "data: " + json.dumps({"type": "content", "chunk": raw_chunk}, ensure_ascii=False) + "\n\n"
+                    yield _sse_line({"type": "content", "chunk": raw_chunk})
                     full_clean_reply += raw_chunk
             else:
                 base_llm = LlmConfig(provider=selected_provider, model=selected_model, provider_api_key=provider_api_key)
@@ -189,7 +257,7 @@ def chat(request, data: ChatIn):
                     ),
                     cfg,
                 ):
-                    yield "data: " + json.dumps(evt, ensure_ascii=False) + "\n\n"
+                    yield _sse_line(evt)
                     if evt.get("type") == "agent_chunk" and evt.get("agent_id") == "synthesis":
                         full_clean_reply += evt.get("content", "")
 
@@ -217,11 +285,11 @@ def chat(request, data: ChatIn):
                 }
                 if isinstance(detail, dict):
                     payload["error_detail"] = detail
-                yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+                yield _sse_line(payload)
             else:
-                yield "data: " + json.dumps({"type": "error", "chunk": f"流处理失败: {e}"}, ensure_ascii=False) + "\n\n"
+                yield _sse_line(_error_event(f"流处理失败: {e}"))
         finally:
-            yield "data: " + json.dumps({"type": "done"}, ensure_ascii=False) + "\n\n"
+            yield _sse_line({"type": "done"})
 
     response = StreamingHttpResponse(stream_generator(), content_type="text/event-stream")
     response["X-Accel-Buffering"] = "no"
@@ -254,9 +322,26 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
     if not request.auth:
         return 401, {"error": "请先登录获取API Key"}
 
-    filename = (file.name or "").lower()
+    raw_name = (file.name or "").strip()
+    safe_name = os.path.basename(raw_name)
+    if not safe_name:
+        return 400, {"error": "文件名不能为空"}
+
+    filename = safe_name.lower()
+    _, ext = os.path.splitext(filename)
+    allowed_exts = {".txt", ".docx", ".xlsx"}
+    if ext not in allowed_exts:
+        return 400, {"error": "不支持的文件类型，仅支持 .txt / .docx / .xlsx"}
+
+    file_size = int(getattr(file, "size", 0) or 0)
+    if file_size <= 0:
+        return 400, {"error": "上传文件为空"}
+    if file_size > settings.UPLOAD_MAX_BYTES:
+        max_mb = settings.UPLOAD_MAX_BYTES // (1024 * 1024)
+        return 400, {"error": f"文件过大，最大允许 {max_mb}MB"}
+
     try:
-        if filename.endswith(".txt"):
+        if ext == ".txt":
             content_bytes = file.read()
             try:
                 text = content_bytes.decode("utf-8")
@@ -264,22 +349,30 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
                 text = content_bytes.decode("gbk", errors="ignore")
             return {"text": text}
 
-        if filename.endswith(".docx"):
+        if ext == ".docx":
             try:
                 from docx import Document
             except Exception:
                 return 400, {"error": "缺少依赖：请安装 python-docx"}
+
+            is_valid, reason = _validate_office_archive(file.file, safe_name)
+            if not is_valid:
+                return 400, {"error": reason}
 
             document = Document(file)
             paragraphs = [p.text for p in document.paragraphs if p.text]
             text = "\n".join(paragraphs)
             return {"text": text}
 
-        if filename.endswith(".xlsx"):
+        if ext == ".xlsx":
             try:
                 import openpyxl
             except Exception:
                 return 400, {"error": "缺少依赖：请安装 openpyxl"}
+
+            is_valid, reason = _validate_office_archive(file.file, safe_name)
+            if not is_valid:
+                return 400, {"error": reason}
 
             wb = openpyxl.load_workbook(file, data_only=True)
             lines = []

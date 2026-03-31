@@ -49,6 +49,8 @@ class TopKLogSystem:
         llm: str,
         embedding_model: str,
     ) -> None:
+        self.embedding_model_name = embedding_model
+        self._embedding_profile = self._resolve_embedding_profile(embedding_model)
         self.embedding_model = OllamaEmbeddings(model=embedding_model)
         self._default_llm_name = llm
         self._llm_cache: Dict[str, OllamaLLM] = {}
@@ -57,17 +59,53 @@ class TopKLogSystem:
 
         Settings.llm = self.llm
         Settings.embed_model = self.embedding_model
-        Settings.chunk_size = 400
-        Settings.chunk_overlap = 40
+        Settings.chunk_size = int(self._embedding_profile["chunk_size"])
+        Settings.chunk_overlap = int(self._embedding_profile["chunk_overlap"])
 
         self.log_path = log_path
         self.log_index = None
         self.vector_store = None
+        logger.info(
+            "嵌入模型参数档案: model=%s, chunk_size=%s, chunk_overlap=%s, index_batch_size=%s, retriever_mult=%s",
+            self.embedding_model_name,
+            self._embedding_profile["chunk_size"],
+            self._embedding_profile["chunk_overlap"],
+            self._embedding_profile["index_insert_batch_size"],
+            self._embedding_profile["retriever_k_multiplier"],
+        )
         self._build_vectorstore()
+
+    @staticmethod
+    def _resolve_embedding_profile(embedding_model: str) -> Dict[str, float]:
+        model_name = (embedding_model or "").strip().lower()
+        profile: Dict[str, float] = {
+            "chunk_size": 400,
+            "chunk_overlap": 40,
+            "index_insert_batch_size": 16,
+            "retriever_k_multiplier": 4,
+            "retriever_k_min": 20,
+            "primary_vector_floor": 0.2,
+            "primary_keyword_floor": 0.22,
+        }
+
+        if model_name.startswith("qwen3-embedding:4b"):
+            profile.update(
+                {
+                    "chunk_size": 520,
+                    "chunk_overlap": 52,
+                    "index_insert_batch_size": 12,
+                    "retriever_k_multiplier": 3,
+                    "retriever_k_min": 18,
+                    "primary_vector_floor": 0.16,
+                    "primary_keyword_floor": 0.2,
+                }
+            )
+
+        return profile
 
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
-        batch_size = 16
+        batch_size = int(self._embedding_profile["index_insert_batch_size"])
 
         if os.path.exists(vector_store_path):
             logger.info(f"加载现有向量数据库索引: {vector_store_path}")
@@ -550,7 +588,11 @@ class TopKLogSystem:
                         item["channels"].add("exact_metadata")
 
         # 2. 常规向量召回
-        retriever = self.log_index.as_retriever(similarity_top_k=max(top_k * 4, 20))
+        retriever_multiplier = int(self._embedding_profile["retriever_k_multiplier"])
+        retriever_floor = int(self._embedding_profile["retriever_k_min"])
+        retriever = self.log_index.as_retriever(
+            similarity_top_k=max(top_k * retriever_multiplier, retriever_floor)
+        )
         vector_hits = retriever.retrieve(query)
 
         for node in vector_hits:
@@ -811,8 +853,8 @@ class TopKLogSystem:
             top_k=top_k,
             use_keyword=use_keyword,
             filters=filters,
-            vector_floor=0.2,
-            keyword_floor=0.22,
+            vector_floor=float(self._embedding_profile["primary_vector_floor"]),
+            keyword_floor=float(self._embedding_profile["primary_keyword_floor"]),
         )
         ranked_items = self._rank_candidates(primary_candidates, query_signals)
 
