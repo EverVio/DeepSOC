@@ -13,9 +13,15 @@ const DEFAULT_MAX_RETRIES = 1;
 const DEFAULT_BUFFER_LIMIT = 1024 * 1024;
 
 const getAuthToken = () => {
-  const sessionToken = sessionStorage.getItem(TOKEN_KEY);
-  if (sessionToken) return sessionToken;
-  return localStorage.getItem(TOKEN_KEY);
+  const storedToken = localStorage.getItem(TOKEN_KEY);
+  if (storedToken) return storedToken;
+
+  const legacyToken = sessionStorage.getItem(TOKEN_KEY);
+  if (!legacyToken) return null;
+
+  localStorage.setItem(TOKEN_KEY, legacyToken);
+  sessionStorage.removeItem(TOKEN_KEY);
+  return legacyToken;
 };
 
 const clearSensitiveSession = () => {

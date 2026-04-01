@@ -1,3 +1,13 @@
+// ─────────────────────────────────────────────
+// TopologyDataAdapter.js
+// 职责：拓扑原始数据 → 渲染模型数据转换
+// 改进：
+//  1. risk_level → 视觉权重（颜色、辉光强度、脉冲速度）
+//  2. node value → 球体半径缩放（体积编码）
+//  3. 多层平面 Y 轴布局（db_type 上层 / tag 中层 / core 中心）
+//  4. Bezier 曲线参数预计算（controlOffset）
+// ─────────────────────────────────────────────
+
 const MAX_RENDER_NODES = 400
 const MAX_RENDER_LINKS = 900
 const TOP_TAG_LABEL_COUNT = 14
@@ -22,68 +32,52 @@ const createLinkStyle = (color, baseOpacity, label) => ({
     label,
 })
 
+// ── 节点类型基础样式 ──────────────────────────────
 export const NODE_TYPE_STYLE = {
-    core: createNodeStyle(0x00ff9d, 0.9, 0.2, 1.04, '#ccffe9', 'CORE', 34),
-    db_type: createNodeStyle(0x00b8ff, 0.66, 0.16, 0.92, '#d7f2ff', 'DB TYPE', 26),
-    tag: createNodeStyle(0xff8a2a, 0.44, 0.1, 0.8, '#ffe5cc', 'TAG', 20),
+    core: createNodeStyle(0x00ff9d, 1.2, 0.22, 1.08, '#ccffe9', 'CORE', 34),
+    db_type: createNodeStyle(0x00b8ff, 0.75, 0.18, 0.95, '#d7f2ff', 'DB TYPE', 26),
+    tag: createNodeStyle(0xff8a2a, 0.52, 0.12, 0.82, '#ffe5cc', 'TAG', 20),
 }
 
+// ── 风险等级样式覆盖层（仅影响辉光色 & 脉冲速度倍率）──
+// risk_level 字段：critical / high / medium / low / info
+export const RISK_LEVEL_STYLE = {
+    critical: { glowColor: 0xff1a3a, glowScale: 2.4, pulseMultiplier: 2.2, borderColor: '#ff1a3a' },
+    high: { glowColor: 0xff4400, glowScale: 1.9, pulseMultiplier: 1.7, borderColor: '#ff4400' },
+    medium: { glowColor: 0xffaa00, glowScale: 1.4, pulseMultiplier: 1.2, borderColor: '#ffaa00' },
+    low: { glowColor: null, glowScale: 1.0, pulseMultiplier: 1.0, borderColor: null },
+    info: { glowColor: null, glowScale: 0.8, pulseMultiplier: 0.8, borderColor: null },
+}
+
+// ── 连线严重程度样式 ──────────────────────────────
 export const LINK_SEVERITY_STYLE = {
     high: createLinkStyle(0xff0055, 0.92, 'HIGH'),
     medium: createLinkStyle(0xff6a00, 0.72, 'MEDIUM'),
     low: createLinkStyle(0x00e5ff, 0.55, 'LOW'),
 }
 
+// ── 图例定义 ──────────────────────────────────────
 export const NODE_LEGEND_ITEMS = [
-    {
-        key: 'core',
-        label: 'CORE',
-        note: 'Always labeled',
-        color: NODE_TYPE_STYLE.core.cssColor,
-    },
-    {
-        key: 'db_type',
-        label: 'DB TYPE',
-        note: 'Always labeled',
-        color: NODE_TYPE_STYLE.db_type.cssColor,
-    },
-    {
-        key: 'tag',
-        label: 'TAG',
-        note: 'Top-value labels',
-        color: NODE_TYPE_STYLE.tag.cssColor,
-    },
+    { key: 'core', label: 'CORE', note: 'Always labeled', color: NODE_TYPE_STYLE.core.cssColor },
+    { key: 'db_type', label: 'DB TYPE', note: 'Always labeled', color: NODE_TYPE_STYLE.db_type.cssColor },
+    { key: 'tag', label: 'TAG', note: 'Top-value labels', color: NODE_TYPE_STYLE.tag.cssColor },
 ]
 
 export const LINK_LEGEND_ITEMS = [
-    {
-        key: 'high',
-        label: LINK_SEVERITY_STYLE.high.label,
-        color: LINK_SEVERITY_STYLE.high.cssColor,
-        opacity: LINK_SEVERITY_STYLE.high.baseOpacity,
-    },
-    {
-        key: 'medium',
-        label: LINK_SEVERITY_STYLE.medium.label,
-        color: LINK_SEVERITY_STYLE.medium.cssColor,
-        opacity: LINK_SEVERITY_STYLE.medium.baseOpacity,
-    },
-    {
-        key: 'low',
-        label: LINK_SEVERITY_STYLE.low.label,
-        color: LINK_SEVERITY_STYLE.low.cssColor,
-        opacity: LINK_SEVERITY_STYLE.low.baseOpacity,
-    },
+    { key: 'high', label: LINK_SEVERITY_STYLE.high.label, color: LINK_SEVERITY_STYLE.high.cssColor, opacity: LINK_SEVERITY_STYLE.high.baseOpacity },
+    { key: 'medium', label: LINK_SEVERITY_STYLE.medium.label, color: LINK_SEVERITY_STYLE.medium.cssColor, opacity: LINK_SEVERITY_STYLE.medium.baseOpacity },
+    { key: 'low', label: LINK_SEVERITY_STYLE.low.label, color: LINK_SEVERITY_STYLE.low.cssColor, opacity: LINK_SEVERITY_STYLE.low.baseOpacity },
 ]
 
+// ── Fallback 演示数据 ─────────────────────────────
 export const createFallbackRawTopology = () => ({
     nodes: [
-        { id: 'core', name: 'DeepSOC Core', type: 'core', x: 0, y: 0, z: 0, value: 1 },
-        { id: 'db_type:ioc', name: 'IOC', type: 'db_type', x: -20, y: 4, z: 14, value: 42 },
-        { id: 'db_type:cve', name: 'CVE', type: 'db_type', x: 22, y: -4, z: 10, value: 36 },
-        { id: 'tag:scanner', name: 'scanner', type: 'tag', x: -28, y: 2, z: 18, value: 16 },
-        { id: 'tag:rce', name: 'rce', type: 'tag', x: 30, y: -1, z: 6, value: 11 },
-        { id: 'tag:botnet', name: 'botnet', type: 'tag', x: 17, y: 7, z: -22, value: 9 },
+        { id: 'core', name: 'DeepSOC Core', type: 'core', value: 1, risk_level: 'low' },
+        { id: 'db_type:ioc', name: 'IOC', type: 'db_type', value: 42, risk_level: 'high' },
+        { id: 'db_type:cve', name: 'CVE', type: 'db_type', value: 36, risk_level: 'critical' },
+        { id: 'tag:scanner', name: 'scanner', type: 'tag', value: 16, risk_level: 'medium' },
+        { id: 'tag:rce', name: 'rce', type: 'tag', value: 11, risk_level: 'high' },
+        { id: 'tag:botnet', name: 'botnet', type: 'tag', value: 9, risk_level: 'medium' },
     ],
     links: [
         { source: 'core', target: 'db_type:ioc', severity: 'medium', weight: 42 },
@@ -94,6 +88,7 @@ export const createFallbackRawTopology = () => ({
     ],
 })
 
+// ── 工具函数 ──────────────────────────────────────
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
 export const toFiniteNumber = (value, fallback = 0) => {
@@ -114,11 +109,61 @@ export const normalizeSeverity = (rawSeverity) => {
     return LINK_SEVERITY_STYLE[value] ? value : 'low'
 }
 
+/** 标准化 risk_level 字段 */
+export const normalizeRiskLevel = (rawRisk) => {
+    const value = String(rawRisk || '').trim().toLowerCase()
+    return RISK_LEVEL_STYLE[value] ? value : 'low'
+}
+
 export const getNodeStyle = (rawType) => NODE_TYPE_STYLE[normalizeNodeType(rawType)] || NODE_TYPE_STYLE.tag
-
 export const getLinkStyle = (rawSeverity) => LINK_SEVERITY_STYLE[normalizeSeverity(rawSeverity)] || LINK_SEVERITY_STYLE.low
-
+export const getRiskStyle = (rawRisk) => RISK_LEVEL_STYLE[normalizeRiskLevel(rawRisk)] || RISK_LEVEL_STYLE.low
 export const getLinkWeight = (link) => Math.max(1, toFiniteNumber(link?.weight, 1))
+
+/**
+ * 根据节点 value 和 maxValue 计算球体半径缩放倍率（视觉权重编码）
+ * core 节点固定 1.0，db_type 和 tag 节点按 value 在 [0.6, 1.8] 范围线性映射
+ */
+export const calcRadiusScale = (node, maxValue) => {
+    if (node.type === 'core') return 1.0
+    if (!maxValue || maxValue <= 0) return 1.0
+    const ratio = clamp(toFiniteNumber(node.value, 0) / maxValue, 0, 1)
+    return 0.6 + ratio * 1.2
+}
+
+/**
+ * 多层平面 Y 轴布局：
+ *   core    → Y = 0
+ *   db_type → Y ∈ [8, 12]  （上层）
+ *   tag     → Y ∈ [-8, -3] （下层）
+ * X / Z 按环形分散排列
+ */
+export const calcLayerPosition = (node, index, sameTypeList) => {
+    const total = Math.max(sameTypeList.length, 1)
+    const rankIdx = sameTypeList.indexOf(node.id)
+    const angle = (rankIdx / total) * Math.PI * 2
+
+    if (node.type === 'core') {
+        return { x: 0, y: 0, z: 0 }
+    }
+
+    if (node.type === 'db_type') {
+        const radius = 16 + total * 1.4
+        return {
+            x: Math.cos(angle) * radius,
+            y: 10 + (rankIdx % 2) * 3,
+            z: Math.sin(angle) * radius,
+        }
+    }
+
+    // tag
+    const radius = 26 + total * 0.8
+    return {
+        x: Math.cos(angle) * radius,
+        y: -6 - (rankIdx % 3) * 2,
+        z: Math.sin(angle) * radius,
+    }
+}
 
 const normalizeWeight = (weight, minWeight, maxWeight) => {
     if (maxWeight <= minWeight) return 1
@@ -170,6 +215,7 @@ const prioritizeTopology = (rawNodes, rawLinks) => {
             ...sourceNode,
             id: nodeId,
             type: normalizeNodeType(sourceNode.type),
+            risk_level: normalizeRiskLevel(sourceNode.risk_level),
             value: Math.max(0, toFiniteNumber(sourceNode.value, 0)),
         }
 
@@ -256,10 +302,34 @@ export const buildTopologyModel = (topology = {}, options = {}) => {
 
     const normalized = prioritizeTopology(sourceTopology.nodes, sourceTopology.links)
     const labelNodeIds = selectLabelNodeIds(normalized.nodes, normalized.degreeMap)
-    const nodesWithDegree = normalized.nodes.map((node) => ({
-        ...node,
-        degree: normalized.degreeMap.get(node.id) || 0,
-    }))
+
+    // ── 按类型分组，用于多层布局 ──
+    const typeGroups = { core: [], db_type: [], tag: [] }
+    for (const node of normalized.nodes) {
+        typeGroups[node.type]?.push(node.id)
+    }
+
+    // ── 计算最大 value 用于半径缩放 ──
+    const maxValue = normalized.nodes.reduce((m, n) => Math.max(m, n.value || 0), 0)
+
+    const nodesWithDegree = normalized.nodes.map((node) => {
+        const degree = normalized.degreeMap.get(node.id) || 0
+        const riskStyle = getRiskStyle(node.risk_level)
+        const radiusScale = calcRadiusScale(node, maxValue)
+
+        // 如果节点没有显式坐标，则使用多层布局计算坐标
+        const hasCoords = Number.isFinite(node.x) && Number.isFinite(node.y) && Number.isFinite(node.z)
+        const layerPos = hasCoords ? { x: node.x, y: node.y, z: node.z } : calcLayerPosition(node, 0, typeGroups[node.type] || [])
+
+        return {
+            ...node,
+            ...layerPos,
+            degree,
+            riskStyle,
+            radiusScale,
+        }
+    })
+
     const weights = normalized.links.map((link) => getLinkWeight(link))
     const stats = createStats({
         sourceNodeCount: sourceTopology.nodes.length,
@@ -275,6 +345,7 @@ export const buildTopologyModel = (topology = {}, options = {}) => {
         degreeMap: normalized.degreeMap,
         labelNodeIds,
         stats,
+        maxValue,
         options: {
             maxRenderNodes: options.maxRenderNodes || MAX_RENDER_NODES,
             maxRenderLinks: options.maxRenderLinks || MAX_RENDER_LINKS,

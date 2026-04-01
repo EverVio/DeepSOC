@@ -10,6 +10,8 @@ __pycache__/
 db.sqlite3
 /media/
 
+.env
+
 django_backend/data/vector_stores/
 
 # vscode

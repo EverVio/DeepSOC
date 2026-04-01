@@ -29,10 +29,26 @@
       </div>
     </div>
 
+    <!-- 风险等级筛选条 -->
+    <div class="topology-filter-bar">
+      <span class="filter-label">FILTER:</span>
+      <button
+        v-for="f in riskFilters"
+        :key="f.key"
+        class="filter-chip"
+        :class="{ 'filter-chip--active': activeRiskFilter === f.key, [`filter-chip--${f.key}`]: true }"
+        type="button"
+        @click="setRiskFilter(f.key)"
+      >
+        <span class="filter-chip-dot" :style="{ background: f.color }"></span>
+        {{ f.label }}
+      </button>
+    </div>
+
     <div
       v-show="tooltip.show"
       class="topology-tooltip"
-      :class="{ 'topology-tooltip--locked': tooltip.locked }"
+      :class="{ 'topology-tooltip--locked': tooltip.locked, [`topology-tooltip--risk-${tooltip.riskLevel}`]: Boolean(tooltip.riskLevel) }"
       :style="tooltipStyle"
     >
       <div class="tooltip-head">
@@ -40,6 +56,13 @@
         <div v-if="tooltip.locked" class="tooltip-badge">LOCKED</div>
       </div>
       <div v-if="tooltip.type" class="tooltip-type">Type: {{ tooltip.type }}</div>
+      <div v-if="tooltip.riskLevel" class="tooltip-risk" :class="`tooltip-risk--${tooltip.riskLevel}`">
+        <span class="tooltip-risk-dot"></span>
+        RISK: {{ tooltip.riskLevel.toUpperCase() }}
+      </div>
+      <div v-if="tooltip.riskLevel" class="tooltip-energy">
+        <span class="tooltip-energy-fill" :style="{ width: `${tooltipEnergy}%` }"></span>
+      </div>
       <div class="tooltip-metric">Value: {{ tooltip.valueText }}</div>
       <div class="tooltip-metric">Degree: {{ tooltip.degreeText }}</div>
       <div class="tooltip-meta">{{ tooltip.mode.toUpperCase() }}</div>
@@ -57,6 +80,12 @@
           <span class="legend-dot" :style="{ backgroundColor: item.color, boxShadow: `0 0 9px ${item.color}` }"></span>
           <span class="legend-label">{{ item.label }}</span>
           <span class="legend-note">{{ item.note }}</span>
+        </div>
+        <div class="legend-separator"></div>
+        <div class="legend-title legend-title--sub">RISK LEVEL</div>
+        <div v-for="item in riskLegendItems" :key="item.key" class="legend-item">
+          <span class="legend-dot legend-dot--risk" :style="{ backgroundColor: item.color, boxShadow: `0 0 7px ${item.color}` }"></span>
+          <span class="legend-label">{{ item.label }}</span>
         </div>
       </div>
 
@@ -112,6 +141,7 @@ const tooltip = shallowRef({
   type: '',
   valueText: '',
   degreeText: '',
+  riskLevel: '',
   mode: 'hover',
   locked: false,
   nodeId: '',
@@ -120,9 +150,32 @@ const tooltip = shallowRef({
 const topologyModel = ref(buildTopologyModel(props.topology))
 const tooltipStyle = computed(() => ({ left: `${tooltip.value.x}px`, top: `${tooltip.value.y}px` }))
 const legendStats = computed(() => topologyModel.value?.stats || { minWeight: 0, maxWeight: 0, renderedNodes: 0, totalNodes: 0, renderedLinks: 0, totalLinks: 0 })
+
+const riskFilters = [
+  { key: 'all',      label: 'ALL',      color: '#7fa8b6' },
+  { key: 'critical', label: 'CRITICAL', color: '#ff1a3a' },
+  { key: 'high',     label: 'HIGH',     color: '#ff4400' },
+  { key: 'medium',   label: 'MEDIUM',   color: '#ffaa00' },
+  { key: 'low',      label: 'LOW',      color: '#00b8ff' },
+]
+const activeRiskFilter = ref('all')
+
+const riskLegendItems = [
+  { key: 'critical', label: 'CRITICAL', color: '#ff1a3a' },
+  { key: 'high',     label: 'HIGH',     color: '#ff4400' },
+  { key: 'medium',   label: 'MEDIUM',   color: '#ffaa00' },
+  { key: 'low',      label: 'LOW / INFO', color: '#00b8ff' },
+]
 const summaryText = computed(() => getTopologySummaryText(topologyModel.value))
 const hasActiveSelection = computed(() => Boolean(activeNodeId.value || focusedNodeId.value || pinnedNodeId.value))
 const pinButtonLabel = computed(() => (pinnedNodeId.value ? 'UNPIN NODE' : 'PIN NODE'))
+const tooltipEnergy = computed(() => {
+  const level = String(tooltip.value.riskLevel || 'low').toLowerCase()
+  if (level === 'critical') return 100
+  if (level === 'high') return 82
+  if (level === 'medium') return 62
+  return 38
+})
 
 let topologyEngine = null
 
@@ -137,18 +190,10 @@ const handleNodeStateChange = (payload) => {
   if (!payload || payload.show === false) {
     Object.assign(tooltip.value, {
       show: false,
-      x: 0,
-      y: 0,
-      title: '',
-      type: '',
-      valueText: '',
-      degreeText: '',
-      mode: 'hover',
-      locked: false,
-      nodeId: '',
-      pinnedNodeId: '',
-      focusedNodeId: '',
-      hoveredNodeId: '',
+      x: 0, y: 0,
+      title: '', type: '', valueText: '', degreeText: '',
+      riskLevel: '', mode: 'hover', locked: false,
+      nodeId: '', pinnedNodeId: '', focusedNodeId: '', hoveredNodeId: '',
     })
     triggerRef(tooltip)
     activeNodeId.value = ''
@@ -161,25 +206,39 @@ const handleNodeStateChange = (payload) => {
     show: true,
     x: payload.x ?? 0,
     y: payload.y ?? 0,
-    title: payload.title || '',
-    type: payload.type || '',
-    valueText: payload.valueText || '0',
+    title:      payload.title      || '',
+    type:       payload.type       || '',
+    valueText:  payload.valueText  || '0',
     degreeText: payload.degreeText || '0',
-    mode: payload.mode || 'hover',
-    locked: Boolean(payload.locked),
-    nodeId: payload.nodeId || '',
-    pinnedNodeId: payload.pinnedNodeId || '',
-    focusedNodeId: payload.focusedNodeId || '',
-    hoveredNodeId: payload.hoveredNodeId || '',
+    riskLevel:  payload.riskLevel  || '',
+    mode:       payload.mode       || 'hover',
+    locked:     Boolean(payload.locked),
+    nodeId:         payload.nodeId         || '',
+    pinnedNodeId:   payload.pinnedNodeId   || '',
+    focusedNodeId:  payload.focusedNodeId  || '',
+    hoveredNodeId:  payload.hoveredNodeId  || '',
   })
   triggerRef(tooltip)
-  activeNodeId.value = payload.nodeId || ''
+  activeNodeId.value  = payload.nodeId        || ''
   focusedNodeId.value = payload.focusedNodeId || ''
-  pinnedNodeId.value = payload.pinnedNodeId || ''
+  pinnedNodeId.value  = payload.pinnedNodeId  || ''
 }
 
 const handleStatusChange = (text) => {
   statusText.value = text || 'READY'
+}
+
+// ── 风险等级过滤 ──────────────────────────────────
+const setRiskFilter = (key) => {
+  activeRiskFilter.value = key
+  if (!topologyEngine) return
+  if (key === 'all') {
+    topologyEngine.setNodeFilter(null)
+    handleStatusChange('FILTER: ALL')
+  } else {
+    topologyEngine.setNodeFilter((record) => record.riskLevel === key)
+    handleStatusChange(`FILTER: ${key.toUpperCase()}`)
+  }
 }
 
 const handleSearch = () => {
@@ -262,8 +321,27 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 45%, rgba(0, 229, 255, 0.08), transparent 60%),
-    linear-gradient(180deg, rgba(5, 8, 20, 0.96), rgba(5, 8, 20, 0.88));
+    radial-gradient(circle at 50% 45%, rgba(0, 209, 255, 0.13), transparent 56%),
+    radial-gradient(circle at 15% 15%, rgba(106, 168, 255, 0.12), transparent 45%),
+    linear-gradient(180deg, rgba(5, 8, 20, 0.98), rgba(6, 16, 34, 0.92));
+}
+
+.topology-scene::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 78% 20%, rgba(143, 196, 255, 0.08), transparent 38%),
+    repeating-linear-gradient(
+      115deg,
+      rgba(128, 194, 255, 0.04) 0,
+      rgba(128, 194, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 16px
+    );
+  mix-blend-mode: screen;
+  z-index: 0;
 }
 
 .topology-scene :deep(canvas) {
@@ -272,6 +350,88 @@ onBeforeUnmount(() => {
   height: 100% !important;
   position: absolute;
   inset: 0;
+}
+
+/* ── 风险筛选条 ─────────────────────────────────── */
+.topology-filter-bar {
+  position: absolute;
+  left: 10px;
+  top: 52px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+
+.filter-label {
+  color: rgba(151, 215, 236, 0.55);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+  margin-right: 2px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  background: linear-gradient(125deg, rgba(202, 231, 255, 0.1), rgba(14, 39, 73, 0.56));
+  color: rgba(196, 232, 248, 0.8);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.22s ease;
+  backdrop-filter: blur(7px) saturate(118%);
+}
+
+.filter-chip:hover {
+  border-color: rgba(0, 229, 255, 0.45);
+  color: #d8f5ff;
+}
+
+.filter-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.filter-chip--active.filter-chip--all {
+  border-color: rgba(127, 168, 182, 0.7);
+  background: rgba(127, 168, 182, 0.1);
+  color: #d8f5ff;
+  box-shadow: 0 0 8px rgba(127, 168, 182, 0.2);
+}
+.filter-chip--active.filter-chip--critical {
+  border-color: rgba(255, 26, 58, 0.7);
+  background: rgba(255, 26, 58, 0.1);
+  color: #ff8899;
+  box-shadow: 0 0 10px rgba(255, 26, 58, 0.28);
+}
+.filter-chip--active.filter-chip--high {
+  border-color: rgba(255, 68, 0, 0.7);
+  background: rgba(255, 68, 0, 0.1);
+  color: #ffaa66;
+  box-shadow: 0 0 10px rgba(255, 68, 0, 0.28);
+}
+.filter-chip--active.filter-chip--medium {
+  border-color: rgba(255, 170, 0, 0.7);
+  background: rgba(255, 170, 0, 0.1);
+  color: #ffd97a;
+  box-shadow: 0 0 10px rgba(255, 170, 0, 0.25);
+}
+.filter-chip--active.filter-chip--low {
+  border-color: rgba(0, 184, 255, 0.6);
+  background: rgba(0, 184, 255, 0.08);
+  color: #88ddff;
+  box-shadow: 0 0 8px rgba(0, 184, 255, 0.2);
 }
 
 .topology-toolbar {
@@ -306,7 +466,7 @@ onBeforeUnmount(() => {
   min-width: 180px;
   height: 30px;
   border: 1px solid rgba(0, 229, 255, 0.22);
-  background: rgba(4, 9, 20, 0.82);
+  background: linear-gradient(135deg, rgba(190, 228, 255, 0.08), rgba(8, 21, 44, 0.7));
   color: #d8f5ff;
   padding: 0 10px;
   font-family: var(--font-mono);
@@ -328,7 +488,7 @@ onBeforeUnmount(() => {
   height: 30px;
   padding: 0 10px;
   border: 1px solid rgba(0, 229, 255, 0.24);
-  background: rgba(0, 229, 255, 0.06);
+  background: linear-gradient(130deg, rgba(166, 225, 255, 0.1), rgba(4, 24, 54, 0.62));
   color: #97d7ec;
   font-family: var(--font-mono);
   font-size: 0.54rem;
@@ -368,9 +528,10 @@ onBeforeUnmount(() => {
   max-width: 220px;
   padding: 8px 11px;
   border-radius: 5px;
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  background: rgba(5, 8, 20, 0.92);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(128, 200, 255, 0.44);
+  background: linear-gradient(140deg, rgba(190, 233, 255, 0.14), rgba(4, 12, 28, 0.88));
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.46), inset 0 0 0 1px rgba(170, 228, 255, 0.16);
+  backdrop-filter: blur(9px) saturate(126%);
   color: #d8f5ff;
   transform: translate(0, 0);
 }
@@ -424,6 +585,24 @@ onBeforeUnmount(() => {
   color: #b8deea;
 }
 
+.tooltip-energy {
+  position: relative;
+  height: 5px;
+  margin-top: 5px;
+  border: 1px solid rgba(137, 204, 255, 0.28);
+  background: rgba(10, 26, 48, 0.72);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tooltip-energy-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22d3ff, #5ba8ff);
+  box-shadow: 0 0 8px rgba(56, 184, 255, 0.5);
+}
+
 .tooltip-meta {
   margin-top: 5px;
   color: rgba(151, 215, 236, 0.62);
@@ -449,7 +628,7 @@ onBeforeUnmount(() => {
   min-height: 22px;
   padding: 0 8px;
   border: 1px solid rgba(0, 229, 255, 0.22);
-  background: rgba(4, 9, 20, 0.8);
+  background: linear-gradient(132deg, rgba(197, 233, 255, 0.11), rgba(6, 24, 48, 0.74));
   color: #97d7ec;
   font-family: var(--font-mono);
   font-size: 0.5rem;
@@ -474,10 +653,10 @@ onBeforeUnmount(() => {
 .legend-block {
   min-width: 168px;
   padding: 7px 9px;
-  border: 1px solid rgba(0, 229, 255, 0.28);
+  border: 1px solid rgba(118, 197, 255, 0.34);
   border-radius: 5px;
-  background: rgba(4, 9, 20, 0.75);
-  backdrop-filter: blur(2px);
+  background: linear-gradient(135deg, rgba(192, 231, 255, 0.1), rgba(8, 29, 55, 0.76));
+  backdrop-filter: blur(8px) saturate(120%);
 }
 
 .legend-title {
@@ -542,6 +721,58 @@ onBeforeUnmount(() => {
 .legend-divider {
   margin: 0 5px;
   color: rgba(125, 176, 197, 0.75);
+}
+
+/* ── Risk level tooltip styles ──────────────────── */
+.tooltip-risk {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+}
+
+.tooltip-risk-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-risk--critical { color: #ff1a3a; }
+.tooltip-risk--critical .tooltip-risk-dot { background: #ff1a3a; box-shadow: 0 0 6px #ff1a3a; }
+
+.tooltip-risk--high { color: #ff6622; }
+.tooltip-risk--high .tooltip-risk-dot { background: #ff4400; box-shadow: 0 0 6px #ff4400; }
+
+.tooltip-risk--medium { color: #ffcc44; }
+.tooltip-risk--medium .tooltip-risk-dot { background: #ffaa00; box-shadow: 0 0 5px #ffaa00; }
+
+.tooltip-risk--low,
+.tooltip-risk--info { color: #7fa8b6; }
+.tooltip-risk--low .tooltip-risk-dot,
+.tooltip-risk--info .tooltip-risk-dot { background: #00b8ff; box-shadow: 0 0 4px #00b8ff; }
+
+/* ── Risk level legend extras ────────────────────── */
+.legend-separator {
+  height: 1px;
+  background: rgba(0, 229, 255, 0.14);
+  margin: 6px 0;
+}
+
+.legend-title--sub {
+  font-size: 0.47rem;
+  color: rgba(180, 239, 255, 0.7);
+  margin-bottom: 4px;
+}
+
+.legend-dot--risk {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
 }
 
 @media (max-width: 900px) {

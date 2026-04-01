@@ -24,7 +24,7 @@
           </NAlert>
 
           <NFormItem label="用户名">
-            <NInput v-model:value="username" placeholder="例如: admin" :disabled="loading" />
+            <NInput v-model:value="username" autocomplete="username" placeholder="例如: admin" :disabled="loading" />
           </NFormItem>
 
           <NFormItem label="密码">
@@ -32,6 +32,7 @@
               v-model:value="password"
               type="password"
               show-password-on="mousedown"
+              autocomplete="current-password"
               placeholder="输入密码 (默认: secret)"
               :disabled="loading"
             />
@@ -53,13 +54,21 @@ import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import { useAuthStore } from '../stores/authStore'
 import api from '../api'
 
-const username = ref('')
-const password = ref('')
+const LOGIN_USERNAME_KEY = 'loginUsername'
+const LOGIN_PASSWORD_KEY = 'loginPassword'
+
+const username = ref(localStorage.getItem(LOGIN_USERNAME_KEY) || '')
+const password = ref(localStorage.getItem(LOGIN_PASSWORD_KEY) || '')
 const loading = ref(false)
 const error = ref('')
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const persistLoginCredentials = () => {
+  localStorage.setItem(LOGIN_USERNAME_KEY, username.value)
+  localStorage.setItem(LOGIN_PASSWORD_KEY, password.value)
+}
 
 const handleLogin = async () => {
   loading.value = true
@@ -67,6 +76,7 @@ const handleLogin = async () => {
 
   try {
     const response = await api.login(username.value, password.value)
+    persistLoginCredentials()
     authStore.setApiKey(response.data.api_key)
     router.push('/')
   } catch (err) {

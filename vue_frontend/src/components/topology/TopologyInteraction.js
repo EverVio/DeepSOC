@@ -5,6 +5,12 @@ import { TopologyRenderer } from './TopologyRenderer.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3)
+const bezierPoint = (a, c, b, t) => {
+    const inv = 1 - t
+    return a.clone().multiplyScalar(inv * inv)
+        .add(c.clone().multiplyScalar(2 * inv * t))
+        .add(b.clone().multiplyScalar(t * t))
+}
 
 export class TopologyInteraction extends TopologyRenderer {
     constructor(options = {}) {
@@ -180,14 +186,33 @@ export class TopologyInteraction extends TopologyRenderer {
         const cameraPosition = targetPosition.clone().add(direction.multiplyScalar(cameraDistance))
         cameraPosition.y += cameraDistance * 0.12
 
+        const startPosition = this.camera.position.clone()
+        const startTarget = this.controls.target.clone()
+        const span = startPosition.distanceTo(cameraPosition)
+        const lateral = new THREE.Vector3(direction.z, 0, -direction.x)
+        if (lateral.lengthSq() < 0.0001) {
+            lateral.set(0.6, 0, 0.2)
+        }
+        lateral.normalize()
+
+        const arcLift = clamp(cameraDistance * 0.32, 2.6, 10)
+        const arcSide = clamp(span * 0.16, 0, 7)
+        const controlPosition = startPosition.clone().lerp(cameraPosition, 0.5)
+            .add(new THREE.Vector3(0, arcLift, 0))
+            .add(lateral.multiplyScalar(arcSide))
+        const controlTarget = startTarget.clone().lerp(targetPosition, 0.5)
+            .add(new THREE.Vector3(0, arcLift * 0.22, 0))
+
         this.cameraTween = {
             active: true,
             progress: 0,
-            duration: options.immediate ? 0 : 0.55,
-            startPosition: this.camera.position.clone(),
+            duration: options.immediate ? 0 : 0.78,
+            startPosition,
             endPosition: cameraPosition,
-            startTarget: this.controls.target.clone(),
+            controlPosition,
+            startTarget,
             endTarget: targetPosition.clone(),
+            controlTarget,
         }
 
         this.setHoveredNodeId(record.id)
@@ -282,8 +307,8 @@ export class TopologyInteraction extends TopologyRenderer {
 
         tween.progress = clamp(tween.progress + deltaSeconds / tween.duration, 0, 1)
         const eased = easeOutCubic(tween.progress)
-        this.camera.position.lerpVectors(tween.startPosition, tween.endPosition, eased)
-        this.controls.target.lerpVectors(tween.startTarget, tween.endTarget, eased)
+        this.camera.position.copy(bezierPoint(tween.startPosition, tween.controlPosition, tween.endPosition, eased))
+        this.controls.target.copy(bezierPoint(tween.startTarget, tween.controlTarget, tween.endTarget, eased))
         this.controls.update()
 
         if (tween.progress >= 1) {

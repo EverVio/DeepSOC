@@ -7,14 +7,14 @@
 import { defineStore } from 'pinia'
 
 const readSensitiveValue = (key) => {
-  const sessionValue = sessionStorage.getItem(key)
-  if (sessionValue !== null) return sessionValue
+  const storedValue = localStorage.getItem(key)
+  if (storedValue !== null) return storedValue
 
-  const legacyValue = localStorage.getItem(key)
+  const legacyValue = sessionStorage.getItem(key)
   if (legacyValue === null) return ''
 
-  sessionStorage.setItem(key, legacyValue)
-  localStorage.removeItem(key)
+  localStorage.setItem(key, legacyValue)
+  sessionStorage.removeItem(key)
   return legacyValue
 }
 
@@ -93,26 +93,26 @@ export const useAppStore = defineStore('app', {
 
     setProviderApiKey(apiKey) {
       this.providerApiKey = apiKey || ''
-      sessionStorage.setItem('providerApiKey', this.providerApiKey)
-      localStorage.removeItem('providerApiKey')
+      localStorage.setItem('providerApiKey', this.providerApiKey)
+      sessionStorage.removeItem('providerApiKey')
     },
 
     clearProviderApiKey() {
       this.providerApiKey = ''
-      sessionStorage.removeItem('providerApiKey')
       localStorage.removeItem('providerApiKey')
+      sessionStorage.removeItem('providerApiKey')
     },
 
     setWebSearchApiKey(apiKey) {
       this.webSearchApiKey = apiKey || ''
-      sessionStorage.setItem('webSearchApiKey', this.webSearchApiKey)
-      localStorage.removeItem('webSearchApiKey')
+      localStorage.setItem('webSearchApiKey', this.webSearchApiKey)
+      sessionStorage.removeItem('webSearchApiKey')
     },
 
     clearWebSearchApiKey() {
       this.webSearchApiKey = ''
-      sessionStorage.removeItem('webSearchApiKey')
       localStorage.removeItem('webSearchApiKey')
+      sessionStorage.removeItem('webSearchApiKey')
     },
 
     clearSensitiveKeys() {
