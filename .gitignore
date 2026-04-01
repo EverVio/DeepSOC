@@ -34,3 +34,4 @@ attack_patterns.csv
 build_attack_patterns.py
 coreruleset
 generate_csv.py
+PayloadsAllTheThings/
