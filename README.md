@@ -50,6 +50,14 @@ DeepSOC 是一个面向网络安全日志分析场景的 SOC（Security Operatio
 - 设置页：Provider/模型/API Key 配置、会话 HTML 导出、退出登录。
 - 状态持久化：Pinia + localStorage（登录态、会话草稿、模型配置等）。
 
+### 2.4 情报查询页（新增）
+
+- 新增 `IntelQuery` 情报查询页，提供 Data Grid + Master-Detail 主从分析界面。
+- 支持关键词、数据类型、风险等级、来源、时间范围、排序字段与排序方向筛选。
+- 查询结果区支持横向滚动查看宽表字段，详情区支持独立滚动浏览原始内容。
+- 支持一键发送到分析终端，复用现有会话跳转链路进行进一步研判。
+- 导出入口已升级为居中悬浮导出面板，可配置导出格式、导出范围、字段选择、是否包含详情以及文件名前缀。
+
 ---
 
 ## 3. 系统架构（当前实现）
@@ -82,6 +90,10 @@ Browser (Vue 3 SOC Console)
 | `/api/history` | DELETE | 清空指定会话历史（`session_id`） |
 | `/api/upload_file` | POST | 上传并解析 `.txt/.docx/.xlsx` |
 | `/api/dashboard/stats` | GET | 仪表盘聚合数据 |
+| `/api/query/logs` | GET | 情报查询列表（支持分页、过滤、排序） |
+| `/api/query/logs/{record_id}` | GET | 情报记录详情 |
+| `/api/query/facets` | GET | 情报查询分面统计 |
+| `/api/query/export` | GET | 情报查询导出（CSV / JSON，可配置字段与范围） |
 | `/api/health` | GET | 基础健康检查（进程存活） |
 | `/api/ready` | GET | 就绪检查（DB + 向量检索组件） |
 
@@ -121,7 +133,7 @@ Browser (Vue 3 SOC Console)
 
 ### 5.1 路由与布局
 
-- 路由：`/login`、`/dashboard`、`/chat`、`/settings`。
+- 路由：`/login`、`/dashboard`、`/chat`、`/intel`、`/settings`。
 - 布局：`GlobalLayout` 负责侧栏导航、顶部状态栏和页面容器。
 
 ### 5.2 分析终端（Chat）
@@ -146,6 +158,13 @@ Browser (Vue 3 SOC Console)
 - 配置 Provider、模型、Provider API Key、Web Search API Key。
 - 支持按会话导出 HTML 记录。
 - 支持一键退出登录。
+
+### 5.5 情报查询页（IntelQuery）
+
+- 提供情报数据检索、结果列表、主从详情和导出能力。
+- 列表区采用远程分页表格，支持按记录点击下钻查看详情。
+- 导出中心支持 CSV / JSON、全部结果 / 当前页、字段多选、包含 details、文件名前缀。
+- 查询条目可跳转到分析终端并自动预填上下文，方便继续研判。
 
 ---
 

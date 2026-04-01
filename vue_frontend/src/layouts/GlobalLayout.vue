@@ -50,7 +50,7 @@
 import { computed, h, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { NLayout, NLayoutContent, NLayoutHeader, NLayoutSider, NMenu } from 'naive-ui'
-import { MenuIcon, SettingsIcon, TerminalIcon } from 'vue-tabler-icons'
+import { MenuIcon, SearchIcon, SettingsIcon, TerminalIcon } from 'vue-tabler-icons'
 import { useRoute, useRouter } from 'vue-router'
 import SocHeader from '../components/layout/SocHeader.vue'
 import { useClock } from '../composables/useClock'
@@ -79,6 +79,11 @@ const menuOptions = [
     icon: renderMenuIcon(TerminalIcon),
   },
   {
+    label: '情报查询',
+    key: '/intel',
+    icon: renderMenuIcon(SearchIcon),
+  },
+  {
     label: '系统设置',
     key: '/settings',
     icon: renderMenuIcon(SettingsIcon),
@@ -86,6 +91,7 @@ const menuOptions = [
 ]
 
 const activeMenuKey = computed(() => {
+  if (route.path.startsWith('/intel')) return '/intel'
   if (route.path.startsWith('/chat')) return '/chat'
   if (route.path.startsWith('/settings')) return '/settings'
   return '/dashboard'

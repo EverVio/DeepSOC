@@ -7,7 +7,7 @@ from typing import Generator
 
 from django.conf import settings
 from django.db import connection
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from ninja import File, NinjaAPI, Router
 from ninja.files import UploadedFile as NinjaUploadedFile
 
@@ -15,6 +15,12 @@ from . import services
 from .agents import LlmConfig, MultiAgentConfig, Orchestrator, OrchestratorInput
 from .dashboard_stats import build_dashboard_stats
 from .models import APIKey
+from .query_service import (
+    export_query_records,
+    get_query_facets,
+    get_query_record_detail,
+    list_query_records,
+)
 from .schemas import ChatIn, ErrorResponse, HistoryOut, LoginIn, LoginOut
 from .services import get_or_create_session, model_api_call
 
@@ -123,6 +129,26 @@ def _render_context(history_for_llm, user_input: str, final_reply: str) -> str:
     lines.append(f"用户：{user_input}")
     lines.append(f"回复：{final_reply}")
     return "\n".join(lines).strip()
+
+
+def _build_query_filters(
+    db_type: str,
+    risk_level: str,
+    source: str,
+    cve_id: str,
+    ioc_value: str,
+    tag: str,
+    mitre_attack_id: str,
+) -> dict:
+    return {
+        "db_type": db_type,
+        "risk_level": risk_level,
+        "source": source,
+        "cve_id": cve_id,
+        "ioc_value": ioc_value,
+        "tag": tag,
+        "mitre_attack_id": mitre_attack_id,
+    }
 
 
 @api.post("/login", response={200: LoginOut, 400: ErrorResponse, 403: ErrorResponse})
@@ -315,6 +341,138 @@ def clear_history(request, session_id: str = "默认对话"):
 def get_dashboard_stats(request):
     """聚合 data/log 下真实 CSV 日志，返回大屏图表与拓扑数据。"""
     return build_dashboard_stats()
+
+
+@router.get("/query/logs", response={200: dict})
+def query_logs(
+    request,
+    q: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    db_type: str = "",
+    risk_level: str = "",
+    source: str = "",
+    cve_id: str = "",
+    ioc_value: str = "",
+    tag: str = "",
+    mitre_attack_id: str = "",
+    start_time: str = "",
+    end_time: str = "",
+    sort_by: str = "fetched_at",
+    sort_order: str = "desc",
+):
+    filters = _build_query_filters(
+        db_type=db_type,
+        risk_level=risk_level,
+        source=source,
+        cve_id=cve_id,
+        ioc_value=ioc_value,
+        tag=tag,
+        mitre_attack_id=mitre_attack_id,
+    )
+    return list_query_records(
+        query=q,
+        page=page,
+        page_size=page_size,
+        filters=filters,
+        start_time=start_time,
+        end_time=end_time,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@router.get("/query/logs/{record_id}", response={200: dict, 404: ErrorResponse})
+def query_log_detail(request, record_id: str):
+    item = get_query_record_detail(record_id)
+    if not item:
+        return 404, {"error": "记录不存在"}
+    return item
+
+
+@router.get("/query/facets", response={200: dict})
+def query_facets(
+    request,
+    q: str = "",
+    db_type: str = "",
+    risk_level: str = "",
+    source: str = "",
+    cve_id: str = "",
+    ioc_value: str = "",
+    tag: str = "",
+    mitre_attack_id: str = "",
+    start_time: str = "",
+    end_time: str = "",
+):
+    filters = _build_query_filters(
+        db_type=db_type,
+        risk_level=risk_level,
+        source=source,
+        cve_id=cve_id,
+        ioc_value=ioc_value,
+        tag=tag,
+        mitre_attack_id=mitre_attack_id,
+    )
+    return get_query_facets(
+        query=q,
+        filters=filters,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+
+@router.get("/query/export")
+def query_export(
+    request,
+    export_format: str = "csv",
+    q: str = "",
+    db_type: str = "",
+    risk_level: str = "",
+    source: str = "",
+    cve_id: str = "",
+    ioc_value: str = "",
+    tag: str = "",
+    mitre_attack_id: str = "",
+    start_time: str = "",
+    end_time: str = "",
+    sort_by: str = "fetched_at",
+    sort_order: str = "desc",
+    export_scope: str = "all",
+    page: int = 1,
+    page_size: int = 20,
+    fields: str = "",
+    include_details: bool = False,
+    filename_prefix: str = "deepsoc_query",
+):
+    filters = _build_query_filters(
+        db_type=db_type,
+        risk_level=risk_level,
+        source=source,
+        cve_id=cve_id,
+        ioc_value=ioc_value,
+        tag=tag,
+        mitre_attack_id=mitre_attack_id,
+    )
+    selected_fields = _split_csv(fields)
+    content, content_type, filename = export_query_records(
+        export_format=export_format,
+        query=q,
+        filters=filters,
+        start_time=start_time,
+        end_time=end_time,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        export_scope=export_scope,
+        page=page,
+        page_size=page_size,
+        selected_fields=selected_fields,
+        include_details=include_details,
+        filename_prefix=filename_prefix,
+    )
+
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @router.post("/upload_file")

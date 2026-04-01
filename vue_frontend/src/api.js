@@ -339,6 +339,35 @@ export default {
   getDashboardStats() {
     return axiosApi.get('/dashboard/stats');
   },
+
+  queryLogs(params = {}) {
+    return axiosApi.get('/query/logs', { params });
+  },
+
+  getQueryLogDetail(recordId) {
+    return axiosApi.get(`/query/logs/${encodeURIComponent(recordId)}`);
+  },
+
+  getQueryFacets(params = {}) {
+    return axiosApi.get('/query/facets', { params });
+  },
+
+  async exportQueryLogs(params = {}) {
+    const response = await axiosApi.get('/query/export', {
+      params,
+      responseType: 'blob',
+    });
+
+    const disposition = response.headers?.['content-disposition'] || '';
+    const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+    const filename = match?.[1] || 'deepsoc_export.csv';
+
+    return {
+      blob: response.data,
+      filename,
+      contentType: response.headers?.['content-type'] || 'application/octet-stream',
+    };
+  },
 };
 
 export async function uploadFile(file) {

@@ -35,6 +35,18 @@ const SOURCE_TEMPLATES = {
             '是否需要标出最值得优先跟进的分类？',
         ],
     },
+    grid: {
+        sourceKey: 'grid',
+        sourceLabel: '情报查询',
+        entryLabel: 'Data Grid 分析入口',
+        focusLabel: '选中条目',
+        promptLead: '请围绕该情报条目展开研判，给出威胁判断、关联线索、验证步骤与处置建议。',
+        followUps: [
+            '是否需要关联同源 IOC / CVE 的历史记录？',
+            '是否需要按资产范围评估潜在影响面？',
+            '是否需要输出可执行的应急处置清单？',
+        ],
+    },
     topology: {
         sourceKey: 'topology',
         sourceLabel: '攻击拓扑',

@@ -28,7 +28,7 @@
       <NCard v-if="analysisJumpEntry" class="analysis-jump-card" :bordered="false" embedded>
         <template #header>
           <div class="analysis-jump-card__header">
-            <span class="analysis-jump-card__title">{{'图表分析模板' }}</span>
+            <span class="analysis-jump-card__title">{{'分析模板' }}</span>
           </div>
         </template>
 

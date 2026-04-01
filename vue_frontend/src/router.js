@@ -10,6 +10,7 @@ import Login from './views/Login.vue'
 import GlobalLayout from './layouts/GlobalLayout.vue'
 import Dashboard from './views/Dashboard.vue'
 import ChatPage from './views/ChatPage.vue'
+import IntelQuery from './views/IntelQuery.vue'
 import Settings from './views/Settings.vue'
 
 const routes = [
@@ -36,6 +37,11 @@ const routes = [
         path: 'chat',
         name: 'Chat',
         component: ChatPage,
+      },
+      {
+        path: 'intel',
+        name: 'IntelQuery',
+        component: IntelQuery,
       },
       {
         path: 'settings',
