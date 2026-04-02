@@ -195,7 +195,7 @@ const customStyle = computed(() => ({
   justify-content: space-between;
   gap: 0.65rem;
   border-bottom: 1px solid rgba(var(--card-accent-rgb), 0.2);
-  padding: 0.55rem 1rem;
+  padding: 0.55rem var(--card-header-pad-x, 1rem);
   background: linear-gradient(90deg, rgba(var(--card-accent-rgb), 0.07), transparent 62%);
 }
 

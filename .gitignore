@@ -35,3 +35,6 @@ build_attack_patterns.py
 coreruleset
 generate_csv.py
 PayloadsAllTheThings/
+bulk_expand_web_attack.py
+export_web_attack_jsonl.py
+django_backend/data/chroma/

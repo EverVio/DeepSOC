@@ -6,6 +6,7 @@
 
 <template>
   <div class="dashboard-page">
+
     <n-grid :x-gap="14" :y-gap="14" cols="1" responsive="screen">
       <n-gi>
         <div ref="topologyPanelRef" class="topology-panel-host" v-if="!isTopologyCollapsed">
@@ -462,7 +463,7 @@ const handleFullscreenModalChange = (show) => {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(0, 1.65fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1.5fr) minmax(0, 0.9fr);
   align-content: stretch;
 }
 
@@ -650,13 +651,18 @@ const handleFullscreenModalChange = (show) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  padding: 0.52rem 0.72rem 0.66rem;
+}
+
+.chart-card :deep(.chart-canvas) {
+  min-height: 210px;
 }
 
 .summary-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.62rem;
 }
 
 .summary-strip span {
@@ -803,7 +809,7 @@ const handleFullscreenModalChange = (show) => {
 
 @media (max-width: 1024px) {
   .dashboard-page > .n-grid {
-    grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.4fr) minmax(0, 0.9fr);
   }
 
   .topology-modal-wrap {
@@ -823,6 +829,30 @@ const handleFullscreenModalChange = (show) => {
 
   .topology-restore-btn {
     font-size: 0.55rem;
+  }
+}
+
+@media (max-height: 900px) {
+  .dashboard-page {
+    gap: 10px;
+  }
+
+  .dashboard-page > .n-grid {
+    grid-template-rows: minmax(0, 1.34fr) minmax(0, 0.9fr);
+  }
+}
+
+@media (max-height: 820px) {
+  .dashboard-page {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0;
+  }
+
+  .dashboard-page > .n-grid {
+    height: auto;
+    min-height: 100%;
+    grid-template-rows: minmax(380px, 1.22fr) minmax(230px, 0.92fr);
   }
 }
 </style>

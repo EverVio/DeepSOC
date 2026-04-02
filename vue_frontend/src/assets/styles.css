@@ -50,6 +50,24 @@
   --font-ui: 'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
   --font-brand: 'Orbitron', sans-serif;
   --font-mono: 'Roboto Mono', 'Consolas', 'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-display: 'Orbitron', 'Roboto Mono', 'Consolas', monospace;
+
+  /* ── 可读性与可访问性 ─────────────────────────── */
+  --hud-label-color: #d7dee7;
+  --hud-value-color: #00ffcc;
+  --hud-label-size: 14px;
+  --hud-value-size: 15px;
+  --chart-axis-high-contrast: #eaf4ff;
+  --chart-axis-secondary-contrast: #c8d8e6;
+
+  /* ── 看板交互控件 ─────────────────────────────── */
+  --toolbar-surface: linear-gradient(135deg, rgba(22, 42, 70, 0.92), rgba(8, 19, 38, 0.92));
+  --toolbar-border: rgba(0, 255, 255, 0.5);
+  --toolbar-focus-border: rgba(0, 255, 255, 0.85);
+  --toolbar-placeholder: #b9d6ea;
+
+  /* ── 卡片标题基线 ─────────────────────────────── */
+  --card-header-pad-x: 1rem;
 
   /* ── 切角尺寸 ────────────────────────────────────── */
   --clip-sm: 8px;

@@ -47,18 +47,21 @@ const buildOption = () => {
     legend: {
       orient: fullscreen ? 'horizontal' : 'vertical',
       left: fullscreen ? 'center' : 'auto',
-      right: fullscreen ? 'auto' : 6,
+      right: fullscreen ? 'auto' : 18,
       top: fullscreen ? 'auto' : 'center',
       bottom: fullscreen ? 10 : 'auto',
-      width: fullscreen ? '84%' : 'auto',
-      itemWidth: fullscreen ? 6 : 8,
-      itemHeight: fullscreen ? 6 : 8,
-      itemGap: fullscreen ? 12 : 8,
+      width: fullscreen ? '84%' : '34%',
+      itemWidth: fullscreen ? 8 : 9,
+      itemHeight: fullscreen ? 8 : 9,
+      itemGap: fullscreen ? 12 : 12,
+      padding: fullscreen ? [8, 10, 6, 10] : [8, 8, 8, 4],
       icon: 'circle',
       textStyle: {
-        color: '#7ba7bc',
+        color: '#c8d8e6',
         fontFamily: 'Roboto Mono',
         fontSize: fullscreen ? 9 : 10,
+        lineHeight: fullscreen ? 15 : 16,
+        verticalAlign: 'middle',
       },
     },
     series: [
@@ -66,7 +69,7 @@ const buildOption = () => {
         name: 'Category',
         type: 'pie',
         radius: fullscreen ? ['36%', '72%'] : ['34%', '68%'],
-        center: fullscreen ? ['43%', '52%'] : ['34%', '52%'],
+        center: fullscreen ? ['43%', '52%'] : ['38%', '52%'],
         avoidLabelOverlap: true,
         label: {
           show: false,
@@ -81,8 +84,8 @@ const buildOption = () => {
           name: item.name,
           itemStyle: {
             color: colorPool[idx % colorPool.length],
-            shadowBlur: 8,
-            shadowColor: `${colorPool[idx % colorPool.length]}80`,
+            shadowBlur: 4,
+            shadowColor: `${colorPool[idx % colorPool.length]}4d`,
           },
         })),
       },
@@ -129,7 +132,13 @@ const { chartRef } = useEcharts(buildOption, () => props.stats, {
 .chart-canvas {
   width: 100%;
   height: 100%;
-  min-height: 220px;
+  min-height: 205px;
+}
+
+@media (max-height: 860px) {
+  .chart-canvas {
+    min-height: 175px;
+  }
 }
 
 .chart-mask {

@@ -52,16 +52,16 @@ const buildOption = () => {
     backgroundColor: 'transparent',
     grid: [
       {
-        left: fullscreen ? 28 : 36,
-        right: 10,
-        top: fullscreen ? 22 : 28,
-        height: zoomEnabled ? (fullscreen ? '40%' : '34%') : (fullscreen ? '44%' : '40%'),
+        left: fullscreen ? 34 : 40,
+        right: 12,
+        top: fullscreen ? 16 : 18,
+        height: zoomEnabled ? (fullscreen ? '30%' : '29%') : (fullscreen ? '31%' : '30%'),
       },
       {
-        left: fullscreen ? 28 : 36,
-        right: 10,
-        bottom: zoomEnabled ? (fullscreen ? 30 : 36) : (fullscreen ? 20 : 18),
-        height: zoomEnabled ? (fullscreen ? '30%' : '28%') : (fullscreen ? '32%' : '34%'),
+        left: fullscreen ? 34 : 40,
+        right: 12,
+        top: zoomEnabled ? (fullscreen ? '56%' : '58%') : (fullscreen ? '55%' : '56%'),
+        bottom: zoomEnabled ? (fullscreen ? 34 : 40) : (fullscreen ? 22 : 20),
       },
     ],
     dataZoom: zoomEnabled
@@ -101,11 +101,19 @@ const buildOption = () => {
         data: names,
         axisLine: { lineStyle: { color: 'rgba(0,229,255,0.3)' } },
         axisLabel: {
-          color: '#7ba7bc',
+          show: false,
+          color: '#eef5ff',
           fontFamily: 'Roboto Mono',
-          fontSize: fullscreen ? 9 : 10,
-          interval: 0,
-          rotate: fullscreen ? 12 : 20,
+          fontSize: fullscreen ? 10 : 11,
+          fontWeight: 500,
+          interval: 'auto',
+          rotate: 0,
+          hideOverlap: true,
+          margin: 10,
+          formatter: (value) => {
+            const text = String(value || '')
+            return text.length > 16 ? `${text.slice(0, 16)}...` : text
+          },
         },
       },
       {
@@ -114,9 +122,12 @@ const buildOption = () => {
         data: timelineLabels,
         axisLine: { lineStyle: { color: 'rgba(0,229,255,0.28)' } },
         axisLabel: {
-          color: '#63879d',
+          color: '#c8d8e6',
           fontFamily: 'Roboto Mono',
-          fontSize: fullscreen ? 8 : 9,
+          fontSize: fullscreen ? 10 : 11,
+          interval: 'auto',
+          hideOverlap: true,
+          margin: 10,
         },
       },
     ],
@@ -127,7 +138,7 @@ const buildOption = () => {
         min: 0,
         alignTicks: false,
         splitLine: { lineStyle: { color: 'rgba(0,229,255,0.08)' } },
-        axisLabel: { color: '#6f95a9', fontSize: 10 },
+        axisLabel: { color: '#c8d8e6', fontSize: fullscreen ? 10 : 11 },
       },
       {
         type: 'value',
@@ -135,7 +146,7 @@ const buildOption = () => {
         min: 0,
         alignTicks: false,
         splitLine: { lineStyle: { color: 'rgba(0,229,255,0.06)' } },
-        axisLabel: { color: '#6f95a9', fontSize: 10 },
+        axisLabel: { color: '#c8d8e6', fontSize: fullscreen ? 9 : 10 },
       },
     ],
     series: [
@@ -161,14 +172,15 @@ const buildOption = () => {
         yAxisIndex: 1,
         data: timelineValues,
         smooth: true,
+        z: 1,
         symbol: 'circle',
         symbolSize: 5,
         lineStyle: { color: '#00ff9d', width: 2 },
         itemStyle: { color: '#00ff9d' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(0,255,157,0.26)' },
-            { offset: 1, color: 'rgba(0,255,157,0.02)' },
+            { offset: 0, color: 'rgba(0,255,157,0.12)' },
+            { offset: 1, color: 'rgba(0,255,157,0.01)' },
           ]),
         },
       },
@@ -210,7 +222,13 @@ const { chartRef } = useEcharts(buildOption, () => props.stats, {
 .chart-canvas {
   width: 100%;
   height: 100%;
-  min-height: 220px;
+  min-height: 205px;
+}
+
+@media (max-height: 860px) {
+  .chart-canvas {
+    min-height: 175px;
+  }
 }
 
 .chart-mask {

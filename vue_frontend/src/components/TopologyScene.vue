@@ -371,34 +371,37 @@ onBeforeUnmount(() => {
   z-index: 11;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   flex-wrap: wrap;
   pointer-events: auto;
   animation: panel-slide-in 540ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .filter-label {
-  color: rgba(151, 215, 236, 0.55);
+  color: rgba(198, 230, 243, 0.92);
   font-family: var(--font-mono);
-  font-size: 0.48rem;
-  letter-spacing: 0.1em;
-  margin-right: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-right: 4px;
 }
 
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid rgba(0, 229, 255, 0.2);
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
   background: linear-gradient(125deg, rgba(202, 231, 255, 0.1), rgba(14, 39, 73, 0.56));
-  color: rgba(196, 232, 248, 0.8);
+  color: rgba(214, 240, 252, 0.95);
   font-family: var(--font-mono);
-  font-size: 0.48rem;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 999px;
   transition: all 0.22s ease;
   backdrop-filter: blur(7px) saturate(118%);
 }
@@ -409,8 +412,8 @@ onBeforeUnmount(() => {
 }
 
 .filter-chip-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -486,52 +489,63 @@ onBeforeUnmount(() => {
 .toolbar-search {
   flex: 1 1 320px;
   min-width: 260px;
+  padding: 3px;
+  border: 1px solid var(--toolbar-border, rgba(0, 255, 255, 0.5));
+  background: var(--toolbar-surface, linear-gradient(135deg, rgba(22, 42, 70, 0.92), rgba(8, 19, 38, 0.92)));
+  box-shadow: inset 0 0 0 1px rgba(176, 230, 255, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toolbar-search:focus-within {
+  border-color: var(--toolbar-focus-border, rgba(0, 255, 255, 0.85));
+  box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.18), inset 0 0 0 1px rgba(176, 230, 255, 0.1);
 }
 
 .toolbar-input {
   flex: 1 1 220px;
   min-width: 180px;
   height: 30px;
-  border: 1px solid rgba(0, 229, 255, 0.18);
-  background: linear-gradient(135deg, rgba(190, 228, 255, 0.1), rgba(8, 21, 44, 0.74));
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(25, 46, 74, 0.9), rgba(12, 24, 43, 0.9));
   color: #d8f5ff;
   padding: 0 10px;
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.74rem;
   letter-spacing: 0.04em;
   outline: none;
-  box-shadow: inset 0 0 0 1px rgba(160, 228, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(160, 228, 255, 0.08);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
 }
 
 .toolbar-input::placeholder {
-  color: rgba(151, 215, 236, 0.7);
+  color: var(--toolbar-placeholder, #b9d6ea);
 }
 
 .toolbar-input:focus {
-  border-color: rgba(0, 229, 255, 0.6);
-  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.08), inset 0 0 0 1px rgba(160, 228, 255, 0.08);
-  transform: translateY(-1px);
+  border-color: var(--toolbar-focus-border, rgba(0, 255, 255, 0.85));
+  box-shadow: inset 0 0 0 1px rgba(175, 235, 255, 0.14);
 }
 
 .toolbar-button {
   height: 30px;
-  padding: 0 10px;
-  border: 1px solid rgba(0, 229, 255, 0.24);
-  background: linear-gradient(130deg, rgba(166, 225, 255, 0.1), rgba(4, 24, 54, 0.62));
-  color: #97d7ec;
+  min-width: 102px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 255, 255, 0.46);
+  background: linear-gradient(130deg, rgba(20, 64, 88, 0.86), rgba(5, 28, 58, 0.84));
+  color: #e0f4ff;
   font-family: var(--font-mono);
-  font-size: 0.54rem;
+  font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.1em;
   white-space: nowrap;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, background 0.18s ease;
-  box-shadow: inset 0 0 0 1px rgba(162, 229, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(162, 229, 255, 0.1);
 }
 
 .toolbar-button:hover:not(:disabled) {
-  border-color: rgba(0, 229, 255, 0.56);
-  color: #d8f5ff;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.12), inset 0 0 0 1px rgba(162, 229, 255, 0.08);
+  border-color: rgba(0, 255, 255, 0.86);
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.14), inset 0 0 0 1px rgba(162, 229, 255, 0.12);
   transform: translateY(-1px);
 }
 
@@ -540,10 +554,10 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-button.active {
-  border-color: rgba(0, 255, 157, 0.55);
-  color: #b8ffe4;
-  background: linear-gradient(135deg, rgba(0, 255, 157, 0.12), rgba(4, 24, 54, 0.68));
-  box-shadow: 0 0 12px rgba(0, 255, 157, 0.12), inset 0 0 0 1px rgba(180, 255, 228, 0.08);
+  border-color: rgba(0, 255, 204, 0.86);
+  color: #dfffee;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(5, 33, 59, 0.84));
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.14), inset 0 0 0 1px rgba(180, 255, 228, 0.12);
 }
 
 .toolbar-button:disabled {
@@ -552,9 +566,9 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-button--primary {
-  border-color: rgba(0, 255, 157, 0.38);
-  color: #ccffe9;
-  background: linear-gradient(135deg, rgba(0, 255, 157, 0.12), rgba(6, 34, 58, 0.66));
+  border-color: rgba(0, 255, 255, 0.62);
+  color: #e9fdff;
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.18), rgba(7, 39, 65, 0.86));
 }
 
 .topology-tooltip {
@@ -872,6 +886,20 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .topology-filter-bar {
+    gap: 6px;
+  }
+
+  .filter-label,
+  .filter-chip {
+    font-size: 11px;
+  }
+
+  .filter-chip {
+    min-height: 26px;
+    padding: 0 10px;
+  }
+
   .topology-toolbar {
     left: 8px;
     right: 8px;

@@ -53,9 +53,10 @@ const buildOption = () => {
       radius: fullscreen ? '74%' : '68%',
       splitNumber: fullscreen ? 4 : 5,
       axisName: {
-        color: '#7ba7bc',
+        color: '#eef5ff',
         fontFamily: 'Roboto Mono',
-        fontSize: fullscreen ? 9 : 10,
+        fontSize: fullscreen ? 10 : 11,
+        fontWeight: 600,
       },
       splitArea: {
         areaStyle: {
@@ -82,11 +83,11 @@ const buildOption = () => {
             value: values,
             name: 'Threat Profile',
             areaStyle: {
-              color: 'rgba(255,0,85,0.24)',
+              color: 'rgba(255,0,85,0.18)',
             },
             lineStyle: {
               color: '#ff0055',
-              width: 2,
+              width: 1.6,
             },
             itemStyle: {
               color: '#ff0055',
@@ -133,7 +134,13 @@ const { chartRef } = useEcharts(buildOption, () => props.stats, {
 .chart-canvas {
   width: 100%;
   height: 100%;
-  min-height: 220px;
+  min-height: 205px;
+}
+
+@media (max-height: 860px) {
+  .chart-canvas {
+    min-height: 175px;
+  }
 }
 
 .chart-mask {

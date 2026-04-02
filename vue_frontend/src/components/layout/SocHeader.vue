@@ -78,12 +78,14 @@ defineProps({
 
 .brand-sub {
   font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-muted);
-  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  color: #a0efef;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   display: block;
-  margin-top: 2px;
+  margin-top: -1px;
+  line-height: 1.2;
+  text-shadow: 0 0 6px rgba(160, 239, 239, 0.18);
 }
 
 .header-hud {
@@ -102,26 +104,29 @@ defineProps({
 
 .hud-label {
   font-family: var(--font-mono);
-  font-size: 0.52rem;
+  font-size: var(--hud-label-size, 14px);
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--hud-label-color, #d7dee7);
+  line-height: 1.2;
 }
 
 .hud-value {
   font-family: var(--font-display);
-  font-size: 0.7rem;
+  font-size: var(--hud-value-size, 15px);
   letter-spacing: 0.08em;
+  line-height: 1.25;
+  font-weight: 600;
 }
 
 .hud-value--green {
-  color: var(--neon-green);
-  text-shadow: var(--neon-green-glow);
+  color: var(--hud-value-color, #00ffcc);
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.24);
 }
 
 .hud-value--cyan {
-  color: var(--neon-cyan);
-  text-shadow: var(--neon-cyan-glow);
+  color: var(--hud-value-color, #00ffcc);
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.24);
 }
 
 .session-name-display {
