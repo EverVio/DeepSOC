@@ -5,10 +5,10 @@
  */
 
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
-import { useChatStore } from '../stores/chatStore'
+import { EXPORT_TARGET_SESSION_KEY, useChatStore } from '../stores/chatStore'
 
 const PROVIDER_OPTIONS = [
   { value: 'ollama', label: 'Ollama (Local)' },
@@ -80,11 +80,39 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
     sessions,
     (sessionList) => {
       if (!sessionList.includes(selectedSessionForExport.value)) {
-        selectedSessionForExport.value = sessionList[0] || ''
+        const fallback = sessionList.includes(currentSession.value)
+          ? currentSession.value
+          : (sessionList[0] || '')
+        selectedSessionForExport.value = fallback
       }
     },
     { immediate: true }
   )
+
+  watch(selectedSessionForExport, (id) => {
+    if (!id) return
+    try {
+      localStorage.setItem(EXPORT_TARGET_SESSION_KEY, id)
+    } catch {
+      // ignore
+    }
+  })
+
+  const onSessionRenamed = (e) => {
+    const { oldSessionId, newSessionId } = e.detail || {}
+    if (typeof oldSessionId !== 'string' || typeof newSessionId !== 'string') return
+    if (selectedSessionForExport.value === oldSessionId) {
+      selectedSessionForExport.value = newSessionId
+    }
+  }
+
+  onMounted(() => {
+    window.addEventListener('deepsoc:session-renamed', onSessionRenamed)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('deepsoc:session-renamed', onSessionRenamed)
+  })
 
   watch(
     llmProvider,

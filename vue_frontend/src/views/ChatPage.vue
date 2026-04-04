@@ -18,14 +18,16 @@
       <div class="chat-page-sider-inner" :class="{ 'chat-page-sider-inner--collapsed': isSessionSiderCollapsed }">
         <SocSidebar
           :collapsed="isSessionSiderCollapsed"
+          :loading="loading"
           :search-query="searchQuery"
           :filtered-sessions="filteredSessions"
           :current-session="currentSession"
           @update:search-query="searchQuery = $event"
           @select-session="handleSelectSession"
           @delete-session="handleDeleteSession"
+          @rename-session="handleRenameSession"
           @create-session="handleCreateSession"
-          @clear-history="handleClearHistory"
+          @clear-history="handleClearAllSessions"
           @toggle-collapse="isSessionSiderCollapsed = !isSessionSiderCollapsed"
         />
       </div>
@@ -36,6 +38,7 @@
         :current-session="currentSession"
         :messages="messages"
         :loading="loading"
+        :streaming="isStreaming"
         :error="error"
         :entry-hint="analysisJumpHint"
         :analysis-jump-entry="analysisJumpEntry"
@@ -47,6 +50,7 @@
         :on-send-analysis-jump="sendAnalysisJump"
         :on-dismiss-analysis-jump="dismissAnalysisJump"
         :on-reuse-analysis-jump="reuseAnalysisJump"
+        :on-stop-generating="stopGenerating"
         :messages-container-ref="messagesContainerRef"
         :chat-input-ref="chatInputRef"
       />
@@ -55,7 +59,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '../stores/chatStore'
 import { NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
@@ -79,15 +83,18 @@ const {
   currentSession,
   messages,
   loading,
+  isStreaming,
   error,
   handleSelectSession,
   handleDeleteSession,
+  handleRenameSession,
   handleCreateSession,
-  handleClearHistory,
+  handleClearAllSessions,
   handleSendMessage,
   handleRegenerate,
   handleEditMessage,
   initializeChatSession,
+  stopGenerating,
 } = useChatSession({
   apiClient: api,
   messagesContainerRef,
@@ -153,7 +160,20 @@ const reuseAnalysisJump = (entry) => {
   nextTick(() => chatInputRef.value?.focus())
 }
 
+const SESSION_SIDEBAR_MQ = '(max-width: 768px)'
+let sessionSidebarMq = null
+
+const applySessionSidebarLayout = () => {
+  if (sessionSidebarMq?.matches) isSessionSiderCollapsed.value = true
+}
+
 onMounted(async () => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    sessionSidebarMq = window.matchMedia(SESSION_SIDEBAR_MQ)
+    applySessionSidebarLayout()
+    sessionSidebarMq.addEventListener('change', applySessionSidebarLayout)
+  }
+
   await initializeChatSession()
 
   const pendingAnalysisJump = chatStore.consumeAnalysisJumpDraft()
@@ -175,6 +195,10 @@ onMounted(async () => {
       router.replace({ query: { ...route.query, autoSend: undefined } })
     }
   }
+})
+
+onUnmounted(() => {
+  sessionSidebarMq?.removeEventListener('change', applySessionSidebarLayout)
 })
 </script>
 

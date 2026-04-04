@@ -42,5 +42,10 @@ class HistoryOut(Schema):
     history: str
 
 
+class SessionRenameIn(Schema):
+    old_session_id: str = "默认对话"
+    new_session_id: str = "默认对话"
+
+
 class ErrorResponse(Schema):
     error: str

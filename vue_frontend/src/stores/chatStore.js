@@ -12,6 +12,8 @@ const DRAFT_INPUTS_KEY = 'draftInputs';
 const ANALYSIS_JUMP_PENDING_KEY = 'analysisJumpPending';
 const ANALYSIS_JUMP_HISTORY_KEY = 'analysisJumpHistory';
 const ANALYSIS_JUMP_HISTORY_LIMIT = 50;
+/** 与系统设置「导出会话」下拉同步，重命名时需改写，避免选中项失效 */
+export const EXPORT_TARGET_SESSION_KEY = 'deepsoc_exportTargetSessionId';
 
 const readStoredJson = (storage, key, fallback) => {
   try {
@@ -211,6 +213,63 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  const renameSession = (oldId, newId) => {
+    const oldTrim = (oldId || '').trim();
+    const nextTrim = (newId || '').trim();
+    if (!oldTrim || !nextTrim || oldTrim === nextTrim) return;
+    const idx = sessions.value.indexOf(oldTrim);
+    if (idx === -1) return;
+    if (sessions.value.includes(nextTrim)) return;
+
+    sessions.value = sessions.value.map((id) => (id === oldTrim ? nextTrim : id));
+    persistSessions();
+
+    if (messages.value[oldTrim]) {
+      messages.value[nextTrim] = messages.value[oldTrim];
+      delete messages.value[oldTrim];
+    }
+
+    if (oldTrim in draftInputs.value) {
+      const nextDrafts = { ...draftInputs.value };
+      nextDrafts[nextTrim] = nextDrafts[oldTrim];
+      delete nextDrafts[oldTrim];
+      draftInputs.value = nextDrafts;
+      persistDraftInputs();
+    }
+
+    analysisJumpHistory.value = analysisJumpHistory.value.map((item) =>
+      item?.sessionId === oldTrim ? { ...item, sessionId: nextTrim } : item
+    );
+    persistAnalysisJumpHistory();
+
+    if (analysisJumpDraft.value?.sessionId === oldTrim) {
+      analysisJumpDraft.value = { ...analysisJumpDraft.value, sessionId: nextTrim };
+      persistAnalysisJumpDraft();
+    }
+
+    if (currentSession.value === oldTrim) {
+      currentSession.value = nextTrim;
+      persistCurrentSession();
+    }
+
+    try {
+      const stored = localStorage.getItem(EXPORT_TARGET_SESSION_KEY);
+      if (stored === oldTrim) {
+        localStorage.setItem(EXPORT_TARGET_SESSION_KEY, nextTrim);
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('deepsoc:session-renamed', {
+          detail: { oldSessionId: oldTrim, newSessionId: nextTrim },
+        })
+      );
+    }
+  };
+
   const addMessage = (sessionId, isUser, payload) => {
     if (!messages.value[sessionId]) {
       messages.value[sessionId] = [];
@@ -395,6 +454,19 @@ export const useChatStore = defineStore('chat', () => {
     messages.value[sessionId] = [];
   };
 
+  const resetToSingleDefaultSession = () => {
+    sessions.value = [DEFAULT_SESSION];
+    persistSessions();
+    currentSession.value = DEFAULT_SESSION;
+    persistCurrentSession();
+    messages.value = {};
+    draftInputs.value = {};
+    persistDraftInputs();
+    analysisJumpHistory.value = [];
+    persistAnalysisJumpHistory();
+    clearAnalysisJumpDraft();
+  };
+
   return {
     currentSession,
     sessions,
@@ -418,6 +490,7 @@ export const useChatStore = defineStore('chat', () => {
     addSession,
     setCurrentSession,
     removeSession,
+    renameSession,
     addMessage,
     updateLastMessage,
     updateMessageAtIndex,
@@ -426,5 +499,6 @@ export const useChatStore = defineStore('chat', () => {
     removeLastMessage,
     loadHistory,
     clearSessionMessages,
+    resetToSingleDefaultSession,
   };
 });

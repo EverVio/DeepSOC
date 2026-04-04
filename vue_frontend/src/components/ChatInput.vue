@@ -5,30 +5,46 @@
 -->
 
 <template>
-  <NCard class="terminal-input-shell" :class="{ 'terminal-input-shell--focused': isFocused }" :bordered="false" embedded>
+  <NCard class="terminal-input-shell" :class="{ 'terminal-input-shell--focused': isFocused }" :bordered="false"
+    embedded>
     <div class="terminal-controls">
       <NForm inline label-placement="left" :show-feedback="false" class="toggle-form">
         <NFormItem class="toggle-item" label="">
           <NSwitch v-model:value="useDbSearch" size="small" />
-          <span class="toggle-core"><DatabaseIcon class="toggle-icon" /> DB SEARCH</span>
+          <span class="toggle-core">
+            <DatabaseIcon class="toggle-icon" /> DB SEARCH
+          </span>
         </NFormItem>
 
         <NFormItem class="toggle-item" label="">
           <NSwitch v-model:value="useWebSearch" size="small" />
-          <span class="toggle-core"><WorldIcon class="toggle-icon" /> WEB SEARCH</span>
+          <span class="toggle-core">
+            <WorldIcon class="toggle-icon" /> WEB SEARCH
+          </span>
         </NFormItem>
 
         <NFormItem class="toggle-item" label="">
           <NSwitch v-model:value="isMultiAgentEnabled" size="small" />
-          <span class="toggle-core"><BoltIcon class="toggle-icon" /> MULTI AGENT</span>
+          <span class="toggle-core">
+            <BoltIcon class="toggle-icon" /> MULTI AGENT
+          </span>
         </NFormItem>
       </NForm>
 
       <div v-if="attachmentText" class="attachment-chip" title="附件将随本次消息发送">
         <PaperclipIcon class="toggle-icon" />
         <span class="attachment-name">{{ attachmentName }}</span>
-        <NButton class="chip-close" text :disabled="loading" aria-label="移除附件" @click="removeAttachment">x</NButton>
+        <NButton class="chip-close" text :disabled="loading" aria-label="移除附件" @click="removeAttachment">
+          <span class="chip-close-icon">×</span>
+        </NButton>
       </div>
+    </div>
+
+    <div v-if="isEditing" class="edit-hint-bar">
+      <span class="edit-hint-text">正在编辑上一条问题</span>
+      <NButton class="edit-hint-cancel" text type="primary" size="small" :disabled="loading" @click="cancelEdit">
+        取消编辑
+      </NButton>
     </div>
 
     <NForm v-if="isMultiAgentEnabled" label-placement="top" :show-feedback="false" class="multi-agent-config">
@@ -54,13 +70,7 @@
     </NForm>
 
     <div class="input-stage">
-      <input
-        ref="fileInputRef"
-        type="file"
-        accept=".txt,.docx,.xlsx"
-        style="display: none"
-        @change="onFileChange"
-      />
+      <input ref="fileInputRef" type="file" accept=".txt,.docx,.xlsx" style="display: none" @change="onFileChange" />
 
       <NButton class="stage-btn" quaternary circle @click="triggerFileSelect" :disabled="loading" title="上传文件">
         <PaperclipIcon class="stage-icon" />
@@ -70,45 +80,34 @@
         <span class="prompt-label">root@DeepSOC:~$</span>
       </div>
 
-      <NInput
-        ref="textareaRef"
-        v-model:value="draftMessage"
-        class="terminal-textarea"
-        type="textarea"
-        :autosize="{ minRows: 1, maxRows: 8 }"
-        placeholder="输入诊断命令、日志片段或排障请求..."
-        :disabled="loading"
-        @keydown.enter.exact.prevent="sendMessage"
-        @focus="setFocusState(true)"
-        @blur="setFocusState(false)"
-      />
+      <NInput ref="textareaRef" v-model:value="draftMessage" class="terminal-textarea" type="textarea"
+        :autosize="{ minRows: 1, maxRows: 8 }" placeholder="输入诊断命令、日志片段或排障请求..."
+        @keydown.enter.exact.prevent="sendMessage" @focus="setFocusState(true)" @blur="setFocusState(false)" />
 
       <NButton
         class="stage-btn stage-btn--send"
+        :class="{ 'send-btn--stop': streaming }"
         quaternary
         circle
-        @click="sendMessage"
-        :disabled="!draftMessage.trim() || loading"
-        title="发送"
+        @click="onSendOrStopClick"
+        :disabled="sendButtonDisabled"
+        :aria-label="streaming ? '停止回答' : '发送消息'"
       >
-        <span v-if="loading" class="loading-dot"></span>
+        <span v-if="streaming" class="stop-icon" aria-hidden="true" />
         <SendIcon v-else class="stage-icon" />
       </NButton>
     </div>
 
     <div class="wave-lane" aria-hidden="true" :class="{ 'is-active': isFocused || draftMessage.length > 0 }">
-      <span
-        v-for="index in 32"
-        :key="`wave-${index}`"
-        class="wave-bar"
-        :style="`--delay: ${index * 20}ms; --hue: ${185 + (index % 7)}`"
-      ></span>
+      <span v-for="index in 32" :key="`wave-${index}`" class="wave-bar"
+        :style="`--delay: ${index * 20}ms; --hue: ${185 + (index % 7)}`"></span>
     </div>
   </NCard>
 </template>
 
 <script setup>
 import { computed, defineEmits, defineExpose, defineProps, nextTick, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import {
   NButton,
   NCard,
@@ -130,16 +129,21 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  streaming: {
+    type: Boolean,
+    default: false,
+  },
   currentSession: {
     type: String,
     default: '',
   },
 })
 
-const emit = defineEmits(['send'])
+const emit = defineEmits(['send', 'stop'])
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
+const { isEditing } = storeToRefs(appStore)
 
 const PROVIDER_MODEL_CANDIDATES = {
   ollama: ['DeepSeek-R1:7b', 'Qwen3:8b', 'Llama3:8b'],
@@ -224,6 +228,11 @@ const setFocusState = (value) => {
   isFocused.value = value
 }
 
+const cancelEdit = () => {
+  appStore.clearEditing()
+  clearInput()
+}
+
 const buildAgentConfigs = () => {
   const provider = normalizedProvider.value
   const providerApiKey = (appStore.providerApiKey || '').trim()
@@ -245,9 +254,19 @@ const buildAgentConfigs = () => {
   }
 }
 
+const sendButtonDisabled = computed(() => !props.streaming && !draftMessage.value.trim())
+
+const onSendOrStopClick = () => {
+  if (props.streaming) {
+    emit('stop')
+    return
+  }
+  sendMessage()
+}
+
 const sendMessage = () => {
   const content = draftMessage.value.trim()
-  if (!content || props.loading) return
+  if (!content || props.streaming) return
 
   emit('send', content, {
     attachmentText: attachmentText.value,
@@ -337,6 +356,28 @@ defineExpose({
   box-shadow: inset 0 0 26px rgba(0, 229, 255, 0.09), 0 0 12px rgba(0, 229, 255, 0.12);
 }
 
+.edit-hint-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0.45rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.edit-hint-text {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: #8fd0e8;
+}
+
+.edit-hint-cancel {
+  flex-shrink: 0;
+}
+
 .terminal-controls {
   display: flex;
   align-items: center;
@@ -350,19 +391,21 @@ defineExpose({
   display: inline-flex;
   gap: 1rem;
   flex-wrap: wrap;
-  
+
   /* [新增] 默认收纳隐藏 */
   max-height: 0;
   opacity: 0;
   overflow: hidden;
   transform: translateY(5px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑过渡动画 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 平滑过渡动画 */
 }
 
 /* [新增] 当鼠标悬浮输入框，或输入框获得焦点时展开 */
 .terminal-input-shell:hover .toggle-form,
 .terminal-input-shell--focused .toggle-form {
-  max-height: 40px; /* 足够容纳开关的高度 */
+  max-height: 40px;
+  /* 足够容纳开关的高度 */
   opacity: 1;
   transform: translateY(-15px);
 }
@@ -394,7 +437,7 @@ defineExpose({
   --n-rail-color-active: rgba(0, 229, 255, 0.36);
 }
 
-.toggle-item :deep(.n-switch.n-switch--active) + .toggle-core {
+.toggle-item :deep(.n-switch.n-switch--active)+.toggle-core {
   border-color: rgba(0, 229, 255, 0.55);
   color: var(--neon-cyan);
   background: rgba(0, 229, 255, 0.1);
@@ -416,13 +459,13 @@ defineExpose({
 .attachment-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.35rem;
   border: 1px solid rgba(123, 44, 191, 0.45);
   background: rgba(123, 44, 191, 0.12);
   color: #cf9bff;
-  padding: 0.2rem 0.45rem;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  padding: 0.3rem 0.55rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
 }
 
 .attachment-name {
@@ -447,7 +490,7 @@ defineExpose({
   opacity: 0;
   overflow: hidden;
   margin: 0;
-  padding: 0 0.55rem; 
+  padding: 0 0.55rem;
   border: 0 solid var(--border-dim);
   transform: translateY(5px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -455,7 +498,7 @@ defineExpose({
 
 .terminal-input-shell:hover .multi-agent-config,
 .terminal-input-shell--focused .multi-agent-config {
-  max-height: 250px; 
+  max-height: 250px;
   opacity: 1;
   margin: 0.15rem 0 0.65rem;
   padding: 0.48rem 0.55rem 0.55rem;
@@ -492,7 +535,10 @@ defineExpose({
   position: relative;
 }
 
-.prompt-col { align-self: start; padding-top: 0.26rem; }
+.prompt-col {
+  align-self: start;
+  padding-top: 0.26rem;
+}
 
 .prompt-label {
   font-family: var(--font-mono);
@@ -546,25 +592,28 @@ defineExpose({
   --n-border: 1px solid rgba(0, 229, 255, 0.45);
 }
 
+.send-btn--stop {
+  --n-border: 1px solid rgba(255, 107, 147, 0.45);
+  --n-color: rgba(255, 107, 147, 0.1);
+  --n-color-hover: rgba(255, 107, 147, 0.2);
+  --n-color-pressed: rgba(255, 107, 147, 0.28);
+  --n-text-color: #ffb3c7;
+  --n-text-color-hover: #ffd6e0;
+  --n-text-color-pressed: #fff0f3;
+}
+
+.stop-icon {
+  display: block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 3px;
+  background: currentColor;
+  box-shadow: 0 0 6px rgba(255, 107, 147, 0.45);
+}
+
 .stage-icon {
   width: 1rem;
   height: 1rem;
-}
-
-.loading-dot {
-  width: 0.95rem;
-  height: 0.95rem;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 229, 255, 0.2);
-  border-top-color: var(--neon-cyan);
-  display: inline-block;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .wave-lane {
@@ -597,20 +646,24 @@ defineExpose({
 }
 
 @keyframes waveIdle {
+
   0%,
   100% {
     transform: scaleY(0.85);
   }
+
   50% {
     transform: scaleY(1.15);
   }
 }
 
 @keyframes waveActive {
+
   0%,
   100% {
     transform: scaleY(1);
   }
+
   50% {
     transform: scaleY(4.5);
   }

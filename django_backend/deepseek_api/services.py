@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, List, Iterable
 
 from ddgs import DDGS
 from django.conf import settings
+from django.db import transaction
 from django.core.cache import cache
 from openai import OpenAI
 from langchain_core.messages import BaseMessage
@@ -714,6 +715,40 @@ def check_rate_limit(key_str: str) -> bool:
                 return True
             except APIKey.DoesNotExist:
                 return False
+
+
+def rename_conversation_session(user: APIKey, old_session_id: str, new_session_id: str) -> tuple[str, str]:
+    """
+    将当前用户下某条 ConversationSession 的 session_id 更新为新名称。
+    若旧会话在数据库中不存在（尚未与后端同步），则不做数据库变更，由前端仅迁移本地列表。
+    """
+    old_id = (old_session_id or "").strip() or "默认对话"
+    new_id = (new_session_id or "").strip() or "默认对话"
+
+    if old_id == new_id:
+        return old_id, new_id
+
+    if len(new_id) > 100:
+        raise ValueError("新会话名称长度不能超过 100 个字符")
+
+    with transaction.atomic():
+        row = (
+            ConversationSession.objects.select_for_update()
+            .filter(user=user, session_id=old_id)
+            .first()
+        )
+        if not row:
+            return old_id, new_id
+
+        conflict = ConversationSession.objects.filter(user=user, session_id=new_id).exclude(pk=row.pk).exists()
+        if conflict:
+            raise ValueError("该会话名称已存在，请使用其他名称")
+
+        row.session_id = new_id
+        row.save()
+
+    logger.info("会话已重命名：%s -> %s（用户：%s）", old_id, new_id, user.user)
+    return old_id, new_id
 
 
 def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:

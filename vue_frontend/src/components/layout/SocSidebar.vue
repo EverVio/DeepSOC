@@ -6,7 +6,7 @@
 
 <template>
   <FuiCard
-    :title="collapsed ? 'SESSIONS' : 'TACTICAL SESSIONS'"
+    :title="collapsed ? '' : 'TACTICAL SESSIONS'"
     class="session-card"
     :class="{ 'session-card--collapsed': collapsed, 'session-card--expandable': collapsed }"
     @click="collapsed && $emit('toggle-collapse')"
@@ -51,17 +51,42 @@
           >
             <TerminalIcon class="session-icon" />
             <span class="session-item-name">{{ session }}</span>
-            <NButton class="fui-icon-btn session-del" quaternary circle @click.stop="$emit('delete-session', session)" title="删除">
-              <TrashIcon class="btn-icon" />
-            </NButton>
+            <div class="session-item-actions">
+              <NButton
+                class="fui-icon-btn session-rename"
+                quaternary
+                circle
+                :disabled="loading"
+                @click.stop="openRenameModal(session)"
+                title="重命名"
+              >
+                <PencilIcon class="btn-icon" />
+              </NButton>
+              <NButton
+                class="fui-icon-btn session-del"
+                quaternary
+                circle
+                :disabled="loading"
+                @click.stop="$emit('delete-session', session)"
+                title="删除"
+              >
+                <TrashIcon class="btn-icon" />
+              </NButton>
+            </div>
           </div>
           <div v-if="filteredSessions.length === 0" class="session-empty">NO SESSIONS FOUND</div>
         </div>
       </NScrollbar>
 
       <div class="panel-footer">
-        <NButton class="fui-footer-btn" quaternary @click="$emit('clear-history')">
-          <TrashIcon class="btn-icon" />
+        <NButton
+          class="fui-footer-btn"
+          quaternary
+          :disabled="loading"
+          title="清空左侧全部会话并保留默认对话"
+          @click="$emit('clear-history')"
+        >
+          <TrashIcon class="btn-icon footer-trash-icon" />
           CLEAR SESSION
         </NButton>
       </div>
@@ -73,28 +98,80 @@
       </div>
     </div>
   </FuiCard>
+
+  <NModal
+    v-model:show="renameModalVisible"
+    preset="card"
+    title="重命名会话"
+    class="session-rename-modal"
+    :mask-closable="false"
+    :style="{ width: 'min(420px, 94vw)' }"
+    @after-leave="renameDraft = ''"
+  >
+    <NInput
+      v-model:value="renameDraft"
+      placeholder="新的会话名称"
+      :maxlength="100"
+      show-count
+      @keyup.enter="confirmRename"
+    />
+    <div class="session-rename-modal__footer">
+      <NButton quaternary @click="renameModalVisible = false">取消</NButton>
+      <NButton type="primary" :disabled="!renameDraft.trim() || loading" :loading="loading" @click="confirmRename">
+        确定
+      </NButton>
+    </div>
+  </NModal>
 </template>
 
 <script setup>
-import { NButton, NInput, NScrollbar } from 'naive-ui'
+import { ref } from 'vue'
+import { NButton, NInput, NModal, NScrollbar } from 'naive-ui'
 import FuiCard from '../FuiCard.vue'
-import { ChevronLeftIcon, ChevronsRightIcon, PlusIcon, SearchIcon, TerminalIcon, TrashIcon } from 'vue-tabler-icons'
+import {
+  ChevronLeftIcon,
+  ChevronsRightIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  TerminalIcon,
+  TrashIcon,
+} from 'vue-tabler-icons'
 
 defineProps({
   collapsed: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
   searchQuery: { type: String, default: '' },
   filteredSessions: { type: Array, default: () => [] },
   currentSession: { type: String, default: '' },
 })
 
-defineEmits([
+const emit = defineEmits([
   'update:search-query',
   'select-session',
   'delete-session',
+  'rename-session',
   'create-session',
   'clear-history',
   'toggle-collapse',
 ])
+
+const renameModalVisible = ref(false)
+const renameTarget = ref('')
+const renameDraft = ref('')
+
+const openRenameModal = (session) => {
+  renameTarget.value = session
+  renameDraft.value = session
+  renameModalVisible.value = true
+}
+
+const confirmRename = () => {
+  const next = renameDraft.value.trim()
+  if (!next || !renameTarget.value) return
+  emit('rename-session', renameTarget.value, next)
+  renameModalVisible.value = false
+}
 </script>
 
 <style scoped>
@@ -107,6 +184,10 @@ defineEmits([
 
 .session-card--collapsed {
   min-height: 180px;
+}
+
+.session-card--collapsed :deep(.fui-card-header) {
+  display: none !important;
 }
 
 .session-card--expandable {
@@ -279,6 +360,23 @@ defineEmits([
   color: #c8e6f6;
 }
 
+.session-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.session-rename {
+  width: 20px;
+  height: 20px;
+  opacity: 0.75;
+}
+
+.session-rename:hover {
+  opacity: 1;
+}
+
 .fui-icon-btn {
   width: 26px;
   height: 26px;
@@ -354,12 +452,31 @@ defineEmits([
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.32rem;
+  gap: 0.55rem;
   cursor: pointer;
+}
+
+.fui-footer-btn :deep(.n-button__content) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.footer-trash-icon {
+  flex-shrink: 0;
+  margin-right: 0.18rem;
 }
 
 .fui-footer-btn:hover {
   border-color: rgba(0, 229, 255, 0.5);
   box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.1);
+}
+
+.session-rename-modal__footer {
+  margin-top: 0.85rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 </style>

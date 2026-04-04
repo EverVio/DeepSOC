@@ -102,6 +102,13 @@ function createRetryableError(message) {
   return error;
 }
 
+function isAbortLike(err) {
+  if (!err) return false;
+  if (err.name === 'AbortError') return true;
+  if (err.code === 20) return true;
+  return false;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -161,7 +168,7 @@ async function streamChat(
   onData,
   onError,
   onComplete,
-  context = null,
+  context = undefined,
   useDbSearch,
   useWebSearch,
   modelOptions = {},
@@ -177,6 +184,7 @@ async function streamChat(
   const bufferLimit = Number(streamOptions.bufferLimitBytes) > 0
     ? Number(streamOptions.bufferLimitBytes)
     : DEFAULT_BUFFER_LIMIT;
+  const signal = streamOptions?.signal;
 
   try {
     const body = {
@@ -186,7 +194,7 @@ async function streamChat(
       use_web_search: useWebSearch,
     };
 
-    if (context && Array.isArray(context) && context.length > 0) {
+    if (context !== undefined && Array.isArray(context)) {
       body.context = context;
     }
 
@@ -213,42 +221,8 @@ async function streamChat(
     }
 
     const executeStream = async () => {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (response.status === 401) {
-        handleUnauthorized();
-        throw new Error('登录状态已失效，请重新登录');
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let parsed = null;
-
-        try {
-          if (errorText.includes('data:')) {
-            parsed = JSON.parse(errorText.substring(errorText.indexOf('data:') + 5));
-          } else {
-            parsed = JSON.parse(errorText);
-          }
-        } catch {
-          parsed = null;
-        }
-
-        throw new Error(toReadableErrorMessage(parsed, `HTTP error! status: ${response.status}`));
-      }
-
-      if (!response.body) {
-        throw createRetryableError('Response body is null');
-      }
-
-      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = '';
+      let reader = null;
       let completed = false;
-      let streamClosed = false;
 
       const notifyComplete = (duration) => {
         if (completed) return;
@@ -256,53 +230,119 @@ async function streamChat(
         onComplete?.(duration);
       };
 
-      while (true) {
-        const { value, done } = await readWithIdleTimeout(reader, idleTimeoutMs);
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal,
+        });
 
-        if (done) {
-          notifyComplete();
-          break;
+        if (response.status === 401) {
+          handleUnauthorized();
+          throw new Error('登录状态已失效，请重新登录');
         }
 
-        buffer += value;
-        if (buffer.length > bufferLimit) {
-          throw createRetryableError('流式响应缓存超过上限，请重试');
-        }
-
-        let eolIndex;
-        while ((eolIndex = buffer.indexOf('\n\n')) !== -1) {
-          const line = buffer.substring(0, eolIndex).trim();
-          buffer = buffer.substring(eolIndex + 2);
-
-          if (!line.startsWith('data:')) continue;
-
-          const dataStr = line.substring(5).trim();
-          if (!dataStr) continue;
+        if (!response.ok) {
+          const errorText = await response.text();
+          let parsed = null;
 
           try {
-            const data = JSON.parse(dataStr);
-            routeSseEvent(data, onData, streamOptions);
-
-            if (data.type === 'metadata') {
-              notifyComplete(data.duration);
-            } else if (data.type === 'done') {
-              notifyComplete(data.duration);
-              streamClosed = true;
+            if (errorText.includes('data:')) {
+              parsed = JSON.parse(errorText.substring(errorText.indexOf('data:') + 5));
+            } else {
+              parsed = JSON.parse(errorText);
             }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', dataStr, e);
-            onError?.('Failed to parse stream data');
+          } catch {
+            parsed = null;
           }
+
+          throw new Error(toReadableErrorMessage(parsed, `HTTP error! status: ${response.status}`));
         }
 
-        if (streamClosed) {
-          try {
-            await reader.cancel();
-          } catch {
-            // ignore cancel errors
-          }
-          break;
+        if (!response.body) {
+          throw createRetryableError('Response body is null');
         }
+
+        reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = '';
+        let streamClosed = false;
+
+        while (true) {
+          let readResult;
+          try {
+            readResult = await readWithIdleTimeout(reader, idleTimeoutMs);
+          } catch (readErr) {
+            if (isAbortLike(readErr)) {
+              try {
+                await reader.cancel();
+              } catch {
+                // ignore
+              }
+              notifyComplete();
+              return;
+            }
+            throw readErr;
+          }
+
+          const { value, done } = readResult;
+
+          if (done) {
+            notifyComplete();
+            break;
+          }
+
+          buffer += value;
+          if (buffer.length > bufferLimit) {
+            throw createRetryableError('流式响应缓存超过上限，请重试');
+          }
+
+          let eolIndex;
+          while ((eolIndex = buffer.indexOf('\n\n')) !== -1) {
+            const line = buffer.substring(0, eolIndex).trim();
+            buffer = buffer.substring(eolIndex + 2);
+
+            if (!line.startsWith('data:')) continue;
+
+            const dataStr = line.substring(5).trim();
+            if (!dataStr) continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+              routeSseEvent(data, onData, streamOptions);
+
+              if (data.type === 'metadata') {
+                notifyComplete(data.duration);
+              } else if (data.type === 'done') {
+                notifyComplete(data.duration);
+                streamClosed = true;
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', dataStr, e);
+              onError?.('Failed to parse stream data');
+            }
+          }
+
+          if (streamClosed) {
+            try {
+              await reader.cancel();
+            } catch {
+              // ignore cancel errors
+            }
+            break;
+          }
+        }
+      } catch (err) {
+        if (isAbortLike(err)) {
+          try {
+            if (reader) await reader.cancel();
+          } catch {
+            // ignore
+          }
+          notifyComplete();
+          return;
+        }
+        throw err;
       }
     };
 
@@ -311,6 +351,9 @@ async function streamChat(
         await executeStream();
         return;
       } catch (error) {
+        if (isAbortLike(error)) {
+          return;
+        }
         const isRetryable = Boolean(error?.retryable);
         const canRetry = isRetryable && attempt < maxRetries;
         if (!canRetry) {
@@ -322,6 +365,9 @@ async function streamChat(
       }
     }
   } catch (err) {
+    if (isAbortLike(err)) {
+      return;
+    }
     console.error('Fetch stream chat failed:', err);
     onError?.(err.message || 'Failed to send message');
   }
@@ -340,6 +386,13 @@ export default {
 
   clearHistory(sessionId) {
     return axiosApi.delete('/history', { params: { session_id: sessionId } });
+  },
+
+  renameSession(oldSessionId, newSessionId) {
+    return axiosApi.post('/session/rename', {
+      old_session_id: oldSessionId,
+      new_session_id: newSessionId,
+    });
   },
 
   getDashboardStats() {

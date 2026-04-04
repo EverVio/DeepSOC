@@ -21,8 +21,8 @@ from .query_service import (
     get_query_record_detail,
     list_query_records,
 )
-from .schemas import ChatIn, ErrorResponse, HistoryOut, LoginIn, LoginOut
-from .services import get_or_create_session, model_api_call
+from .schemas import ChatIn, ErrorResponse, HistoryOut, LoginIn, LoginOut, SessionRenameIn
+from .services import get_or_create_session, model_api_call, rename_conversation_session
 
 logger = logging.getLogger(__name__)
 
@@ -212,10 +212,14 @@ def chat(request, data: ChatIn):
         selected_model or "default",
     )
 
-    if data.context and len(data.context) > 0:
-        logger.info("使用前端提供的 context (会话: %s, 上下文长度: %s)", session_id, len(data.context))
-        history_for_llm = data.context
+    if data.context is not None:
+        history_for_llm = list(data.context)
         is_regeneration = False
+        logger.info(
+            "使用前端提供的 context (会话: %s, 条数: %s)",
+            session_id,
+            len(history_for_llm),
+        )
     else:
         conversation_history = session.get_conversation_history()
         history_for_llm = conversation_history
@@ -292,7 +296,7 @@ def chat(request, data: ChatIn):
                 logger.warning("会话 %s 未收到有效模型输出，跳过写入", session_id)
                 return
 
-            if (data.context and len(data.context) > 0) or is_regeneration:
+            if data.context is not None or is_regeneration:
                 session.context = _render_context(history_for_llm, user_input, final_save)
                 session.save()
             else:
@@ -335,6 +339,22 @@ def clear_history(request, session_id: str = "默认对话"):
     session = services.get_or_create_session(processed_session_id, request.auth)
     session.clear_context()
     return {"message": "历史记录已清空"}
+
+
+@router.post("/session/rename", response={200: dict, 400: ErrorResponse})
+def rename_session(request, data: SessionRenameIn):
+    """重命名会话：更新数据库中的 session_id，与前端会话列表一致。"""
+    try:
+        old_id, new_id = rename_conversation_session(
+            request.auth, data.old_session_id, data.new_session_id
+        )
+        return {
+            "message": "ok",
+            "old_session_id": old_id,
+            "new_session_id": new_id,
+        }
+    except ValueError as e:
+        return 400, {"error": str(e)}
 
 
 @router.get("/dashboard/stats", response={200: dict})

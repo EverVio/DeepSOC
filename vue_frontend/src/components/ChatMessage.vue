@@ -44,7 +44,11 @@
                     {{ formatAgentStatus(agentDataSafe.rag.status) }}
                   </span>
                 </header>
-                <div class="agent-node__content markdown-body" v-html="ragRendered"></div>
+                <div
+                  class="agent-node__content markdown-body message-markdown"
+                  v-html="ragRendered"
+                  @click="onMarkdownClick"
+                ></div>
                 <p v-if="agentDataSafe.rag.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.rag) }}</p>
               </article>
 
@@ -55,14 +59,22 @@
                     {{ formatAgentStatus(agentDataSafe.web.status) }}
                   </span>
                 </header>
-                <div class="agent-node__content markdown-body" v-html="webRendered"></div>
+                <div
+                  class="agent-node__content markdown-body message-markdown"
+                  v-html="webRendered"
+                  @click="onMarkdownClick"
+                ></div>
                 <p v-if="agentDataSafe.web.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.web) }}</p>
               </article>
             </div>
           </div>
         </section>
 
-        <div class="terminal-text markdown-body" v-html="renderedContent"></div>
+        <div
+          class="terminal-text markdown-body message-markdown"
+          v-html="renderedContent"
+          @click="onMarkdownClick"
+        ></div>
       </template>
       <span v-if="!isUser && !content" class="stream-cursor">_</span>
     </section>
@@ -74,7 +86,7 @@
         {{ copied ? 'COPIED' : 'COPY' }}
       </button>
 
-      <button v-if="isUser && content" class="text-btn" title="EDIT" @click="handleEdit">
+      <button v-if="isUser && content && canEdit" class="text-btn" title="EDIT" @click="handleEdit">
         <PencilIcon class="icon-mini" /> EDIT
       </button>
 
@@ -93,12 +105,26 @@ import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 
+const CODE_COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`
+const CODE_CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`
+
+const utf8ToBase64 = (str) => btoa(unescape(encodeURIComponent(str)))
+
+const decodeFromCodeB64 = (b64) => {
+  try {
+    return decodeURIComponent(escape(atob(b64)))
+  } catch {
+    return ''
+  }
+}
+
 marked.use({
   renderer: {
     code({ text, lang }) {
       const language = hljs.getLanguage(lang) ? lang : 'plaintext'
       const highlighted = hljs.highlight(text, { language }).value
-      return `<pre><code class="hljs ${language}">${highlighted}</code></pre>`
+      const payload = utf8ToBase64(text)
+      return `<div class="code-block-wrapper"><button type="button" class="code-copy-btn" data-code-b64="${payload}" title="复制代码" aria-label="复制代码">${CODE_COPY_ICON_SVG}</button><pre><code class="hljs ${language}">${highlighted}</code></pre></div>`
     }
   }
 })
@@ -109,6 +135,23 @@ const sanitizeMarkdown = (markdownText) => {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+    ADD_TAGS: ['button', 'svg', 'path', 'rect'],
+    ADD_ATTR: [
+      'data-code-b64',
+      'aria-hidden',
+      'stroke-linecap',
+      'stroke-linejoin',
+      'viewBox',
+      'xmlns',
+      'width',
+      'height',
+      'fill',
+      'stroke',
+      'stroke-width',
+      'rx',
+      'ry',
+      'd',
+    ],
   })
 }
 
@@ -121,6 +164,7 @@ const webRendered = computed(() => {
 })
 
 const props = defineProps({
+  canEdit: { type: Boolean, default: false },
   isUser: { type: Boolean, required: true },
   content: { type: String, required: true },
   attachmentName: { type: String, default: '' },
@@ -256,8 +300,56 @@ const copyContent = () => {
     .catch(() => {})
 }
 
+const codeCopyTimers = new WeakMap()
+
+const onMarkdownClick = (e) => {
+  const btn = e.target.closest?.('.code-copy-btn')
+  if (!btn || !e.currentTarget.contains(btn)) return
+  e.preventDefault()
+  e.stopPropagation()
+  void handleCodeCopyButton(btn)
+}
+
+const handleCodeCopyButton = async (btn) => {
+  const b64 = btn.getAttribute('data-code-b64')
+  let text = b64 ? decodeFromCodeB64(b64) : ''
+  if (!text) {
+    const code = btn.closest('.code-block-wrapper')?.querySelector('pre code')
+    text = (code?.innerText ?? '').replace(/\u00a0/g, ' ')
+  }
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+    } finally {
+      document.body.removeChild(ta)
+    }
+  }
+  const prevHtml = btn.innerHTML
+  btn.innerHTML = CODE_CHECK_ICON_SVG
+  btn.classList.add('code-copy-btn--done')
+  const oldT = codeCopyTimers.get(btn)
+  if (oldT) clearTimeout(oldT)
+  const t = window.setTimeout(() => {
+    btn.innerHTML = prevHtml || CODE_COPY_ICON_SVG
+    btn.classList.remove('code-copy-btn--done')
+    codeCopyTimers.delete(btn)
+  }, 1400)
+  codeCopyTimers.set(btn, t)
+}
+
 const handleEdit = () => {
-  if (!props.messageId || !props.content) return
+  if (!props.canEdit || !props.messageId || !props.content) return
   emit('edit', {
     messageId: props.messageId,
     content: props.content,
@@ -573,6 +665,84 @@ const formatTime = (date) => {
 :deep(.markdown-body p) {
   margin: 0 0 0.2rem 0 !important;
   line-height: 1.6;
+}
+
+.message-markdown :deep(.code-block-wrapper) {
+  position: relative;
+  margin: 0.6rem 0;
+}
+
+.message-markdown :deep(.code-copy-btn) {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.82);
+  color: rgba(0, 229, 255, 0.85);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.message-markdown :deep(.code-copy-btn:hover) {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: rgba(0, 229, 255, 0.45);
+  color: #e0fbff;
+}
+
+.message-markdown :deep(.code-copy-btn--done) {
+  border-color: rgba(67, 243, 162, 0.45);
+  color: var(--neon-green, #43f3a2);
+}
+
+.message-markdown :deep(.code-block-wrapper pre) {
+  background: #0f172a !important;
+  border: 1px solid rgba(0, 229, 255, 0.22) !important;
+  padding: 2rem 0.9rem 0.9rem;
+  overflow-x: auto;
+  margin: 0;
+  border-radius: 4px;
+}
+
+.message-markdown :deep(pre) {
+  background: #0f172a !important;
+  border: 1px solid rgba(0, 229, 255, 0.22) !important;
+  padding: 0.9rem;
+  overflow-x: auto;
+  margin: 0.6rem 0;
+  border-radius: 4px;
+}
+
+.message-markdown :deep(pre code),
+.message-markdown :deep(pre code.hljs) {
+  font-family: var(--font-mono);
+  background: transparent !important;
+}
+
+.message-markdown :deep(pre .hljs),
+.message-markdown :deep(code.hljs) {
+  background: transparent !important;
+}
+
+.message-markdown :deep(:not(pre) code) {
+  font-family: var(--font-mono);
+  background: rgba(0, 229, 255, 0.1) !important;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 3px;
+  padding: 0.12em 0.35em;
+  font-size: 0.92em;
+  color: #b8e8ff;
 }
 
 :deep(.markdown-body pre) {

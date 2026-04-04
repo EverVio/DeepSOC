@@ -57,6 +57,12 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   })
 
   const resolveScrollContainer = (scrollbar) => {
+    if (!scrollbar) return null
+    const inner = scrollbar.scrollbarInstRef?.value
+    if (inner?.containerRef) {
+      const c = inner.containerRef
+      return c.value ?? c
+    }
     const candidate =
       scrollbar?.containerRef ||
       (scrollbar?.$el && scrollbar.$el.querySelector('.n-scrollbar-container')) ||
@@ -82,20 +88,28 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     window.removeEventListener('deepsoc:unauthorized', handleUnauthorized)
   })
 
-  const scrollToBottom = async () => {
-    await nextTick()
-    const scrollbar = messagesContainerRef.value
-    const container = resolveScrollContainer(scrollbar)
-
-    if (!container) return
-
-    const top = container.scrollHeight
-    if (scrollbar && typeof scrollbar.scrollTo === 'function') {
-      scrollbar.scrollTo({ top, behavior: 'auto' })
-      return
+  /** 仅用于切换会话、加载历史、编辑消息等需无视「跟随底部」策略的场景；流式跟随时由 Chat.vue 处理 */
+  const scrollMessagesToBottomForced = async () => {
+    const run = () => {
+      const scrollbar = messagesContainerRef.value
+      if (!scrollbar) return
+      /** NScrollbar 对外 API：position:bottom 比手写 scrollHeight 更可靠 */
+      if (typeof scrollbar.scrollTo === 'function') {
+        scrollbar.scrollTo({ position: 'bottom', behavior: 'auto' })
+        return
+      }
+      const container = resolveScrollContainer(scrollbar)
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
     }
-
-    container.scrollTop = top
+    await nextTick()
+    await nextTick()
+    run()
+    requestAnimationFrame(() => {
+      run()
+      requestAnimationFrame(run)
+    })
   }
 
   const loadHistory = async (sessionId) => {
@@ -108,7 +122,7 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       const sessionMessages = chatStore.messages[sessionId] || []
       const lastUser = [...sessionMessages].reverse().find((message) => message.isUser)
       lastUserMessage.value = lastUser ? lastUser.content : ''
-      await scrollToBottom()
+      await scrollMessagesToBottomForced()
     } catch (err) {
       appStore.setError(err.response?.data?.error || '加载历史记录失败')
     } finally {
@@ -117,12 +131,15 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   }
 
   const handleSelectSession = async (sessionId) => {
+    appStore.clearEditing()
     chatStore.setCurrentSession(sessionId)
     await loadHistory(sessionId)
   }
 
   const handleDeleteSession = async (sessionId) => {
     if (!window.confirm(`确定要删除会话 "${sessionId}" 吗？`)) return
+
+    appStore.clearEditing()
 
     if (chatStore.sessions.length === 1 && chatStore.sessions[0] === sessionId) {
       chatStore.addSession('默认对话')
@@ -135,16 +152,75 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   }
 
   const handleCreateSession = (sessionId) => {
+    appStore.clearEditing()
     chatStore.addSession(sessionId)
     chatStore.clearSessionMessages(sessionId)
     loadHistory(sessionId)
   }
 
-  const handleClearHistory = async () => {
-    if (!window.confirm(`确定要清空当前会话 "${currentSession.value}" 吗？`)) return
-    await apiClient.clearHistory(currentSession.value)
-    chatStore.clearSessionMessages(currentSession.value)
-    await scrollToBottom()
+  const handleRenameSession = async (oldId, newName) => {
+    const next = (newName || '').trim()
+    if (!next) {
+      appStore.setError('会话名称不能为空')
+      return
+    }
+    if (next.length > 100) {
+      appStore.setError('会话名称长度不能超过 100 个字符')
+      return
+    }
+    const oldTrim = (oldId || '').trim()
+    if (!oldTrim || oldTrim === next) return
+    if (sessions.value.includes(next)) {
+      appStore.setError('已存在同名会话，请使用其他名称')
+      return
+    }
+
+    appStore.clearEditing()
+    appStore.setLoading(true)
+    appStore.setError(null)
+    try {
+      await apiClient.renameSession(oldTrim, next)
+      const wasCurrent = currentSession.value === oldTrim
+      chatStore.renameSession(oldTrim, next)
+      if (wasCurrent) {
+        await loadHistory(next)
+      }
+    } catch (err) {
+      appStore.setError(err.response?.data?.error || err.message || '重命名失败')
+    } finally {
+      appStore.setLoading(false)
+    }
+  }
+
+  const handleClearAllSessions = async () => {
+    if (
+      !window.confirm(
+        '确定要删除所有会话记录吗？此操作会清空左侧全部历史会话，并重建一个默认对话。',
+      )
+    ) {
+      return
+    }
+
+    appStore.clearEditing()
+    const ids = [...sessions.value]
+    const results = await Promise.allSettled(ids.map((id) => apiClient.clearHistory(id)))
+
+    const failed = []
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failed.push(ids[index])
+      }
+    })
+
+    chatStore.resetToSingleDefaultSession()
+
+    if (failed.length) {
+      appStore.setError(
+        `部分会话后端清空失败（${failed.length} 个），本地列表已重置。失败项：${failed.join('、')}`,
+      )
+    }
+
+    await loadHistory(chatStore.currentSession)
   }
 
   const buildModelOptions = () => ({
@@ -153,6 +229,72 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     providerApiKey: providerApiKey.value,
     webSearchApiKey: webSearchApiKey.value,
   })
+
+  let activeStreamAbortController = null
+  const isStreaming = ref(false)
+
+  const stopGenerating = () => {
+    try {
+      activeStreamAbortController?.abort()
+    } catch {
+      // ignore
+    }
+  }
+
+  const runStreamChat = async (
+    sessionId,
+    aiMessageId,
+    input,
+    context,
+    extra,
+    streamErrorSideEffect,
+    streamCompleteSideEffect,
+  ) => {
+    const ac = new AbortController()
+    activeStreamAbortController = ac
+    isStreaming.value = true
+    try {
+      await apiClient.streamChat(
+        sessionId,
+        input,
+        (data) => {
+          applyGeneralEvent(sessionId, aiMessageId, data)
+        },
+        (message) => {
+          streamErrorSideEffect?.()
+          appStore.setLoading(false)
+          appStore.setError(message)
+        },
+        () => {
+          appStore.setLoading(false)
+          streamCompleteSideEffect?.()
+        },
+        context,
+        useDbSearch.value,
+        useWebSearch.value,
+        buildModelOptions(),
+        {
+          mode: extra?.mode,
+          agentConfigs: extra?.agentConfigs,
+          idleTimeoutMs: 30000,
+          maxRetries: 1,
+          bufferLimitBytes: 1024 * 1024,
+          signal: ac.signal,
+          onAgentData: (data) => {
+            chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.chunk || data.content || '')
+          },
+          onAgentStatus: (data) => {
+            applyAgentStatus(sessionId, aiMessageId, data)
+          },
+        },
+      )
+    } finally {
+      isStreaming.value = false
+      if (activeStreamAbortController === ac) {
+        activeStreamAbortController = null
+      }
+    }
+  }
 
   const applyAgentStatus = (sessionId, aiMessageId, data) => {
     chatStore.updateAgentStatus(
@@ -218,7 +360,6 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       content,
       attachmentName: extra?.attachmentName,
     })
-    await scrollToBottom()
 
     const isMultiAgent = extra?.mode === 'multi_agent'
     const aiMessageId = chatStore.addMessage(sessionId, false, {
@@ -227,146 +368,88 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
       isMultiAgent,
       agentData: DEFAULT_AGENT_DATA(),
     })
-    await scrollToBottom()
+
+    await scrollMessagesToBottomForced()
 
     appStore.setLoading(true)
     appStore.setError(null)
 
     const input = extra?.attachmentText ? `${content}\n\n[附件]\n${extra.attachmentText}` : content
 
-    await apiClient.streamChat(
-      sessionId,
-      input,
-      (data) => {
-        applyGeneralEvent(sessionId, aiMessageId, data)
-        scrollToBottom()
-      },
-      (message) => {
-        appStore.setLoading(false)
-        appStore.setError(message)
-        scrollToBottom()
-      },
-      () => {
-        appStore.setLoading(false)
-        scrollToBottom()
-      },
-      null,
-      useDbSearch.value,
-      useWebSearch.value,
-      buildModelOptions(),
-      {
-        mode: extra?.mode,
-        agentConfigs: extra?.agentConfigs,
-        idleTimeoutMs: 30000,
-        maxRetries: 1,
-        bufferLimitBytes: 1024 * 1024,
-        onAgentData: (data) => {
-          chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.chunk || data.content || '')
-          scrollToBottom()
-        },
-        onAgentStatus: (data) => {
-          applyAgentStatus(sessionId, aiMessageId, data)
-          scrollToBottom()
-        },
-      }
-    )
+    await runStreamChat(sessionId, aiMessageId, input, undefined, extra, undefined, undefined)
   }
 
-  const handleEditSend = async (sessionId, editedContent) => {
+  const submitEditedLastUserMessage = async (sessionId, editedContent, extra) => {
     const messageId = editingMessageId.value
-    const history = messages.value
-    lastUserMessage.value = editedContent
-
-    const editIndex = history.findIndex((message) => message.id === messageId)
-    if (editIndex === -1) {
-      appStore.setError('找不到要编辑的消息')
+    const historySlice = chatStore.messages[sessionId]
+    if (!historySlice || historySlice.length === 0) {
+      appStore.setError('没有可编辑的消息')
       appStore.clearEditing()
       return
     }
 
-    const context = history.slice(0, editIndex).map((message) => ({
-      role: message.isUser ? 'user' : 'assistant',
-      content: message.content,
+    let lastUserIdx = -1
+    for (let i = historySlice.length - 1; i >= 0; i -= 1) {
+      if (historySlice[i].isUser) {
+        lastUserIdx = i
+        break
+      }
+    }
+
+    if (lastUserIdx === -1 || historySlice[lastUserIdx].id !== messageId) {
+      appStore.setError('只能编辑最近一条用户消息')
+      appStore.clearEditing()
+      return
+    }
+
+    const contextForLlm = historySlice.slice(0, lastUserIdx).map((m) => ({
+      role: m.isUser ? 'user' : 'assistant',
+      content: m.content || '',
     }))
-    history[editIndex].content = editedContent
 
-    let aiMessageIndex = editIndex + 1
-    if (aiMessageIndex >= history.length) {
-      chatStore.addMessage(sessionId, false, { content: '', think_process: '' })
-      aiMessageIndex = editIndex + 1
-    } else if (history[aiMessageIndex].isUser) {
-      history.splice(aiMessageIndex, 0, {
-        id: Date.now() + Math.random(),
-        isUser: false,
-        content: '',
-        think_process: '',
-        duration: null,
-        isMultiAgent: false,
-        agentData: DEFAULT_AGENT_DATA(),
-        timestamp: new Date(),
-      })
-      aiMessageIndex = editIndex + 1
-    } else {
-      history[aiMessageIndex].content = ''
-      history[aiMessageIndex].think_process = ''
-      history[aiMessageIndex].duration = null
-      history[aiMessageIndex].isMultiAgent = false
-      history[aiMessageIndex].agentData = DEFAULT_AGENT_DATA()
-    }
+    historySlice.splice(lastUserIdx)
+    lastUserMessage.value = editedContent
 
-    if (editIndex + 2 < history.length) {
-      history.splice(editIndex + 2)
-    }
+    chatStore.addMessage(sessionId, true, {
+      content: editedContent,
+      attachmentName: extra?.attachmentName,
+    })
 
-    await scrollToBottom()
+    const isMultiAgent = extra?.mode === 'multi_agent'
+    const aiMessageId = chatStore.addMessage(sessionId, false, {
+      content: '',
+      think_process: '',
+      isMultiAgent,
+      agentData: DEFAULT_AGENT_DATA(),
+    })
+
+    await scrollMessagesToBottomForced()
+
     appStore.setLoading(true)
     appStore.setError(null)
 
-    await apiClient.streamChat(
-      sessionId,
-      editedContent,
-      (data) => {
-        if (data.type === 'content') {
-          chatStore.updateMessageAtIndex(sessionId, aiMessageIndex, { content_chunk: data.chunk })
-        } else if (data.type === 'think') {
-          chatStore.updateMessageAtIndex(sessionId, aiMessageIndex, { think_chunk: data.chunk })
-        } else if (data.type === 'metadata') {
-          chatStore.updateMessageAtIndex(sessionId, aiMessageIndex, { duration: data.duration })
-        } else if (data.type === 'error') {
-          const fallbackMessage = data.message || data.chunk || '流式响应出错'
-          const message = data.error_detail
-            ? formatProviderError(data.error_detail, fallbackMessage)
-            : fallbackMessage
-          appStore.setError(message)
-        }
+    const input = extra?.attachmentText ? `${editedContent}\n\n[附件]\n${extra.attachmentText}` : editedContent
 
-        scrollToBottom()
-      },
-      (message) => {
-        appStore.setLoading(false)
-        appStore.setError(message)
-        appStore.clearEditing()
-        scrollToBottom()
-      },
+    await runStreamChat(
+      sessionId,
+      aiMessageId,
+      input,
+      contextForLlm,
+      extra,
+      () => appStore.clearEditing(),
       () => {
-        appStore.setLoading(false)
         appStore.clearEditing()
         chatInputRef.value?.clearInput()
-        scrollToBottom()
       },
-      context,
-      useDbSearch.value,
-      useWebSearch.value,
-      buildModelOptions()
     )
   }
 
   const handleSendMessage = async (content, extra) => {
     if (isEditing.value && editingMessageId.value) {
-      await handleEditSend(currentSession.value, content)
-    } else {
-      await handleNormalSend(currentSession.value, content, extra)
+      await submitEditedLastUserMessage(currentSession.value, content, extra)
+      return
     }
+    await handleNormalSend(currentSession.value, content, extra)
   }
 
   const handleRegenerate = async () => {
@@ -376,14 +459,23 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     if (sessionMessages.length === 0 || sessionMessages[sessionMessages.length - 1].isUser) return
 
     chatStore.removeLastMessage(currentSession.value)
-    await scrollToBottom()
     await handleNormalSend(currentSession.value, lastUserMessage.value)
   }
 
   const handleEditMessage = ({ messageId, content }) => {
+    const raw = chatStore.messages[currentSession.value] || []
+    let lastUserId = null
+    for (let i = raw.length - 1; i >= 0; i -= 1) {
+      if (raw[i].isUser && String(raw[i].content || '').trim()) {
+        lastUserId = raw[i].id
+        break
+      }
+    }
+    if (messageId !== lastUserId) return
+
     appStore.setEditing(messageId)
     chatInputRef.value?.setContent(content)
-    scrollToBottom()
+    scrollMessagesToBottomForced()
     nextTick(() => chatInputRef.value?.focus())
   }
 
@@ -397,15 +489,18 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     currentSession,
     messages,
     loading,
+    isStreaming,
     error,
     filteredSessions,
     handleSelectSession,
     handleDeleteSession,
     handleCreateSession,
-    handleClearHistory,
+    handleRenameSession,
+    handleClearAllSessions,
     handleSendMessage,
     handleRegenerate,
     handleEditMessage,
     initializeChatSession,
+    stopGenerating,
   }
 }
