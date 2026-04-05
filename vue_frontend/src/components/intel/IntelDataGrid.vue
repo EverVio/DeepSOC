@@ -97,8 +97,13 @@ defineEmits(['page-change', 'page-size-change'])
   background: rgba(0, 229, 255, 0.08);
 }
 
-.intel-result-card :deep(.n-data-table-tr.intel-row--active > td) {
+.intel-result-card :deep(.n-data-table-tr.intel-row--active) {
   background: linear-gradient(90deg, rgba(0, 229, 255, 0.16), rgba(0, 229, 255, 0.06)) !important;
+}
+
+.intel-result-card :deep(.n-data-table-tr.intel-row--active > td) {
+  background: transparent !important;
+  border-color: transparent !important; 
 }
 
 .intel-result-card :deep(.intel-highlight-text) {

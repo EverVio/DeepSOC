@@ -458,7 +458,7 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
 .detail-actions {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 0.55rem;
+  margin-bottom: 1rem;
 }
 
 .detail-immersive-btn {
@@ -479,13 +479,15 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
 }
 
 .detail-content-scroll :deep(.n-scrollbar-content) {
-  padding-right: 0.15rem;
+  padding-right: 0.35rem; /* 从 0.15rem 增大 */
+  padding-bottom: 0.5rem;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.7rem;
+  margin-bottom: 1rem; 
 }
 
 .detail-item {
@@ -504,62 +506,86 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
 
 .detail-item span {
   display: block;
-  color: #5c7a8f;
-  font-size: 0.63rem;
-  letter-spacing: 0.06em;
+  color: #8bb1cc; 
+  font-size: 0.75rem;
+  font-weight: 500; 
+  letter-spacing: 0.08em;
   margin-bottom: 0.24rem;
   text-transform: uppercase;
+  
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .detail-item strong {
   display: block;
-  color: #e6f5ff;
-  font-size: 0.79rem;
-  font-weight: 600;
+  color: #ffffff; 
+  font-size: 0.8rem; 
+  font-weight: 400;
   line-height: 1.4;
   word-break: break-all;
+  
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .detail-section {
-  margin-top: 0.7rem;
+  margin-top: 1.5rem;
   animation: intelSectionRise 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .detail-section-title {
   color: var(--neon-cyan);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 1rem;
   letter-spacing: 0.1em;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+  margin-left: 0.2rem;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.5rem; 
+  padding: 0.4rem 0.3rem;
 }
 
+.chips .n-tag {
+  font-size: 0.82rem !important; 
+  padding: 0 0.65rem !important; 
+  height: 26px !important;
+  line-height: 26px !important;
+}
 .detail-empty-inline {
-  color: #6f8fa3;
-  font-size: 0.72rem;
+  font-size: 0.82rem; 
+  padding: 0.3rem 0.5rem;
 }
 
 .detail-scroll {
-  max-height: 120px;
+  max-height: 180px;
+  padding: 0.3rem;
   border: 0;
   background: rgba(0, 229, 255, 0.03);
   border-radius: 4px;
 }
 
 .detail-scroll--small {
-  max-height: 170px;
+  max-height: 240px;
 }
 
 .detail-pre {
   margin: 0;
-  padding: 0.5rem 0.6rem;
-  font-size: 0.7rem;
-  line-height: 1.45;
+  padding: 0.6rem 0.6rem; 
+  font-size: 0.8rem;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
@@ -616,7 +642,6 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
   border-radius: 6px;
 }
 
-/* 鼠标移入段落区域时显示复制按钮 */
 .detail-section--copyable:hover .section-copy-btn {
   opacity: 1;
   transform: translateY(-2px);
@@ -766,31 +791,52 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
 }
 
 .detail-item--reader span {
-  color: #8bb1cc; 
+  color: #a8c8e0; 
   font-size: 1rem;
+  font-weight: 500;
   margin-bottom: 0.5rem;
+  
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 .detail-item--reader strong {
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1.45;
   color: #ffffff;
+  font-weight: 100; 
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.015em;
+  
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .detail-section-title--reader {
-  font-size: 1rem;
+  font-size: 1.25rem;
   margin-bottom: 1.2rem;
   border-left: 3px solid var(--neon-cyan);
   padding-left: 0.8rem;
 }
 
 .chips--reader {
-  gap: 0.45rem;
+  gap: 0.6rem; 
+  padding-left: 1.25rem;
 }
 
+.chips--reader :deep(.n-tag) {
+  font-size: 1.25rem !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 1rem !important;
+  border-width: 1px !important;
+}
+
+
 .detail-empty-inline--reader {
-  font-size: 0.82rem;
+  font-size: 1.25rem;
+  padding-left: 1rem;
 }
 
 .detail-scroll--reader {

@@ -187,7 +187,7 @@ const sortOrderModel = computed({
 .intel-filter-shell__title {
   color: var(--neon-cyan);
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 1.25rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }

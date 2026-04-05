@@ -217,11 +217,6 @@ export function useIntelQuery() {
             if (!rows.value.length) {
                 selectedRecord.value = null
                 selectedRecordId.value = ''
-            } else {
-                const hasSelected = rows.value.some((item) => item.record_id === selectedRecordId.value)
-                if (!hasSelected) {
-                    await handleSelectRow(rows.value[0])
-                }
             }
         }
 
