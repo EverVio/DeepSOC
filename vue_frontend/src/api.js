@@ -424,6 +424,10 @@ export default {
     return axiosApi.post('/login', { username, password });
   },
 
+  testConnection(data) {
+    return axiosApi.post('/test_connection', data);
+  },
+  
   streamChat,
 
   getHistory(sessionId) {

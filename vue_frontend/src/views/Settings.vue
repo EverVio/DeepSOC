@@ -6,8 +6,8 @@
         <FuiCard :title="aiEngineTitle" class="settings-panel" :glow="true">
           <div class="summary-strip">
             <span>STATUS <strong class="ticker-value highlight-green">ONLINE</strong></span>
-            <span>LATENCY <strong class="ticker-value">42ms</strong></span>
-            <span>CTX WINDOW <strong class="ticker-value">128K</strong></span>
+            <span>PROVIDER <strong class="ticker-value">{{ llmProvider.toUpperCase() }}</strong></span>
+            <span>MODE <strong class="ticker-value">SECURE</strong></span>
           </div>
 
           <NForm label-placement="top" :show-feedback="false" class="panel-form">
@@ -33,7 +33,11 @@
                 />
                 <button 
                   class="ping-btn" 
-                  :class="{ 'pinging': isPingingProvider, 'success': providerPingStatus === 'OK' }"
+                  :class="{ 
+                    'pinging': isPingingProvider, 
+                    'success': providerPingStatus.endsWith('ms'),
+                    'error': providerPingStatus === 'AUTH_ERR' || providerPingStatus === 'TIMEOUT'
+                  }"
                   :disabled="llmProvider === 'ollama'"
                   @click="handlePing('provider')"
                 >
@@ -69,7 +73,11 @@
                 />
                 <button 
                   class="ping-btn" 
-                  :class="{ 'pinging': isPingingSearch, 'success': searchPingStatus === 'OK' }"
+                  :class="{ 
+                    'pinging': isPingingSearch, 
+                    'success': searchPingStatus.endsWith('ms'),
+                    'error': searchPingStatus === 'AUTH_ERR' || searchPingStatus === 'TIMEOUT'
+                  }"
                   @click="handlePing('search')"
                 >
                   <ActivityIcon class="btn-icon" v-if="!isPingingSearch" />
@@ -138,7 +146,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { NGrid, NGi, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
+import { NGrid, NGi, NForm, NFormItem, NInput, NSelect, createDiscreteApi } from 'naive-ui'
 import { DownloadIcon, LogoutIcon, ActivityIcon, AlertTriangleIcon } from 'vue-tabler-icons'
 import api from '../api'
 
@@ -147,7 +155,9 @@ import { useTextScramble } from '../composables/useTextScramble'
 import { useChatSettings } from '../composables/useChatSettings'
 import { useChatStore } from '../stores/chatStore'
 
-// --- 打字机乱码动效驱动标题 ---
+const { message } = createDiscreteApi(['message'])
+
+// --- 打字机乱码动效 ---
 const aiEngineTitle = ref('CORE AI ENGINE')
 const pluginsTitle = ref('EXTERNAL PLUGINS')
 const dataTitle = ref('DATA INTERFACE')
@@ -171,34 +181,7 @@ onBeforeUnmount(() => {
   scramblers.forEach(s => s.stop())
 })
 
-// --- Ping 测试逻辑 (UI 模拟层) ---
-const isPingingProvider = ref(false)
-const providerPingStatus = ref('PING')
-
-const isPingingSearch = ref(false)
-const searchPingStatus = ref('PING')
-
-const handlePing = (type) => {
-  if (type === 'provider') {
-    isPingingProvider.value = true
-    providerPingStatus.value = '...'
-    setTimeout(() => {
-      isPingingProvider.value = false
-      providerPingStatus.value = 'OK'
-      setTimeout(() => providerPingStatus.value = 'PING', 3000)
-    }, 800) // 模拟网络延迟
-  } else {
-    isPingingSearch.value = true
-    searchPingStatus.value = '...'
-    setTimeout(() => {
-      isPingingSearch.value = false
-      searchPingStatus.value = 'OK'
-      setTimeout(() => searchPingStatus.value = 'PING', 3000)
-    }, 600)
-  }
-}
-
-// --- 原有设置逻辑接入 ---
+// --- 基础设置逻辑接入 ---
 const router = useRouter()
 const chatStore = useChatStore()
 const { sessions, currentSession } = storeToRefs(chatStore)
@@ -230,6 +213,78 @@ const {
 const sessionOptions = computed(() => (sessions.value || []).map((item) => ({ label: item, value: item })))
 const providerOptions = computed(() => (availableProviders || []).map((item) => ({ label: item.label, value: item.value })))
 const modelOptions = computed(() => (availableModels.value || []).map((item) => ({ label: item, value: item })))
+
+// --- 真实的 Ping 连通性测试逻辑 (确保这里只声明一次) ---
+const isPingingProvider = ref(false)
+const providerPingStatus = ref('PING')
+
+const isPingingSearch = ref(false)
+const searchPingStatus = ref('PING')
+
+const handlePing = async (type) => {
+  if (type === 'provider') {
+    if (llmProvider.value !== 'ollama' && !providerApiKey.value) {
+      message.warning('请先输入 Provider API Key', { duration: 3000 })
+      return
+    }
+    
+    isPingingProvider.value = true
+    providerPingStatus.value = 'WAIT...'
+    
+    try {
+      const res = await api.testConnection({
+        type: 'provider',
+        provider: llmProvider.value,
+        api_key: providerApiKey.value
+      })
+      providerPingStatus.value = `${res.data.latency_ms}ms`
+    } catch (error) {
+      // 提取后端的真实错误描述
+      const backendErrorMsg = error.response?.data?.error || '网络不可达或超时'
+      
+      if (error.response && error.response.status === 400) {
+        providerPingStatus.value = 'AUTH_ERR'
+        message.error(`[ Ping 失败 ] ${backendErrorMsg}`, { duration: 5000 })
+      } else {
+        providerPingStatus.value = 'TIMEOUT'
+        message.error(`[ Ping 超时 ] ${backendErrorMsg}`, { duration: 5000 })
+      }
+    } finally {
+      isPingingProvider.value = false
+      setTimeout(() => { providerPingStatus.value = 'PING' }, 5000)
+    }
+
+  } else if (type === 'search') {
+    if (!webSearchApiKey.value) {
+      message.warning('请先输入 Web Search API Key', { duration: 3000 })
+      return
+    }
+    
+    isPingingSearch.value = true
+    searchPingStatus.value = 'WAIT...'
+    
+    try {
+      const res = await api.testConnection({
+        type: 'search',
+        api_key: webSearchApiKey.value
+      })
+      searchPingStatus.value = `${res.data.latency_ms}ms`
+    } catch (error) {
+      const backendErrorMsg = error.response?.data?.error || '网络不可达或超时'
+      
+      if (error.response && error.response.status === 400) {
+        searchPingStatus.value = 'AUTH_ERR'
+        message.error(`[ Ping 失败 ] ${backendErrorMsg}`, { duration: 5000 })
+      } else {
+        searchPingStatus.value = 'TIMEOUT'
+        message.error(`[ Ping 超时 ] ${backendErrorMsg}`, { duration: 5000 })
+      }
+    } finally {
+      isPingingSearch.value = false
+      setTimeout(() => { searchPingStatus.value = 'PING' }, 5000)
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -249,17 +304,16 @@ const modelOptions = computed(() => (availableModels.value || []).map((item) => 
   flex: 1;
   min-height: 0;
   height: 100%;
-  align-content: stretch; /* 核心：允许网格内容在垂直方向拉伸 */
+  align-content: stretch;
 }
 
-/* 在大屏幕(PC端)下，强制网格划分为比例约 1.1 : 0.9 的上下两行，完美铺满 */
+/* 在大屏幕(PC端)下，强制网格划分为上下两行，完美铺满 */
 @media (min-width: 1024px) {
   .settings-grid {
     grid-template-rows: minmax(0, 1.1fr) minmax(0, 0.9fr) !important;
   }
 }
 
-/* 让每一个网格单元 (n-gi) 具备拉伸能力 */
 .settings-grid :deep(.n-gi) {
   min-height: 0;
   display: flex;
@@ -278,7 +332,7 @@ const modelOptions = computed(() => (availableModels.value || []).map((item) => 
 .settings-panel :deep(.fui-card-body) {
   display: flex;
   flex-direction: column;
-  padding: 0.8rem 1.2rem 1.2rem; /* 适当加大内边距，适应全屏后的大视野 */
+  padding: 0.8rem 1.2rem 1.2rem;
   flex: 1;
   min-height: 0;
 }
@@ -317,7 +371,7 @@ const modelOptions = computed(() => (availableModels.value || []).map((item) => 
 .panel-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem; /* 稍微增加表单项的间距，让空间更饱满 */
+  gap: 1.5rem;
   flex: 1;
 }
 
@@ -383,6 +437,12 @@ const modelOptions = computed(() => (availableModels.value || []).map((item) => 
   background: rgba(67, 243, 162, 0.1);
   border-color: #43F3A2;
   color: #43F3A2;
+}
+
+.ping-btn.error {
+  background: rgba(255, 73, 117, 0.1);
+  border-color: #FF4975;
+  color: #FF4975;
 }
 
 /* === 终端风格提示语 === */
@@ -512,6 +572,12 @@ const modelOptions = computed(() => (availableModels.value || []).map((item) => 
   border-color: rgba(255, 73, 117, 0.8);
   color: #FF4975;
   box-shadow: 0 0 15px rgba(255, 73, 117, 0.2);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2px;
 }
 
 /* === 滚动条定制 === */

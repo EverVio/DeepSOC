@@ -3,7 +3,10 @@ import logging
 import os
 import re
 import zipfile
+import time
+import requests
 from typing import Generator
+from ninja import File, NinjaAPI, Router, Schema
 
 from django.conf import settings
 from django.db import connection
@@ -49,6 +52,63 @@ def api_key_auth(request):
 
 router = Router(auth=api_key_auth)
 
+# Ping 测试的数据结构 ===
+class TestConnectionIn(Schema):
+    type: str
+    provider: str = None
+    api_key: str = None
+
+# Ping 测试后端接口 ===
+@router.post("/test_connection", response={200: dict, 400: ErrorResponse, 408: ErrorResponse})
+def test_connection(request, data: TestConnectionIn):
+    start_time = time.time()
+    
+    try:
+        if data.type == "provider":
+            # 【修复点 1】：强制转为小写并去除空格，防止大小写不匹配
+            provider = (data.provider or "").strip().lower()
+            api_key = data.api_key
+            headers = {"Authorization": f"Bearer {api_key}"}
+            
+            if provider == "deepseek":
+                r = requests.get("https://api.deepseek.com/models", headers=headers, timeout=8)
+            elif provider == "openai":
+                r = requests.get("https://api.openai.com/v1/models", headers=headers, timeout=8)
+            elif provider == "minimax":
+                r = requests.get("https://api.minimax.chat/v1/models", headers=headers, timeout=8)
+            elif provider == "siliconflow":
+                r = requests.get("https://api.siliconflow.cn/v1/models", headers=headers, timeout=8)
+            elif provider == "ollama":
+                r = requests.get("http://localhost:11434/api/tags", timeout=4)
+            else:
+                return 400, {"error": f"后端的 Ping 不支持此模型提供商: {data.provider}"}
+                
+            r.raise_for_status()
+
+        elif data.type == "search":
+            headers = {"Authorization": f"Bearer {data.api_key}"}
+            r = requests.get("https://api.bochaai.com/v1/web-search?query=test", headers=headers, timeout=8)
+            r.raise_for_status()
+            
+        else:
+            return 400, {"error": "未知的测试类型"}
+
+        latency_ms = int((time.time() - start_time) * 1000)
+        return 200, {"status": "ok", "latency_ms": latency_ms}
+
+    except requests.exceptions.HTTPError as e:
+        # 【修复点 2】：提取第三方机房返回的真实错误原因（比如余额不足、Key错误等）
+        err_msg = str(e)
+        try:
+            err_json = e.response.json()
+            if "error" in err_json:
+                err_msg = str(err_json.get("error", err_json))
+        except Exception:
+            pass
+        return 400, {"error": f"第三方拒绝访问 (HTTP {e.response.status_code}): {err_msg}"}
+        
+    except requests.exceptions.RequestException as e:
+        return 408, {"error": f"网络不可达或超时，请检查服务器网络或代理设置"}
 
 def _sse_line(payload: dict) -> str:
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
