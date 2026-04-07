@@ -1,5 +1,5 @@
 <template>
-  <div class="chart-wrap" @mouseenter="pauseOrbit" @mouseleave="resumeOrbit">
+  <div class="chart-wrap" @mouseleave="scheduleOrbitResume">
     <div ref="chartRef" class="chart-canvas"></div>
     <div v-if="loading" class="chart-mask">AGGREGATING CATEGORY LOAD...</div>
   </div>
@@ -29,6 +29,7 @@ const props = defineProps({
 const colorPool = ['#00e5ff', '#00ff9d', '#7b2cbf', '#ff0055', '#ff6a00', '#89a6ff', '#47d3ff']
 const orbitPhase = ref(0)
 let orbitTimer = null
+let orbitResumeTimer = null
 
 const abbreviate = (name) => {
   const text = String(name || '').trim()
@@ -41,24 +42,26 @@ const abbreviate = (name) => {
       .map((part) => part.slice(0, 3).toUpperCase())
       .join('-')
   }
-
   return text.slice(0, 3)
 }
 
-const statusTone = (percent) => {
-  if (percent >= 40) return { label: 'CRITICAL', color: '#ff0055' }
-  if (percent >= 22) return { label: 'WARNING', color: '#ff6a00' }
-  return { label: 'STABLE', color: '#00ff9d' }
-}
+const isInteractiveCategoryHit = (params) =>
+  params?.componentType === 'series' &&
+  params?.seriesType === 'pie' &&
+  params?.event?.target?.type === 'sector'
 
+// 增强齿轮环视觉表现，形成大小不一的科技刻度感
 const buildGearSegments = () =>
-  Array.from({ length: 48 }, (_, index) => ({
-    value: 1,
-    itemStyle: {
-      color: index % 2 === 0 ? 'rgba(0,229,255,0.28)' : 'rgba(0,229,255,0.03)',
-      borderWidth: 0,
-    },
-  }))
+  Array.from({ length: 48 }, (_, index) => {
+    const isMajor = index % 8 === 0
+    return {
+      value: isMajor ? 2 : 1,
+      itemStyle: {
+        color: isMajor ? 'rgba(0,229,255,0.45)' : (index % 2 === 0 ? 'rgba(0,229,255,0.18)' : 'rgba(0,229,255,0.02)'),
+        borderWidth: 0,
+      },
+    }
+  })
 
 const buildOption = () => {
   const fullscreen = props.fullscreen
@@ -144,55 +147,104 @@ const buildOption = () => {
   const allTagNames = tagSeries.map((item) => item.name)
   const legendData = fullscreen ? [...mainCategoryNames, ...allTagNames] : mainCategoryNames
 
+  // 图例分屏排布逻辑
+  const mid = Math.ceil(legendData.length / 2)
+  const leftLegend = legendData.slice(0, mid)
+  const rightLegend = legendData.slice(mid)
+
+  const sharedLegendConfig = {
+    type: 'scroll',
+    icon: 'circle',
+    pageIconColor: '#00e5ff',
+    pageIconInactiveColor: 'rgba(0,229,255,0.2)',
+    pageTextStyle: { color: '#c8d8e6' },
+    textStyle: {
+      color: '#c8d8e6',
+      fontFamily: 'Roboto Mono',
+      fontSize: fullscreen ? 11 : 10,
+      lineHeight: fullscreen ? 16 : 14,
+      verticalAlign: 'middle',
+      width: fullscreen ? 140 : 'auto',
+      overflow: 'truncate'
+    },
+    itemWidth: fullscreen ? 10 : 8,
+    itemHeight: fullscreen ? 10 : 8,
+    itemGap: fullscreen ? 16 : 12,
+  }
+
+  const legendConfig = fullscreen
+    ? [
+        {
+          ...sharedLegendConfig,
+          orient: 'vertical',
+          left: '2%',
+          top: 'middle',
+          height: '75%',
+          data: leftLegend,
+        },
+        {
+          ...sharedLegendConfig,
+          orient: 'vertical',
+          right: '2%',
+          top: 'middle',
+          height: '75%',
+          data: rightLegend,
+        },
+      ]
+    : {
+        ...sharedLegendConfig,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 10,
+        width: '94%',
+        data: legendData,
+      }
+
   return {
     backgroundColor: 'transparent',
+
+    animation: true,
+    animationDuration: 100,       
+    animationDurationUpdate: 400, 
+    animationEasing: 'cubicOut',  
+
+    // 新增：使用全局 DOM Tooltip，复用 cyberChartTheme.css 中的样式
     tooltip: createCyberTooltip({
-      size: 'sm',
+      className: 'cyber-tooltip category-tooltip', 
       trigger: 'item',
       formatter: (params) => {
-        const value = Number(params.value) || 0
-        const percent = Number(params.percent) || 0
-        const confidence = Number(params.data?.confidence) || 0
-        const parent = params.data?.parent ? `<div class="cyber-tip-row"><span>Cluster</span><strong>${params.data.parent}</strong></div>` : ''
-        const tone = statusTone(percent)
-        return [
-          '<div class="cyber-tip-body">',
-          `<div class="cyber-tip-head"><span class="state-dot" style="background:${tone.color}"></span>${tone.label}</div>`,
-          `<div class="cyber-tip-title">${params.name || 'UNKNOWN'}</div>`,
-          parent,
-          '<div class="cyber-tip-row"><span>Records</span><strong>' + value + '</strong></div>',
-          '<div class="cyber-tip-row"><span>Share</span><strong>' + percent.toFixed(1) + '%</strong></div>',
-          '<div class="cyber-tip-row"><span>Confidence</span><strong>' + confidence.toFixed(1) + '%</strong></div>',
-          '</div>',
-        ].join('')
-      },
+        // 仅对主分类环显示提示
+        if (params.seriesId !== 'categoryMainRing') return '';
+        
+        const conf = params.data?.confidence || 0;
+        const percent = (params.percent || 0).toFixed(1);
+        
+        return `
+          <div class="cyber-tip-body">
+            <div class="cyber-tip-title" style="color: #8befff; font-family: 'Roboto Mono'; font-weight: 700; font-size: ${fullscreen ? '12px' : '11px'};">
+              ${params.name}
+            </div>
+            <div class="cyber-tip-row">
+              <span style="color: #7ba7bc;">COUNT: </span> 
+              <strong style="color: #ffffff; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '12px' : '11px'};">${params.value}</strong>
+            </div>
+            <div class="cyber-tip-row">
+              <span style="color: #7ba7bc;">SHARE: </span> 
+              <strong style="color: #7fffc4; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '11px' : '10px'};">${percent}%</strong>
+            </div>
+            <div class="cyber-tip-row">
+              <span style="color: #7ba7bc;">CONF:  </span> 
+              <strong style="color: #ff0055; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '11px' : '10px'};">${conf.toFixed(1)}%</strong>
+            </div>
+          </div>
+        `;
+      }
     }),
-    legend: {
-      show: true,
-      type: 'scroll',
-      orient: 'horizontal',
-      left: 'center',
-      bottom: fullscreen ? 24 : 10,
-      width: fullscreen ? '88%' : '94%',
-      data: legendData,
-      itemWidth: fullscreen ? 10 : 8,
-      itemHeight: fullscreen ? 10 : 8,
-      itemGap: fullscreen ? 16 : 12,
-      padding: fullscreen ? [10, 20] : [8, 10],
-      icon: 'circle',
-      pageIconColor: '#00e5ff',
-      pageIconInactiveColor: 'rgba(0,229,255,0.2)',
-      pageTextStyle: { color: '#c8d8e6' },
-      textStyle: {
-        color: '#c8d8e6',
-        fontFamily: 'Roboto Mono',
-        fontSize: fullscreen ? 11 : 10,
-        lineHeight: fullscreen ? 16 : 14,
-        verticalAlign: 'middle',
-      },
-    },
+
+    legend: legendConfig,
     title: [
       {
+        show: fullscreen,
         text: centerTitle,
         left: centerX,
         top: fullscreen ? '39.5%' : '39.5%',
@@ -207,6 +259,7 @@ const buildOption = () => {
         },
       },
       {
+        show: fullscreen,
         text: centerSub,
         left: centerX,
         top: fullscreen ? '49.5%' : '50.5%',
@@ -235,11 +288,40 @@ const buildOption = () => {
         labelLine: { show: false },
         data: buildGearSegments(),
       },
+      // 新增：内圈彗星光效
+      {
+        id: 'innerCometNode',
+        name: 'Inner Comet',
+        type: 'pie',
+        silent: true,
+        radius: fullscreen ? ['20%', '21.5%'] : ['18%', '19.5%'],
+        center: centerCoord,
+        startAngle: orbitPhase.value * 3,
+        z: 3,
+        animation: false,
+        label: { show: false },
+        labelLine: { show: false },
+        data: [
+          {
+            value: 4,
+            itemStyle: {
+              color: '#7effa1',
+              shadowBlur: 14,
+              shadowColor: 'rgba(126,255,161,0.9)',
+            },
+          },
+          { value: 96, itemStyle: { color: 'rgba(0,0,0,0)' } },
+        ],
+      },
       {
         id: 'categoryMainRing',
         name: 'Category',
         type: 'pie',
         radius: fullscreen ? ['46%', '70%'] : ['42%', '65%'],
+        animationType: 'expansion',
+        animationDuration: 500,     
+        animationEasing: 'cubicOut',
+        animationDelay: (idx) => idx * 15,
         center: centerCoord,
         avoidLabelOverlap: true,
         selectedMode: 'single',
@@ -270,28 +352,11 @@ const buildOption = () => {
         emphasis: {
           scale: true,
           scaleSize: 5,
-          label: {
+          labelLine: {
             show: true,
-            position: 'center',
-            formatter: (params) => `{name|${params.name}}\n{value|${params.value}}\n{ratio|${(params.percent || 0).toFixed(1)}%}`,
-            rich: {
-              name: {
-                color: '#8befff',
-                fontSize: fullscreen ? 11 : 10,
-                fontFamily: 'Roboto Mono',
-              },
-              value: {
-                color: '#ffffff',
-                fontSize: fullscreen ? 24 : 20,
-                fontWeight: 700,
-                fontFamily: 'Roboto Mono',
-                padding: [4, 0, 2, 0],
-              },
-              ratio: {
-                color: '#7fffc4',
-                fontSize: fullscreen ? 11 : 10,
-                fontFamily: 'Roboto Mono',
-              },
+            lineStyle: {
+              width: 2,
+              color: 'rgba(0,229,255,0.8)',
             },
           },
         },
@@ -335,6 +400,8 @@ const buildOption = () => {
         type: 'pie',
         silent: false,
         radius: fullscreen ? ['32%', '42%'] : ['29%', '38%'],
+        animationDuration: 400,
+        animationDelay: (idx) => idx * 10,
         center: centerCoord,
         startAngle: 95,
         padAngle: 1,
@@ -348,48 +415,6 @@ const buildOption = () => {
         },
         labelLine: { show: false },
         data: tagSeries,
-      },
-      {
-        id: 'outerOrbitRing',
-        name: 'Outer Orbit',
-        type: 'pie',
-        silent: true,
-        radius: fullscreen ? ['82%', '83.5%'] : ['78%', '79.2%'],
-        center: centerCoord,
-        z: 0,
-        animation: false,
-        label: { show: false },
-        labelLine: { show: false },
-        data: [{ value: 100, itemStyle: { color: 'rgba(98,224,255,0.18)' } }],
-      },
-      {
-        id: 'outerCometNode',
-        name: 'Comet Node',
-        type: 'pie',
-        silent: true,
-        radius: fullscreen ? ['82%', '83.8%'] : ['78%', '79.5%'],
-        center: centerCoord,
-        startAngle: -orbitPhase.value * 1.5,
-        z: 3,
-        animation: false,
-        label: { show: false },
-        labelLine: { show: false },
-        data: [
-          {
-            value: 3,
-            itemStyle: {
-              color: '#b5fcff',
-              shadowBlur: 20,
-              shadowColor: 'rgba(0,229,255,0.95)',
-            },
-          },
-          {
-            value: 97,
-            itemStyle: {
-              color: 'rgba(0,0,0,0)',
-            },
-          },
-        ],
       },
     ],
     graphic: [
@@ -416,8 +441,23 @@ const emit = defineEmits(['chart-click'])
 
 const { chartRef, setPartialOption } = useEcharts(buildOption, () => [props.stats, props.fullscreen], {
   deep: false,
-  throttleMs: 90,
-  debounceMs: 180,
+  throttleMs: 40, // 降低节流阈值以匹配更高帧率动画
+  debounceMs: 150,
+  onMouseOver: (params) => {
+    if (!isInteractiveCategoryHit(params)) return
+
+    if (orbitResumeTimer) {
+      clearTimeout(orbitResumeTimer)
+      orbitResumeTimer = null
+    }
+
+    pauseOrbit()
+  },
+  onMouseOut: (params) => {
+    if (!isInteractiveCategoryHit(params)) return
+
+    scheduleOrbitResume()
+  },
   onClick: (params) => {
     if (params.name) {
       emit('chart-click', params)
@@ -432,17 +472,33 @@ const pauseOrbit = () => {
   }
 }
 
+const scheduleOrbitResume = () => {
+  if (orbitResumeTimer) {
+    clearTimeout(orbitResumeTimer)
+  }
+
+  orbitResumeTimer = setTimeout(() => {
+    orbitResumeTimer = null
+    resumeOrbit()
+  }, 80)
+}
+
 const resumeOrbit = () => {
+  if (orbitResumeTimer) {
+    clearTimeout(orbitResumeTimer)
+    orbitResumeTimer = null
+  }
+
   if (!orbitTimer) {
     orbitTimer = setInterval(() => {
-      orbitPhase.value = (orbitPhase.value + 2) % 360
+      orbitPhase.value = (orbitPhase.value + 1) % 360
       setPartialOption({
         series: [
           { id: 'innerGearOrbit', startAngle: orbitPhase.value },
-          { id: 'outerCometNode', startAngle: -orbitPhase.value * 1.5 },
+          { id: 'innerCometNode', startAngle: orbitPhase.value * 3 },
         ],
       })
-    }, 120)
+    }, 40) // 从120ms缩短到40ms (~25fps) 使动态更流畅
   }
 }
 
@@ -451,6 +507,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (orbitResumeTimer) {
+    clearTimeout(orbitResumeTimer)
+    orbitResumeTimer = null
+  }
   pauseOrbit()
 })
 </script>

@@ -10,7 +10,15 @@ import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } fr
 export function useEcharts(
     buildOption,
     watchSource,
-    { deep = true, throttleMs = 80, debounceMs = 160, viewportThreshold = 0.05, onClick = null } = {},
+    {
+        deep = true,
+        throttleMs = 80,
+        debounceMs = 160,
+        viewportThreshold = 0.05,
+        onClick = null,
+        onMouseOver = null,
+        onMouseOut = null,
+    } = {},
 ) {
     const chartRef = ref(null)
     let chart = null
@@ -193,6 +201,14 @@ export function useEcharts(
 
         if (onClick) {
             chart.on('click', onClick)
+        }
+
+        if (onMouseOver) {
+            chart.on('mouseover', onMouseOver)
+        }
+
+        if (onMouseOut) {
+            chart.on('mouseout', onMouseOut)
         }
 
         setupIntersectionObserver()

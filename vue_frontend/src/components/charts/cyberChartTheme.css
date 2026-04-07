@@ -8,6 +8,17 @@
     /* 已移除 animation: cyber-tip-type-in 属性，避免底层 setOption 高频触发时 DOM 重建导致的动画闪烁 */
 }
 
+.cyber-tooltip.category-tooltip .cyber-tip-body {
+    border: 0;
+    background: rgba(4, 8, 18, 0.76);
+    box-shadow: none;
+    padding: 12px 14px;
+}
+
+.cyber-tooltip.category-tooltip .cyber-tip-title {
+    margin-bottom: 8px;
+}
+
 .cyber-tooltip.cyber-tooltip-sm .cyber-tip-body {
     min-width: 170px;
 }
