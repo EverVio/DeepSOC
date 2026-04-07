@@ -10,8 +10,16 @@ const DEFAULT_STATS = {
   summary: {},
   source_counts: [],
   category_counts: [],
+  category_quality: [],
   threat_distribution: [],
   timeline: [],
+  timeline_slices: [],
+  radar_tactics: {
+    indicators: [],
+    total_values: [],
+    verified_values: [],
+    items: [],
+  },
   topology: { nodes: [], links: [] },
 }
 

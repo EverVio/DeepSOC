@@ -14,6 +14,8 @@ const ANALYSIS_JUMP_HISTORY_KEY = 'analysisJumpHistory';
 const ANALYSIS_JUMP_HISTORY_LIMIT = 50;
 /** 与系统设置「导出会话」下拉同步，重命名时需改写，避免选中项失效 */
 export const EXPORT_TARGET_SESSION_KEY = 'deepsoc_exportTargetSessionId';
+const USER_PREFIX = '用户：';
+const ASSISTANT_PREFIX = '回复：';
 
 const readStoredJson = (storage, key, fallback) => {
   try {
@@ -46,6 +48,52 @@ const normalizeAnalysisJumpEntry = (payload) => {
     sessionId,
     createdAt,
   };
+};
+
+const unescapeContextText = (text) => {
+  const restored = (text || '').replace(/\n\\用户：/g, '\n用户：');
+  return restored.replace(/\n\\回复：/g, '\n回复：');
+};
+
+const parseConversationHistory = (contextText) => {
+  const history = [];
+  if (!contextText) return history;
+
+  let currentRole = null;
+  let currentLines = [];
+
+  const flushCurrent = () => {
+    if (!currentRole) return;
+    const joined = currentLines.join('\n').trim();
+    const content = unescapeContextText(joined);
+    if (content) {
+      history.push({ role: currentRole, content });
+    }
+  };
+
+  const normalized = String(contextText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (const line of normalized.split('\n')) {
+    if (line.startsWith(USER_PREFIX)) {
+      flushCurrent();
+      currentRole = 'user';
+      currentLines = [line.slice(USER_PREFIX.length)];
+      continue;
+    }
+
+    if (line.startsWith(ASSISTANT_PREFIX)) {
+      flushCurrent();
+      currentRole = 'assistant';
+      currentLines = [line.slice(ASSISTANT_PREFIX.length)];
+      continue;
+    }
+
+    if (currentRole) {
+      currentLines.push(line);
+    }
+  }
+
+  flushCurrent();
+  return history;
 };
 
 const createDefaultAgentNode = () => ({
@@ -405,49 +453,14 @@ export const useChatStore = defineStore('chat', () => {
     messages.value[sessionId] = [];
     if (!historyText) return;
 
-    const lines = historyText.split('\n');
-    let currentMessage = null;
-
-    lines.forEach((line) => {
-      if (line.startsWith('用户：')) {
-        if (currentMessage) {
-          addMessage(sessionId, currentMessage.isUser, {
-            content: currentMessage.content,
-            think_process: null,
-            duration: null,
-          });
-        }
-
-        currentMessage = {
-          isUser: true,
-          content: line.replace('用户：', '').trim(),
-        };
-        return;
-      }
-
-      if (line.startsWith('回复：')) {
-        if (currentMessage) {
-          addMessage(sessionId, currentMessage.isUser, {
-            content: currentMessage.content,
-            think_process: null,
-            duration: null,
-          });
-        }
-
-        currentMessage = {
-          isUser: false,
-          content: line.replace('回复：', '').trim(),
-        };
-      }
-    });
-
-    if (currentMessage) {
-      addMessage(sessionId, currentMessage.isUser, {
-        content: currentMessage.content,
+    const history = parseConversationHistory(historyText);
+    history.forEach((message) => {
+      addMessage(sessionId, message.role === 'user', {
+        content: message.content,
         think_process: null,
         duration: null,
       });
-    }
+    });
   };
 
   const clearSessionMessages = (sessionId) => {

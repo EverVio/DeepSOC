@@ -12,6 +12,7 @@ import router from './router';
 import { useAppStore } from './stores/appStore';
 import { useAuthStore } from './stores/authStore';
 import './assets/styles.css';
+import './components/charts/cyberChartTheme.css';
 import 'harmonyos-sans-sc-webfont-splitted';
 
 import 'highlight.js/styles/atom-one-dark.css';

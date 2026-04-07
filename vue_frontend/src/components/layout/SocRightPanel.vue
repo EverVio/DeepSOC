@@ -32,6 +32,7 @@
           @dismiss="dismissIntro('radar')"
         />
         <ThreatRadarChart
+          :key="`side-radar-${isPanelActive('radar') ? 'fullscreen' : 'normal'}`"
           :stats="dashboardStats"
           :loading="statsLoading"
           :fullscreen="isPanelActive('radar')"
@@ -66,6 +67,7 @@
           @dismiss="dismissIntro('stream')"
         />
         <LogInflowChart
+          :key="`side-stream-${isPanelActive('stream') ? 'fullscreen' : 'normal'}`"
           :stats="dashboardStats"
           :loading="statsLoading"
           :enable-zoom="isPanelActive('stream')"
@@ -106,6 +108,7 @@
           @dismiss="dismissIntro('category')"
         />
         <CategoryDonutChart
+          :key="`side-category-${isPanelActive('category') ? 'fullscreen' : 'normal'}`"
           :stats="dashboardStats"
           :loading="statsLoading"
           :fullscreen="isPanelActive('category')"

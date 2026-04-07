@@ -1,0 +1,66 @@
+.cyber-tooltip .cyber-tip-body {
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 229, 255, 0.56);
+    background: linear-gradient(145deg, rgba(8, 16, 36, 0.96), rgba(5, 10, 22, 0.96));
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.35), inset 0 0 10px rgba(0, 229, 255, 0.08);
+    color: #dff8ff;
+    font-family: var(--font-mono);
+    /* 已移除 animation: cyber-tip-type-in 属性，避免底层 setOption 高频触发时 DOM 重建导致的动画闪烁 */
+}
+
+.cyber-tooltip.cyber-tooltip-sm .cyber-tip-body {
+    min-width: 170px;
+}
+
+.cyber-tooltip.cyber-tooltip-md .cyber-tip-body {
+    min-width: 180px;
+}
+
+.cyber-tooltip.cyber-tooltip-lg .cyber-tip-body {
+    min-width: 198px;
+}
+
+.cyber-tooltip .cyber-tip-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #8defff;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+}
+
+.cyber-tooltip .cyber-tip-title {
+    color: #f4feff;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.cyber-tooltip .cyber-tip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: #b9d9e8;
+}
+
+.cyber-tooltip .cyber-tip-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cyber-tooltip .cyber-tip-row strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+.cyber-tooltip .state-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+}
