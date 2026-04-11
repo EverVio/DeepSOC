@@ -115,6 +115,7 @@ import {
   getTopologySummaryText,
 } from './topology/TopologyDataAdapter.js'
 import { TopologyInteraction } from './topology/TopologyInteraction.js'
+import { RISK_COLORS } from '../constants/colorPalette'
 
 const props = defineProps({
   topology: {
@@ -153,18 +154,18 @@ const legendStats = computed(() => topologyModel.value?.stats || { minWeight: 0,
 
 const riskFilters = [
   { key: 'all',      label: 'ALL',      color: '#7fa8b6' },
-  { key: 'critical', label: 'CRITICAL', color: '#ff1a3a' },
-  { key: 'high',     label: 'HIGH',     color: '#ff4400' },
-  { key: 'medium',   label: 'MEDIUM',   color: '#ffaa00' },
-  { key: 'low',      label: 'LOW',      color: '#00b8ff' },
+  { key: 'critical', label: 'CRITICAL', color: RISK_COLORS.critical },
+  { key: 'high',     label: 'HIGH',     color: RISK_COLORS.high },
+  { key: 'medium',   label: 'MEDIUM',   color: RISK_COLORS.medium },
+  { key: 'low',      label: 'LOW',      color: RISK_COLORS.low },
 ]
 const activeRiskFilter = ref('all')
 
 const riskLegendItems = [
-  { key: 'critical', label: 'CRITICAL', color: '#ff1a3a' },
-  { key: 'high',     label: 'HIGH',     color: '#ff4400' },
-  { key: 'medium',   label: 'MEDIUM',   color: '#ffaa00' },
-  { key: 'low',      label: 'LOW / INFO', color: '#00b8ff' },
+  { key: 'critical', label: 'CRITICAL', color: RISK_COLORS.critical },
+  { key: 'high',     label: 'HIGH',     color: RISK_COLORS.high },
+  { key: 'medium',   label: 'MEDIUM',   color: RISK_COLORS.medium },
+  { key: 'low',      label: 'LOW / INFO', color: RISK_COLORS.low },
 ]
 const summaryText = computed(() => getTopologySummaryText(topologyModel.value))
 const hasActiveSelection = computed(() => Boolean(activeNodeId.value || focusedNodeId.value || pinnedNodeId.value))
@@ -425,28 +426,28 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 8px rgba(127, 168, 182, 0.2);
 }
 .filter-chip--active.filter-chip--critical {
-  border-color: rgba(255, 26, 58, 0.7);
-  background: rgba(255, 26, 58, 0.1);
-  color: #ff8899;
-  box-shadow: 0 0 10px rgba(255, 26, 58, 0.28);
+  border-color: rgba(255, 23, 68, 0.7);
+  background: rgba(255, 23, 68, 0.12);
+  color: #ff9db0;
+  box-shadow: 0 0 10px rgba(255, 23, 68, 0.28);
 }
 .filter-chip--active.filter-chip--high {
-  border-color: rgba(255, 68, 0, 0.7);
-  background: rgba(255, 68, 0, 0.1);
-  color: #ffaa66;
-  box-shadow: 0 0 10px rgba(255, 68, 0, 0.28);
+  border-color: rgba(255, 87, 34, 0.7);
+  background: rgba(255, 87, 34, 0.12);
+  color: #ffbf9f;
+  box-shadow: 0 0 10px rgba(255, 87, 34, 0.28);
 }
 .filter-chip--active.filter-chip--medium {
-  border-color: rgba(255, 170, 0, 0.7);
-  background: rgba(255, 170, 0, 0.1);
-  color: #ffd97a;
-  box-shadow: 0 0 10px rgba(255, 170, 0, 0.25);
+  border-color: rgba(255, 193, 7, 0.78);
+  background: rgba(255, 193, 7, 0.12);
+  color: #ffe08f;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.25);
 }
 .filter-chip--active.filter-chip--low {
-  border-color: rgba(0, 184, 255, 0.6);
-  background: rgba(0, 184, 255, 0.08);
-  color: #88ddff;
-  box-shadow: 0 0 8px rgba(0, 184, 255, 0.2);
+  border-color: rgba(69, 90, 100, 0.8);
+  background: rgba(69, 90, 100, 0.22);
+  color: #b7c5cc;
+  box-shadow: 0 0 8px rgba(69, 90, 100, 0.26);
 }
 
 .topology-toolbar {
@@ -828,19 +829,19 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.tooltip-risk--critical { color: #ff1a3a; }
-.tooltip-risk--critical .tooltip-risk-dot { background: #ff1a3a; box-shadow: 0 0 6px #ff1a3a; }
+.tooltip-risk--critical { color: #FF1744; }
+.tooltip-risk--critical .tooltip-risk-dot { background: #FF1744; box-shadow: 0 0 6px #FF1744; }
 
-.tooltip-risk--high { color: #ff6622; }
-.tooltip-risk--high .tooltip-risk-dot { background: #ff4400; box-shadow: 0 0 6px #ff4400; }
+.tooltip-risk--high { color: #FF5722; }
+.tooltip-risk--high .tooltip-risk-dot { background: #FF5722; box-shadow: 0 0 6px #FF5722; }
 
-.tooltip-risk--medium { color: #ffcc44; }
-.tooltip-risk--medium .tooltip-risk-dot { background: #ffaa00; box-shadow: 0 0 5px #ffaa00; }
+.tooltip-risk--medium { color: #FFC107; }
+.tooltip-risk--medium .tooltip-risk-dot { background: #FFC107; box-shadow: 0 0 5px #FFC107; }
 
 .tooltip-risk--low,
-.tooltip-risk--info { color: #7fa8b6; }
+.tooltip-risk--info { color: #90A4AE; }
 .tooltip-risk--low .tooltip-risk-dot,
-.tooltip-risk--info .tooltip-risk-dot { background: #00b8ff; box-shadow: 0 0 4px #00b8ff; }
+.tooltip-risk--info .tooltip-risk-dot { background: #455A64; box-shadow: 0 0 4px #455A64; }
 
 /* ── Risk level legend extras ────────────────────── */
 .legend-separator {

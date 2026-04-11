@@ -15,6 +15,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useResizeObserver } from '@vueuse/core'
 import { useEcharts } from '../../composables/useEcharts'
 import { createCyberTooltip, createHudCornerGraphics, createNoDataGraphic } from './cyberChartTheme'
+import { FLOW_COLORS, RISK_COLORS } from '../../constants/colorPalette'
 
 const props = defineProps({
   stats: {
@@ -38,11 +39,11 @@ const getRadarLayout = (fullscreen) => {
 }
 
 const rateLevel = (value, max) => {
-  if (!max) return { grade: 'C', color: '#7ba7bc' }
+  if (!max) return { grade: 'C', color: RISK_COLORS.low }
   const ratio = value / max
-  if (ratio >= 0.76) return { grade: 'A', color: '#ff0055' } // 保持红色
-  if (ratio >= 0.5) return { grade: 'B', color: '#ff6a00' }
-  return { grade: 'C', color: '#00ff9d' }
+  if (ratio >= 0.76) return { grade: 'A', color: RISK_COLORS.critical }
+  if (ratio >= 0.5) return { grade: 'B', color: RISK_COLORS.high }
+  return { grade: 'C', color: RISK_COLORS.medium }
 }
 
 const getThreatValues = () => {
@@ -158,7 +159,7 @@ const buildOption = () => {
         fontWeight: 500,
         rich: {
           en: { color: '#d9f6ff', fontSize: fullscreen ? 13 : 11, lineHeight: fullscreen ? 17 : 15, fontWeight: 500 },
-          grade: { color: '#00ff9d', fontSize: fullscreen ? 12 : 10, lineHeight: fullscreen ? 16 : 14, fontWeight: 500 },
+          grade: { color: RISK_COLORS.low, fontSize: fullscreen ? 12 : 10, lineHeight: fullscreen ? 16 : 14, fontWeight: 500 },
         },
       },
       splitArea: {
@@ -205,9 +206,9 @@ const buildOption = () => {
         symbol: 'diamond',
         symbolSize: fullscreen ? 6 : 5,
         showSymbol: true,
-        lineStyle: { color: '#ff0055', width: fullscreen ? 2.6 : 1.8, shadowBlur: 14, shadowColor: 'rgba(255,0,85,0.62)' },
-        areaStyle: { color: 'rgba(255,0,85,0.3)', shadowBlur: 18, shadowColor: 'rgba(255,0,85,0.48)' },
-        itemStyle: { color: '#ff0055', borderColor: '#ffd6e4', borderWidth: 1 },
+        lineStyle: { color: RISK_COLORS.critical, width: fullscreen ? 2.6 : 1.8, shadowBlur: 14, shadowColor: 'rgba(255,23,68,0.62)' },
+        areaStyle: { color: 'rgba(255,23,68,0.3)', shadowBlur: 18, shadowColor: 'rgba(255,23,68,0.48)' },
+        itemStyle: { color: RISK_COLORS.critical, borderColor: '#ffd6e4', borderWidth: 1 },
         data: [{ value: totalValues, name: 'Total Threats' }],
       },
       {
@@ -218,9 +219,9 @@ const buildOption = () => {
         symbol: 'circle',
         symbolSize: fullscreen ? 4 : 3,
         showSymbol: true,
-        lineStyle: { color: '#00e5ff', width: fullscreen ? 2.1 : 1.35, type: 'dashed', shadowBlur: 12, shadowColor: 'rgba(0,229,255,0.58)' },
+        lineStyle: { color: FLOW_COLORS.normal, width: fullscreen ? 2.1 : 1.35, type: 'dashed', shadowBlur: 12, shadowColor: 'rgba(0,229,255,0.58)' },
         areaStyle: { color: 'rgba(0,229,255,0.06)' },
-        itemStyle: { color: '#00e5ff', borderColor: '#dff8ff', borderWidth: 1 },
+        itemStyle: { color: FLOW_COLORS.normal, borderColor: '#dff8ff', borderWidth: 1 },
         data: [{ value: verifiedDisplayValues, name: 'Verified Threats' }],
       },
     ],

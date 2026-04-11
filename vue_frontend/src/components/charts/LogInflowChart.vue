@@ -15,6 +15,7 @@ import * as echarts from 'echarts'
 import { computed, onMounted, ref } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 import { createCyberTooltip, createHudCornerGraphics, createNoDataGraphic } from './cyberChartTheme'
+import { FLOW_COLORS, SOURCE_COLORS } from '../../constants/colorPalette'
 
 const props = defineProps({
   stats: {
@@ -40,9 +41,9 @@ const patternCache = ref(null)
 const getStatusTone = (value, max) => {
   if (!max) return { label: 'IDLE', color: '#7ba7bc' }
   const ratio = value / max
-  if (ratio >= 0.82) return { label: 'SATURATED', color: '#ff0055' }
-  if (ratio >= 0.55) return { label: 'SPIKE', color: '#ff6a00' }
-  return { label: 'NORMAL', color: '#00ff9d' }
+  if (ratio >= 0.82) return { label: 'SATURATED', color: FLOW_COLORS.saturated }
+  if (ratio >= 0.55) return { label: 'SPIKE', color: FLOW_COLORS.spike }
+  return { label: 'NORMAL', color: FLOW_COLORS.normal }
 }
 
 const shortText = (value, maxLen = 14) => {
@@ -148,7 +149,7 @@ const buildOption = () => {
 
   const hasData = timelineValues.length > 0
   const scanPattern = patternCache.value
-  const sourcePalette = ['#00e5ff', '#6fffb7', '#89a6ff', '#ff6a00', '#b98cff', '#ff4f8b']
+  const sourcePalette = SOURCE_COLORS
 
   const peakScatterData = peakIndexes.map((index) => {
     const slice = slices[index] || {}
@@ -166,7 +167,7 @@ const buildOption = () => {
     yAxis: warningLine,
     label: {
       position: 'insideEndTop',
-      color: '#ffcfaa',
+      color: '#cfd9ff',
       fontSize: fullscreen ? 10 : 9,
     }
   }] : []
@@ -433,9 +434,9 @@ const buildOption = () => {
                 type: 'rect',
                 shape: { x: firstPt[0] - 2, y: 0, width: 2, height: bottomY },
                 style: {
-                  fill: '#00ff9d',
+                  fill: FLOW_COLORS.normal,
                   shadowBlur: 16,
-                  shadowColor: 'rgba(0, 255, 157, 0.6)'
+                  shadowColor: 'rgba(0, 229, 255, 0.6)'
                 },
                 keyframeAnimation: {
                   duration: 3500,
@@ -462,21 +463,21 @@ const buildOption = () => {
         symbol: 'circle',
         symbolSize: fullscreen ? 7 : 6,
         lineStyle: {
-          color: '#00ff9d',
+          color: FLOW_COLORS.normal,
           width: 2.5,
           shadowBlur: 12,
-          shadowColor: 'rgba(0,255,157,0.8)',
+          shadowColor: 'rgba(0,229,255,0.8)',
         },
         itemStyle: {
-          color: '#00ff9d',
+          color: FLOW_COLORS.normal,
           borderWidth: 1,
           borderColor: '#fff'
         },
         areaStyle: {
           opacity: 0.5,
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(0,255,157,0.35)' },
-            { offset: 1, color: 'rgba(0,255,157,0.01)' },
+            { offset: 0, color: 'rgba(0,229,255,0.3)' },
+            { offset: 1, color: 'rgba(0,229,255,0.02)' },
           ]),
         },
         markPoint: {
@@ -513,11 +514,11 @@ const buildOption = () => {
         markLine: {
           symbol: ['none', 'none'],
           lineStyle: {
-            color: 'rgba(255,106,0,0.92)',
+            color: FLOW_COLORS.spike,
             type: 'dashed',
             width: 1.1,
             shadowBlur: 8,
-            shadowColor: 'rgba(255,106,0,0.55)',
+            shadowColor: 'rgba(213,0,249,0.55)',
           },
           data: warningLineData,
         },
@@ -537,9 +538,9 @@ const buildOption = () => {
           brushType: 'stroke',
         },
         itemStyle: {
-          color: '#ff0055',
+          color: FLOW_COLORS.peak,
           shadowBlur: 16,
-          shadowColor: 'rgba(255,0,85,0.9)',
+          shadowColor: 'rgba(255,82,82,0.9)',
         },
         z: 4,
         tooltip: {

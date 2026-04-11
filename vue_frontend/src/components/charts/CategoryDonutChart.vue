@@ -10,6 +10,7 @@ import * as echarts from 'echarts'
 import { onBeforeUnmount, watch, ref } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 import { createCyberTooltip, createHudCornerGraphics, createNoDataGraphic } from './cyberChartTheme'
+import { CATEGORY_COLORS } from '../../constants/colorPalette'
 
 const props = defineProps({
   stats: {
@@ -26,7 +27,7 @@ const props = defineProps({
   },
 })
 
-const colorPool = ['#00e5ff', '#00ff9d', '#7b2cbf', '#ff0055', '#ff6a00', '#89a6ff', '#47d3ff']
+const colorPool = CATEGORY_COLORS
 const orbitPhase = ref(0)
 let orbitTimer = null
 let orbitResumeTimer = null
@@ -100,8 +101,8 @@ const buildOption = () => {
       confidence: Number(item.avg_confidence) || 0,
       itemStyle: {
         color,
-        borderColor: '#050814',
-        borderWidth: 2,
+        borderColor: 'transparent',
+        borderWidth: 0,
         shadowBlur: isPeak ? 18 : 8,
         shadowColor: isPeak ? `${color}cc` : `${color}55`,
       },
@@ -135,8 +136,8 @@ const buildOption = () => {
         confidence: Number(tagItem.avg_confidence) || Number(category.avg_confidence) || 0,
         itemStyle: {
           color: echarts.color.lift(parentColor, 0.18),
-          borderColor: '#071126',
-          borderWidth: 1,
+          borderColor: 'transparent',
+          borderWidth: 0,
           opacity: 0.95,
         },
       })
@@ -212,6 +213,24 @@ const buildOption = () => {
       className: 'cyber-tooltip category-tooltip', 
       trigger: 'item',
       formatter: (params) => {
+        if (params.seriesId === 'categoryTagRing') {
+          const conf = params.data?.confidence || 0
+          return `
+            <div class="cyber-tip-body">
+              <div class="cyber-tip-title" style="color: #8befff; font-family: 'Roboto Mono'; font-weight: 700; font-size: ${fullscreen ? '12px' : '11px'};">
+                ${params.name}
+              </div>
+              <div class="cyber-tip-row">
+                <span style="color: #7ba7bc;">TAG VALUE: </span>
+                <strong style="color: #ffffff; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '12px' : '11px'};">${params.value}</strong>
+              </div>
+              <div class="cyber-tip-row">
+                <span style="color: #7ba7bc;">CONF: </span>
+                <strong style="color: #7fffc4; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '11px' : '10px'};">${conf.toFixed(1)}%</strong>
+              </div>
+            </div>
+          `
+        }
         if (params.seriesId !== 'categoryMainRing') return '';
         
         const conf = params.data?.confidence || 0;
@@ -232,7 +251,7 @@ const buildOption = () => {
             </div>
             <div class="cyber-tip-row">
               <span style="color: #7ba7bc;">CONF:  </span> 
-              <strong style="color: #ff0055; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '11px' : '10px'};">${conf.toFixed(1)}%</strong>
+              <strong style="color: #7fffc4; font-family: 'Roboto Mono'; font-size: ${fullscreen ? '11px' : '10px'};">${conf.toFixed(1)}%</strong>
             </div>
           </div>
         `;
@@ -372,17 +391,17 @@ const buildOption = () => {
           },
         },
         itemStyle: {
-          borderColor: '#050814',
-          borderWidth: 2,
+          borderColor: 'transparent',
+          borderWidth: 0,
         },
         data: enriched,
         markPoint: {
           symbol: 'pin',
           symbolSize: fullscreen ? 34 : 30,
           itemStyle: {
-            color: '#ff0055',
+            color: '#7f93ff',
             shadowBlur: 16,
-            shadowColor: 'rgba(255,0,85,0.8)',
+            shadowColor: 'rgba(127,147,255,0.8)',
           },
           label: {
             color: '#fff',
@@ -405,8 +424,8 @@ const buildOption = () => {
         padAngle: 1,
         minAngle: 3,
         itemStyle: {
-          borderColor: '#050814',
-          borderWidth: 1,
+          borderColor: 'transparent',
+          borderWidth: 0,
         },
         label: {
           show: false,
