@@ -96,11 +96,14 @@
             {{ entryHint }}
           </NAlert>
           <div v-if="isEmptyState" class="terminal-empty">
-            <div class="terminal-empty-brand">
-              <p class="terminal-empty-brand__line">DEEPSOC</p>
-              <p class="terminal-empty-brand__line">智能安全运营中心系统</p>
+            <div class="terminal-empty-inner">
+              <img class="terminal-empty-logo" :src="deepsocEmptyLogo" alt="DeepSOC" />
+              <div class="terminal-empty-brand">
+                <p class="terminal-empty-brand__line">DEEPSOC</p>
+                <p class="terminal-empty-brand__line">智能安全运营中心系统</p>
+              </div>
+              <p class="terminal-empty-hint">有什么我能帮您的吗？</p>
             </div>
-            <p class="terminal-empty-hint">有什么我能帮您的吗？</p>
           </div>
 
           <ChatMessage v-for="(msg, index) in displayMessages" :key="msg.id" :is-user="msg.isUser"
@@ -135,6 +138,7 @@ import FuiCard from '../components/FuiCard.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
 import { AlertTriangleIcon as AlertIcon, XIcon } from 'vue-tabler-icons'
+import deepsocEmptyLogo from '../assets/logo/logo.png'
 
 const props = defineProps({
   currentSession: { type: String, default: '' },
@@ -703,19 +707,43 @@ onUnmounted(() => {
 
 .terminal-empty {
   min-height: min(450px, 52vh);
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   border: 1px dashed rgba(0, 229, 255, 0.22);
   background: radial-gradient(circle at center, rgba(0, 229, 255, 0.04), transparent 65%);
+  box-sizing: border-box;
+  padding: 0.75rem 1rem clamp(1.5rem, 5vh, 3rem);
+}
+
+.terminal-empty-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: min(92vw, 26rem);
+  transform: translateY(clamp(-0.5rem, -1.75vh, 0rem));
+}
+
+.terminal-empty-logo {
+  width: clamp(420px, 52vw, 560px);
+  max-width: 560px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+  filter: none;
 }
 
 .terminal-empty-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.2rem;
+  gap: 0.45rem;
+  margin-top: 1.35rem;
+  margin-bottom: 0.25rem;
 }
 
 /** 与 .terminal-empty-hint 同字号、同色；额外霓虹发光 */
@@ -743,7 +771,7 @@ onUnmounted(() => {
 }
 
 .terminal-empty-hint {
-  margin-top: 1.15rem;
+  margin-top: 1.05rem;
   font-size: 1.1rem;
   font-family: var(--font-ui);
   font-weight: 600;
