@@ -636,8 +636,7 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
   right: 8px;
   bottom: 8px;
   opacity: 0;
-  background: rgba(0, 20, 30, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 20, 30, 0.78);
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 10;
   padding: 6px;
@@ -702,7 +701,6 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
   position: absolute;
   inset: 0;
   background: #010712;
-  backdrop-filter: none !important; 
 }
 
 .intel-reader-card {

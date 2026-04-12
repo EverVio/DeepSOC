@@ -43,12 +43,14 @@
         :entry-hint="analysisJumpHint"
         :analysis-jump-entry="analysisJumpEntry"
         :analysis-jump-history="analysisJumpHistory"
+        :analysis-history-visible="analysisHistoryVisible"
         :on-send-message="handleSendMessageWithHintClear"
-        :on-regenerate="handleRegenerate"
+        :on-regenerate="handleRegenerateWithHistoryReveal"
         :on-edit-message="handleEditMessage"
         :on-apply-analysis-jump="applyAnalysisJump"
         :on-send-analysis-jump="sendAnalysisJump"
         :on-dismiss-analysis-jump="dismissAnalysisJump"
+        :on-dismiss-analysis-jump-history="hideAnalysisJumpHistory"
         :on-reuse-analysis-jump="reuseAnalysisJump"
         :on-stop-generating="stopGenerating"
         :messages-container-ref="messagesContainerRef"
@@ -76,6 +78,7 @@ const router = useRouter()
 const chatStore = useChatStore()
 const analysisJumpHint = ref('')
 const analysisJumpEntry = ref(null)
+const analysisJumpHistoryVisibleBySession = ref({})
 
 const {
   searchQuery,
@@ -102,6 +105,25 @@ const {
 })
 
 const analysisJumpHistory = computed(() => chatStore.getAnalysisJumpHistory(currentSession.value, 3))
+const analysisHistoryVisible = computed(() => Boolean(analysisJumpHistoryVisibleBySession.value[currentSession.value]))
+
+const revealAnalysisJumpHistory = (sessionId = currentSession.value) => {
+  if (!sessionId) return
+
+  analysisJumpHistoryVisibleBySession.value = {
+    ...analysisJumpHistoryVisibleBySession.value,
+    [sessionId]: true,
+  }
+}
+
+const hideAnalysisJumpHistory = (sessionId = currentSession.value) => {
+  if (!sessionId) return
+
+  analysisJumpHistoryVisibleBySession.value = {
+    ...analysisJumpHistoryVisibleBySession.value,
+    [sessionId]: false,
+  }
+}
 
 watch(
   currentSession,
@@ -116,7 +138,13 @@ watch(
 const handleSendMessageWithHintClear = (...args) => {
   analysisJumpHint.value = ''
   analysisJumpEntry.value = null
+  revealAnalysisJumpHistory()
   return handleSendMessage(...args)
+}
+
+const handleRegenerateWithHistoryReveal = async (...args) => {
+  revealAnalysisJumpHistory()
+  return handleRegenerate(...args)
 }
 
 const applyAnalysisJump = (entry = analysisJumpEntry.value) => {
@@ -131,6 +159,7 @@ const applyAnalysisJump = (entry = analysisJumpEntry.value) => {
 const sendAnalysisJump = async (entry = analysisJumpEntry.value) => {
   if (!entry) return
 
+  revealAnalysisJumpHistory()
   analysisJumpHint.value = ''
   analysisJumpEntry.value = null
   const input = chatInputRef.value

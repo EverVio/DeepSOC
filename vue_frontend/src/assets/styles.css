@@ -267,8 +267,6 @@ textarea {
  * ---------------------------------------------------------- */
 .card {
   background: rgba(13, 22, 43, 0.8);
-  /* backdrop-filter: blur(12px); */
-  /* -webkit-backdrop-filter: blur(12px); */
   border: 1px solid var(--border-dim);
   clip-path: polygon(var(--clip-md) 0, 100% 0,
       100% calc(100% - var(--clip-md)),

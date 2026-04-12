@@ -97,10 +97,9 @@ defineEmits(['close', 'select-default', 'select-all', 'submit'])
 <style scoped>
 .export-center-panel {
   width: min(780px, 94vw);
-  background: linear-gradient(160deg, rgba(7, 20, 38, 0.98), rgba(4, 14, 30, 0.98));
+  background: linear-gradient(160deg, rgba(7, 20, 38, 0.9), rgba(4, 14, 30, 0.9));
   border: 1px solid rgba(0, 229, 255, 0.3);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(0, 229, 255, 0.18);
-  backdrop-filter: blur(6px);
 }
 
 .export-center-panel :deep(.n-card-header) {

@@ -17,16 +17,13 @@
         <span class="hud-value hud-value--green">ONLINE</span>
       </div>
       <div class="hud-divider" />
-      <div class="hud-item">
-        <span class="hud-label">DEFCON</span>
-        <span class="hud-value hud-value--cyan">LEVEL 4</span>
-      </div>
-      <div class="hud-divider" />
-      <div class="hud-item">
-        <span class="hud-label">SESSION</span>
-        <span class="hud-value hud-value--cyan session-name-display">{{ currentSession }}</span>
-      </div>
-      <div class="hud-divider" />
+      <template v-if="showSession">
+        <div class="hud-item">
+          <span class="hud-label">SESSION</span>
+          <span class="hud-value hud-value--cyan session-name-display">{{ currentSession }}</span>
+        </div>
+        <div class="hud-divider" />
+      </template>
       <div class="hud-item">
         <span class="hud-label">TIME</span>
         <span class="hud-value hud-value--cyan">{{ currentTime }}</span>
@@ -43,6 +40,7 @@
 defineProps({
   currentSession: { type: String, default: '' },
   currentTime: { type: String, default: '' },
+  showSession: { type: Boolean, default: false },
 })
 </script>
 

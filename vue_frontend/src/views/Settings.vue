@@ -1,28 +1,29 @@
 <template>
-  <div class="dashboard-page settings-dashboard">
-    <n-grid :x-gap="14" :y-gap="14" cols="1 s:1 m:2 l:3" responsive="screen" class="settings-grid">
+  <div class="dashboard-page settings-dashboard scanline-bg">
+    <n-grid :x-gap="16" :y-gap="16" cols="1 s:1 m:2 l:3" responsive="screen" class="settings-grid">
       
       <n-gi :span="2">
-        <FuiCard :title="aiEngineTitle" class="settings-panel" :glow="true">
-          <div class="summary-strip">
-            <span>STATUS <strong class="ticker-value highlight-green">ONLINE</strong></span>
-            <span>PROVIDER <strong class="ticker-value">{{ llmProvider.toUpperCase() }}</strong></span>
-            <span>MODE <strong class="ticker-value">SECURE</strong></span>
+        <FuiCard :title="aiEngineTitle" class="settings-panel solid-tech-panel">
+          <div class="panel-decorative-corner"></div>
+          <div class="summary-strip summary-strip--triple">
+            <span class="status-badge"><span class="dot blink-green"></span> ONLINE</span>
+            <span class="data-tag">PROVIDER <strong class="ticker-value">{{ llmProvider.toUpperCase() }}</strong></span>
+            <span class="data-tag">MODE <strong class="ticker-value highlight-cyan">SECURE</strong></span>
           </div>
 
           <NForm label-placement="top" :show-feedback="false" class="panel-form">
             <div class="form-grid-2">
-              <NFormItem label="MODEL PROVIDER">
+              <NFormItem label="MODEL PROVIDER // 模型供应商">
                 <NSelect :value="llmProvider" :options="providerOptions" @update:value="updateProvider" />
               </NFormItem>
 
-              <NFormItem label="MODEL NAME">
+              <NFormItem label="MODEL NAME // 核心模型">
                 <NSelect :value="llmModel" :options="modelOptions" @update:value="updateModel" />
               </NFormItem>
             </div>
 
-            <NFormItem label="PROVIDER API KEY">
-              <div class="input-with-ping">
+            <NFormItem label="PROVIDER API KEY // 鉴权密钥">
+              <div class="input-with-ping provider-key-row">
                 <NInput
                   type="password"
                   show-password-on="mousedown"
@@ -32,12 +33,9 @@
                   @update:value="updateProviderApiKey"
                 />
                 <button 
-                  class="ping-btn" 
-                  :class="{ 
-                    'pinging': isPingingProvider, 
-                    'success': providerPingStatus.endsWith('ms'),
-                    'error': providerPingStatus === 'AUTH_ERR' || providerPingStatus === 'TIMEOUT'
-                  }"
+                  type="button"
+                  class="tech-action-btn" 
+                  :class="{ 'pinging': isPingingProvider, 'success': providerPingStatus.endsWith('ms') }"
                   :disabled="llmProvider === 'ollama'"
                   @click="handlePing('provider')"
                 >
@@ -46,8 +44,6 @@
                 </button>
               </div>
               <div class="terminal-hint">
-                <span v-if="llmProvider === 'ollama'">> [LOCAL] Ollama 引擎已选择，无需外部鉴权。</span>
-                <span v-else>> [SECURE] 核心密钥已加密存储于本地沙盒环境。</span>
               </div>
             </NFormItem>
           </NForm>
@@ -55,15 +51,44 @@
       </n-gi>
 
       <n-gi :span="1">
-        <FuiCard :title="pluginsTitle" class="settings-panel">
+        <FuiCard :title="dataTitle" class="settings-panel solid-tech-panel settings-panel--data-interface">
+          <div class="panel-decorative-corner"></div>
           <div class="summary-strip">
-            <span>MODULE <strong class="ticker-value">WEB_SEARCH</strong></span>
-            <span>HEALTH <strong class="ticker-value highlight-green">100%</strong></span>
+            <span class="data-tag">CACHED <strong class="ticker-value highlight-cyan">{{ sessionOptions.length }}</strong> SESSIONS</span>
+            <span class="data-tag">EXPORT_FORMAT <strong class="ticker-value">HTML</strong></span>
           </div>
 
           <NForm label-placement="top" :show-feedback="false" class="panel-form">
-            <NFormItem label="WEB SEARCH API KEY">
-              <div class="input-with-ping">
+            <NFormItem label="TARGET SESSION DUMP // 数据流转储">
+              <div class="export-row">
+                <NSelect v-model:value="selectedSessionForExport" :options="sessionOptions" placeholder="选择转储目标" class="export-select" />
+                <button 
+                  type="button"
+                  class="tech-execute-btn" 
+                  :class="{ 'is-loading': isExporting }" 
+                  :disabled="isExporting"
+                  @click="handleExportSelectedSession"
+                >
+                  <DownloadIcon class="btn-icon" />
+                  <span>{{ isExporting ? 'DUMPING_DATA...' : 'EXECUTE_DUMP' }}</span>
+                </button>
+              </div>
+            </NFormItem>
+          </NForm>
+        </FuiCard>
+      </n-gi>
+
+      <n-gi :span="2">
+        <FuiCard :title="pluginsTitle" class="settings-panel solid-tech-panel settings-panel--plugins">
+          <div class="panel-decorative-corner"></div>
+          <div class="summary-strip">
+            <span class="data-tag">MODULE <strong class="ticker-value">WEB_SEARCH</strong></span>
+            <span class="data-tag">HEALTH <strong class="ticker-value highlight-green">100%</strong></span>
+          </div>
+
+          <NForm label-placement="top" :show-feedback="false" class="panel-form">
+            <NFormItem label="WEB SEARCH API KEY // 检索引擎密钥">
+              <div class="input-with-ping search-key-row">
                 <NInput
                   type="password"
                   show-password-on="mousedown"
@@ -72,67 +97,41 @@
                   @update:value="updateWebSearchApiKey"
                 />
                 <button 
-                  class="ping-btn" 
-                  :class="{ 
-                    'pinging': isPingingSearch, 
-                    'success': searchPingStatus.endsWith('ms'),
-                    'error': searchPingStatus === 'AUTH_ERR' || searchPingStatus === 'TIMEOUT'
-                  }"
+                  type="button"
+                  class="tech-action-btn" 
+                  :class="{ 'pinging': isPingingSearch, 'success': searchPingStatus.endsWith('ms') }"
+                  :disabled="isPingingSearch"
                   @click="handlePing('search')"
                 >
                   <ActivityIcon class="btn-icon" v-if="!isPingingSearch" />
                   <span class="ping-text">{{ searchPingStatus }}</span>
                 </button>
               </div>
-              <div class="terminal-hint">> [SECURE] 搜索引擎授权凭证已隔离。</div>
-            </NFormItem>
-          </NForm>
-        </FuiCard>
-      </n-gi>
-
-      <n-gi :span="2">
-        <FuiCard :title="dataTitle" class="settings-panel">
-          <div class="summary-strip">
-            <span>CACHED SESSIONS <strong class="ticker-value highlight-cyan">{{ sessionOptions.length }}</strong></span>
-            <span>EXPORT FORMAT <strong class="ticker-value">HTML</strong></span>
-          </div>
-
-          <NForm label-placement="top" :show-feedback="false" class="panel-form">
-            <NFormItem label="TARGET SESSION DUMP">
-              <div class="export-row">
-                <NSelect v-model:value="selectedSessionForExport" :options="sessionOptions" placeholder="选择要导出的会话节点" class="export-select" />
-                <button 
-                  class="sci-fi-btn" 
-                  :class="{ 'is-loading': isExporting }" 
-                  :disabled="isExporting"
-                  @click="handleExportSelectedSession"
-                >
-                  <DownloadIcon class="btn-icon" />
-                  <span>{{ isExporting ? 'DUMPING...' : 'EXECUTE DUMP' }}</span>
-                </button>
-              </div>
-              <div class="terminal-hint">> [INFO] 导出操作将把所选节点的历史流量落盘为本地静态 HTML。</div>
             </NFormItem>
           </NForm>
         </FuiCard>
       </n-gi>
 
       <n-gi :span="1">
-        <FuiCard :title="securityTitle" class="settings-panel" variant="danger">
+        <FuiCard :title="securityTitle" class="settings-panel solid-tech-panel settings-panel--security">
+          <div class="panel-decorative-corner"></div>
           <div class="summary-strip">
-            <span>AUTH <strong class="ticker-value highlight-red">ACTIVE</strong></span>
-            <span>CLEARANCE <strong class="ticker-value">LEVEL_3</strong></span>
+            <span class="status-badge danger"><span class="dot blink-red"></span> ACTIVE</span>
+            <span class="data-tag danger">CLEARANCE <strong class="ticker-value">LEVEL_3</strong></span>
           </div>
 
           <div class="security-panel-content">
-            <div class="warning-box">
+            <div class="warning-box solid-warning">
               <AlertTriangleIcon class="warning-icon" />
-              <p>TERMINATING THE CURRENT SESSION WILL FLUSH ALL VOLATILE CREDENTIALS.</p>
+              <div class="warning-text">
+                <p class="warning-title">CRITICAL ACTION</p>
+                <p>TERMINATING SESSION FLUSHES ALL VOLATILE CREDENTIALS.</p>
+              </div>
             </div>
             
-            <button class="sci-fi-btn danger full-width" @click="handleLogoutFromModal">
+            <button type="button" class="tech-kill-btn full-width" @click="handleLogoutFromModal">
               <LogoutIcon class="btn-icon" />
-              <span>TERMINATE SESSION</span>
+              <span>TERMINATE_SESSION</span>
             </button>
           </div>
         </FuiCard>
@@ -157,7 +156,6 @@ import { useChatStore } from '../stores/chatStore'
 
 const { message } = createDiscreteApi(['message'])
 
-// --- 打字机乱码动效 ---
 const aiEngineTitle = ref('CORE AI ENGINE')
 const pluginsTitle = ref('EXTERNAL PLUGINS')
 const dataTitle = ref('DATA INTERFACE')
@@ -181,7 +179,6 @@ onBeforeUnmount(() => {
   scramblers.forEach(s => s.stop())
 })
 
-// --- 基础设置逻辑接入 ---
 const router = useRouter()
 const chatStore = useChatStore()
 const { sessions, currentSession } = storeToRefs(chatStore)
@@ -214,13 +211,13 @@ const sessionOptions = computed(() => (sessions.value || []).map((item) => ({ la
 const providerOptions = computed(() => (availableProviders || []).map((item) => ({ label: item.label, value: item.value })))
 const modelOptions = computed(() => (availableModels.value || []).map((item) => ({ label: item, value: item })))
 
-// --- 真实的 Ping 连通性测试逻辑 (确保这里只声明一次) ---
 const isPingingProvider = ref(false)
 const providerPingStatus = ref('PING')
 
 const isPingingSearch = ref(false)
 const searchPingStatus = ref('PING')
 
+// 设计思路：保持主逻辑线性执行，无异常捕获。直接通过 await 阻断或向下流转数据状态。
 const handlePing = async (type) => {
   if (type === 'provider') {
     if (llmProvider.value !== 'ollama' && !providerApiKey.value) {
@@ -230,28 +227,21 @@ const handlePing = async (type) => {
     
     isPingingProvider.value = true
     providerPingStatus.value = 'WAIT...'
-    
     try {
       const res = await api.testConnection({
         type: 'provider',
         provider: llmProvider.value,
-        api_key: providerApiKey.value
+        api_key: providerApiKey.value,
       })
+
       providerPingStatus.value = `${res.data.latency_ms}ms`
+      setTimeout(() => { providerPingStatus.value = 'PING' }, 5000)
     } catch (error) {
-      // 提取后端的真实错误描述
-      const backendErrorMsg = error.response?.data?.error || '网络不可达或超时'
-      
-      if (error.response && error.response.status === 400) {
-        providerPingStatus.value = 'AUTH_ERR'
-        message.error(`[ Ping 失败 ] ${backendErrorMsg}`, { duration: 5000 })
-      } else {
-        providerPingStatus.value = 'TIMEOUT'
-        message.error(`[ Ping 超时 ] ${backendErrorMsg}`, { duration: 5000 })
-      }
+      const errorMessage = error?.response?.data?.error || error?.message || 'Provider Ping 失败'
+      message.error(errorMessage, { duration: 3000 })
+      providerPingStatus.value = 'PING'
     } finally {
       isPingingProvider.value = false
-      setTimeout(() => { providerPingStatus.value = 'PING' }, 5000)
     }
 
   } else if (type === 'search') {
@@ -262,55 +252,67 @@ const handlePing = async (type) => {
     
     isPingingSearch.value = true
     searchPingStatus.value = 'WAIT...'
-    
     try {
       const res = await api.testConnection({
         type: 'search',
-        api_key: webSearchApiKey.value
+        api_key: webSearchApiKey.value,
       })
+
       searchPingStatus.value = `${res.data.latency_ms}ms`
+      setTimeout(() => { searchPingStatus.value = 'PING' }, 5000)
     } catch (error) {
-      const backendErrorMsg = error.response?.data?.error || '网络不可达或超时'
-      
-      if (error.response && error.response.status === 400) {
-        searchPingStatus.value = 'AUTH_ERR'
-        message.error(`[ Ping 失败 ] ${backendErrorMsg}`, { duration: 5000 })
-      } else {
-        searchPingStatus.value = 'TIMEOUT'
-        message.error(`[ Ping 超时 ] ${backendErrorMsg}`, { duration: 5000 })
-      }
+      const errorMessage = error?.response?.data?.error || error?.message || 'Web Search Ping 失败'
+      message.error(errorMessage, { duration: 3000 })
     } finally {
       isPingingSearch.value = false
-      setTimeout(() => { searchPingStatus.value = 'PING' }, 5000)
     }
   }
 }
 </script>
 
 <style scoped>
-/* === 继承大屏 Dashboard 的全屏自适应底层布局逻辑 === */
+/* 核心设计理念：抛弃模糊玻璃态，采用深色实体纯色、锐利几何边角、工业级赛博朋克 UI */
 .dashboard-page {
   min-height: 0;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.9rem;
-  padding-right: 0.2rem;
+  padding: clamp(0.9rem, 1.2vw, 1.25rem);
   display: flex;
   flex-direction: column;
+  background-color: #02060d;
+}
+
+/* 背景 CRT 扫描线 */
+.scanline-bg {
+  position: relative;
+}
+.scanline-bg::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
 }
 
 .settings-grid {
   flex: 1;
   min-height: 0;
   height: 100%;
-  align-content: stretch;
+  position: relative;
+  z-index: 10;
+  align-content: start;
 }
 
-/* 在大屏幕(PC端)下，强制网格划分为上下两行，完美铺满 */
 @media (min-width: 1024px) {
   .settings-grid {
-    grid-template-rows: minmax(0, 1.1fr) minmax(0, 0.9fr) !important;
+    grid-template-rows: minmax(260px, 1fr) minmax(240px, 1fr) !important;
   }
 }
 
@@ -320,290 +322,422 @@ const handlePing = async (type) => {
   height: 100%;
 }
 
-/* 统一面板卡片高度策略：完全填满父容器 */
+/* 实体机甲面板基调 */
 .settings-panel {
   flex: 1;
   min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  background: #050a11 !important; /* 彻底移除 rgba/毛玻璃，使用高纯度暗黑系 */
+  border: 1px solid #102a3a;
+  box-shadow: inset 0 0 28px rgba(0, 229, 255, 0.04), 0 8px 30px rgba(0, 0, 0, 0.28);
+}
+
+.settings-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(#00e5ff 0.5px, transparent 0.5px);
+  background-size: 14px 14px;
+  opacity: 0.045;
+  pointer-events: none;
+}
+
+.settings-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 76px;
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.08), rgba(0, 229, 255, 0));
+  pointer-events: none;
+}
+
+/* 面板装饰切割角 */
+.panel-decorative-corner {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 20px;
+  height: 20px;
+  background: #00e5ff;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  z-index: 2;
+}
+
+.panel-decorative-corner.danger {
+  background: #ff4975;
 }
 
 .settings-panel :deep(.fui-card-body) {
   display: flex;
   flex-direction: column;
-  padding: 0.8rem 1.2rem 1.2rem;
+  padding: 1.8rem 2.6rem 1.6rem;
   flex: 1;
   min-height: 0;
 }
 
-/* === 数据条 (复用大屏样式) === */
+/* 实心高亮面板分类 */
+.solid-tech-panel {
+  border-top: 2px solid #00e5ff;
+}
+
+.solid-danger-panel {
+  border-top: 2px solid #ff4975;
+  background: #0a0406 !important;
+}
+
+/* 数据标签/状态栏重构为军事化实体块 */
 .summary-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 1.2rem;
+  gap: 3rem;
+  margin-bottom: 1.15rem;
 }
 
-.summary-strip span {
-  border: 1px solid rgba(0, 229, 255, 0.22);
-  background: rgba(0, 229, 255, 0.08);
-  color: #97d7ec;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  padding: 0.15rem 0.4rem;
+.summary-strip--triple {
   display: flex;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-wrap: nowrap;
 }
+
+.summary-strip--triple > * {
+  min-width: 180px;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.data-tag, .status-badge {
+  background: #0a1320;
+  border: 1px solid #1a3344;
+  color: #6a95a8;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1;
+  letter-spacing: 0.045em;
+  padding: 0.6rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+}
+
+.data-tag.danger {
+  background: #1a080c;
+  border-color: #3f121d;
+  color: #a86a77;
+}
+
+.status-badge {
+  color: #fff;
+  font-weight: bold;
+}
+
+.status-badge.danger {
+  color: #ff4975;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+.blink-green { background-color: #00ff66; animation: blink 1.5s infinite; box-shadow: 0 0 8px #00ff66; }
+.blink-red { background-color: #ff0055; animation: blink 1s infinite; box-shadow: 0 0 8px #ff0055; }
 
 .ticker-value {
-  margin-left: 0.3rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  margin-left: 0.4rem;
+  color: #fff;
+  letter-spacing: 0.03em;
 }
+.highlight-green { color: #00ff66; }
+.highlight-cyan { color: #00e5ff; }
 
-.highlight-green { color: #43F3A2; text-shadow: 0 0 6px rgba(67, 243, 162, 0.4); }
-.highlight-cyan { color: #00E5FF; text-shadow: 0 0 6px rgba(0, 229, 255, 0.4); }
-.highlight-red { color: #FF4975; text-shadow: 0 0 6px rgba(255, 73, 117, 0.4); }
-
-/* === 表单布局 === */
+/* 表单布局 */
 .panel-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.15rem;
   flex: 1;
+}
+
+.settings-panel--plugins .panel-form {
+  gap: 0.65rem;
+}
+
+.settings-panel--plugins .summary-strip {
+  margin-bottom: 5rem;
+}
+
+.settings-panel--data-interface .summary-strip,
+.settings-panel--security .summary-strip {
+  margin-bottom: 3rem;
+}
+
+.settings-panel--data-interface .data-tag,
+.settings-panel--data-interface .status-badge,
+.settings-panel--security .data-tag,
+.settings-panel--security .status-badge {
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+.settings-panel--plugins :deep(.n-form-item) {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  gap: 6rem;
 }
 
 .export-row {
   display: flex;
-  gap: 1rem;
+  gap: 2rem;
   align-items: center;
 }
-
-.export-select {
-  flex: 1;
-}
-
-/* === Ping 按钮与输入框组合 === */
+.export-select { flex: 2; min-width: 120px;}
 .input-with-ping {
   display: flex;
-  gap: 0.5rem;
+  gap: 2rem;
   align-items: stretch;
-}
-
-.ping-btn {
-  width: 80px;
-  flex-shrink: 0;
-  background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.3);
-  color: #00E5FF;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.ping-btn:hover:not(:disabled) {
-  background: rgba(0, 229, 255, 0.15);
-  border-color: #00E5FF;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
-}
-
-.ping-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.ping-btn.pinging {
-  border-color: #FFB34F;
-  color: #FFB34F;
-  animation: pulse-border 0.8s infinite alternate;
-}
-
-.ping-btn.success {
-  background: rgba(67, 243, 162, 0.1);
-  border-color: #43F3A2;
-  color: #43F3A2;
-}
-
-.ping-btn.error {
-  background: rgba(255, 73, 117, 0.1);
-  border-color: #FF4975;
-  color: #FF4975;
-}
-
-/* === 终端风格提示语 === */
-.terminal-hint {
-  margin-top: 0.4rem;
-  font-size: 0.65rem;
-  color: #4a7587;
-  font-family: var(--font-mono);
-  letter-spacing: 0.06em;
-}
-
-/* === 安全面板内容 === */
-.security-panel-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
-}
-
-.warning-box {
-  border: 1px solid rgba(255, 73, 117, 0.3);
-  background: rgba(255, 73, 117, 0.05);
-  padding: 0.8rem;
-  display: flex;
-  gap: 0.8rem;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.warning-icon {
-  color: #FF4975;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.warning-box p {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  line-height: 1.4;
-  color: #e2889e;
-  letter-spacing: 0.05em;
-}
-
-/* === 覆盖 Naive UI Label 样式 === */
-.panel-form :deep(.n-form-item-label) {
-  padding-bottom: 0.4rem;
-}
-.panel-form :deep(.n-form-item-label__text) {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: #89a8ba;
-}
-
-/* === 控件玻璃态覆写 === */
-.panel-form :deep(.n-base-selection),
-.panel-form :deep(.n-input) {
-  background: rgba(3, 10, 24, 0.6) !important;
-  border: 1px solid rgba(0, 229, 255, 0.2) !important;
-  box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.05);
-  border-radius: 0;
-}
-
-.panel-form :deep(.n-base-selection:hover),
-.panel-form :deep(.n-input:hover) {
-  border-color: rgba(0, 229, 255, 0.5) !important;
-}
-
-.panel-form :deep(.n-base-selection--active),
-.panel-form :deep(.n-input--focus) {
-  border-color: #00E5FF !important;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.15) !important;
-}
-
-.panel-form :deep(.n-input__input-el),
-.panel-form :deep(.n-base-selection-input__content) {
-  color: #ccf4ff;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-}
-
-/* === 科幻动作按钮 === */
-.sci-fi-btn {
-  height: 36px;
-  padding: 0 1.2rem;
-  border: 1px dashed rgba(0, 229, 255, 0.4);
-  background: rgba(0, 229, 255, 0.05);
-  color: #8fd0e8;
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  flex-shrink: 0;
-}
-
-.sci-fi-btn.full-width {
   width: 100%;
 }
 
-.sci-fi-btn:hover:not(:disabled) {
-  border-color: rgba(0, 229, 255, 0.9);
-  color: #17fefd;
-  box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+.provider-key-row {
+  max-width: 60%;
 }
 
-.sci-fi-btn.is-loading {
-  opacity: 0.6;
-  cursor: not-allowed;
+.provider-key-row :deep(.n-input),
+.provider-key-row :deep(.n-base-selection),
+.search-key-row :deep(.n-input),
+.search-key-row :deep(.n-base-selection) {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.sci-fi-btn.danger {
-  border-color: rgba(255, 73, 117, 0.4);
-  background: rgba(255, 73, 117, 0.05);
-  color: #ff85a1;
+.provider-key-row :deep(.n-input),
+.provider-key-row :deep(.n-base-selection) {
+  background: #080f18 !important;
+  border: 1px solid #1c3645 !important;
+  border-radius: 0 !important;
+  transition: all 0s;
 }
 
-.sci-fi-btn.danger:hover {
-  border-color: rgba(255, 73, 117, 0.8);
-  color: #FF4975;
-  box-shadow: 0 0 15px rgba(255, 73, 117, 0.2);
+.search-key-row :deep(.n-input),
+.search-key-row :deep(.n-base-selection) {
+  background: #07131c !important;
+  border: 1px solid #173649 !important;
+  border-radius: 0 !important;
+  transition: all 0s;
 }
 
-.btn-icon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2px;
+.panel-form :deep(.n-form-item-label__text) {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.045em;
+  color: #4a7587;
 }
 
-/* === 滚动条定制 === */
-.dashboard-page::-webkit-scrollbar {
-  width: 6px;
-}
-.dashboard-page::-webkit-scrollbar-track {
-  background: rgba(0, 229, 255, 0.05);
-}
-.dashboard-page::-webkit-scrollbar-thumb {
-  background: rgba(0, 229, 255, 0.2);
-  border-radius: 3px;
-}
-.dashboard-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 229, 255, 0.4);
+.panel-form :deep(.n-form-item) {
+  margin-bottom: 0;
+  padding-top: 0.8rem;   /* 增加顶部留白 */
+  padding-bottom: 0.8rem; /* 增加底部留白 */
 }
 
-@keyframes pulse-border {
-  from { border-color: rgba(255, 179, 79, 0.4); box-shadow: none; }
-  to { border-color: #FFB34F; box-shadow: 0 0 10px rgba(255, 179, 79, 0.3); }
+.provider-key-row :deep(.n-input .n-input-wrapper),
+.provider-key-row :deep(.n-base-selection .n-base-selection-label),
+.search-key-row :deep(.n-input .n-input-wrapper),
+.search-key-row :deep(.n-base-selection .n-base-selection-label) {
+  min-height: 38px;
 }
 
-@media (max-width: 1024px) {
+.provider-key-row :deep(.n-input:hover),
+.provider-key-row :deep(.n-base-selection:hover),
+.provider-key-row :deep(.n-base-selection--active),
+.provider-key-row :deep(.n-input--focus) {
+  background: #0b1522 !important;
+  border-color: #00e5ff !important;
+}
+
+.search-key-row :deep(.n-input:hover),
+.search-key-row :deep(.n-base-selection:hover),
+.search-key-row :deep(.n-base-selection--active),
+.search-key-row :deep(.n-input--focus) {
+  background: #0a1620 !important;
+  border-color: #66d9ff !important;
+}
+
+.provider-key-row :deep(.n-input__input-el),
+.provider-key-row :deep(.n-base-selection-input__content),
+.search-key-row :deep(.n-input__input-el),
+.search-key-row :deep(.n-base-selection-input__content) {
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+}
+
+/* 赛博朋克按钮体系（完全摒弃 rgba 圆角） */
+.tech-action-btn, .tech-execute-btn, .tech-kill-btn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ping 按钮：小尺寸战术切角 */
+.tech-action-btn {
+  min-width: 96px;
+  padding: 0 0.85rem;
+  background: #0c1a29;
+  color: #00e5ff;
+  border: 1px solid #1a3a4f;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.tech-action-btn:hover:not(:disabled) {
+  background: #00e5ff;
+  color: #000;
+}
+.tech-action-btn.pinging {
+  background: #ff9900;
+  color: #000;
+  border-color: #ff9900;
+}
+.tech-action-btn.success {
+  background: #00ff66;
+  color: #000;
+  border-color: #00ff66;
+}
+
+/* 执行转储：大尺寸机械感 */
+.tech-execute-btn {
+  height: 40px;
+  padding: 0 1.25rem;
+  background: #00e5ff;
+  color: #000;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.tech-execute-btn:hover:not(:disabled) {
+  background: #fff;
+  box-shadow: 0 0 10px #00e5ff;
+}
+
+/* 危险终端终止按钮 */
+.tech-kill-btn {
+  height: 44px;
+  background: #ff0055;
+  color: #fff;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  letter-spacing: 0.08em;
+}
+.tech-kill-btn:hover {
+  background: #ff4488;
+  box-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
+}
+.tech-kill-btn.full-width { width: 100%; }
+
+.btn-icon { width: 18px; height: 18px; }
+
+/* 纯色告警块 */
+.warning-box.solid-warning {
+  background: #1c0a10;
+  border-left: 4px solid #ff0055;
+  border-top: 1px solid #3d1521;
+  border-right: 1px solid #3d1521;
+  border-bottom: 1px solid #3d1521;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+.warning-icon { color: #ff0055; width: 28px; height: 28px; }
+.warning-title { color: #ff0055; font-weight: bold; margin-bottom: 0.2rem !important; }
+.warning-text p { margin: 0; color: #a86a77; font-family: var(--font-mono); font-size: 0.7rem; }
+
+.security-panel-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* 终端风格辅助文本 */
+.terminal-hint {
+  margin-top: 0.5rem;
+  font-size: 0.63rem;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  color: #3b6273;
+  font-family: var(--font-mono);
+}
+
+.ping-text {
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
+}
+
+@media (max-width: 1200px) {
+  .settings-panel :deep(.fui-card-body) {
+    padding: 1rem;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 0.75rem;
+  }
+
+  .summary-strip {
+    margin-bottom: 0.9rem;
+  }
+
+  .input-with-ping,
   .export-row {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .tech-action-btn,
+  .tech-execute-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .terminal-hint {
+    margin-top: 0.45rem;
+  }
 }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* 滚动条深色工业化 */
+.dashboard-page::-webkit-scrollbar { width: 4px; }
+.dashboard-page::-webkit-scrollbar-track { background: #000; }
+.dashboard-page::-webkit-scrollbar-thumb { background: #1a3a4f; }
+.dashboard-page::-webkit-scrollbar-thumb:hover { background: #00e5ff; }
 </style>

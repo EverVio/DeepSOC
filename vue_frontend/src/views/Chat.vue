@@ -73,11 +73,11 @@
         </div>
       </NCard>
 
-      <div v-if="analysisJumpHistory?.length && analysisHistoryVisible" class="analysis-history-strip">
+      <div v-if="analysisHistoryVisible && analysisJumpHistory?.length" class="analysis-history-strip">
         <div class="analysis-history-strip__header">
           <div class="analysis-history-strip__label">最近分析入口</div>
           <NButton class="analysis-history-strip__close-btn" quaternary circle aria-label="关闭最近分析入口"
-            @click="analysisHistoryVisible = false">
+            @click="onDismissAnalysisJumpHistory?.()">
             <XIcon class="analysis-history-strip__close-icon" />
           </NButton>
         </div>
@@ -145,12 +145,14 @@ const props = defineProps({
   entryHint: { type: String, default: '' },
   analysisJumpEntry: { type: Object, default: null },
   analysisJumpHistory: { type: Array, default: () => [] },
+  analysisHistoryVisible: { type: Boolean, default: false },
   onSendMessage: { type: Function, required: true },
   onRegenerate: { type: Function, required: true },
   onEditMessage: { type: Function, required: true },
   onApplyAnalysisJump: { type: Function, default: null },
   onSendAnalysisJump: { type: Function, default: null },
   onDismissAnalysisJump: { type: Function, default: null },
+  onDismissAnalysisJumpHistory: { type: Function, default: null },
   onReuseAnalysisJump: { type: Function, default: null },
   onStopGenerating: { type: Function, required: true },
   messagesContainerRef: { type: Object, default: null },
@@ -167,11 +169,13 @@ const {
   entryHint,
   analysisJumpEntry,
   analysisJumpHistory,
+  analysisHistoryVisible,
   onRegenerate,
   onEditMessage,
   onApplyAnalysisJump,
   onSendAnalysisJump,
   onDismissAnalysisJump,
+  onDismissAnalysisJumpHistory,
   onReuseAnalysisJump,
   onStopGenerating,
   chatInputRef,
@@ -207,8 +211,6 @@ const hasRenderablePayload = (message) => {
 
 const displayMessages = computed(() => (messages.value || []).filter((message) => hasRenderablePayload(message)))
 const isEmptyState = computed(() => displayMessages.value.length === 0)
-const analysisHistoryVisible = ref(true)
-
 const lastDisplayMessage = computed(() => {
   if (displayMessages.value.length === 0) return null
   return displayMessages.value[displayMessages.value.length - 1]

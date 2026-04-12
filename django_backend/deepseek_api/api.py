@@ -86,8 +86,17 @@ def test_connection(request, data: TestConnectionIn):
             r.raise_for_status()
 
         elif data.type == "search":
-            headers = {"Authorization": f"Bearer {data.api_key}"}
-            r = requests.get("https://api.bochaai.com/v1/web-search?query=test", headers=headers, timeout=8)
+            headers = {
+                "Authorization": f"Bearer {data.api_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "query": "test",
+                "summary": True,
+                "count": 1,
+                "freshness": "noLimit",
+            }
+            r = requests.post("https://api.bocha.cn/v1/web-search", headers=headers, json=payload, timeout=8)
             r.raise_for_status()
             
         else:
