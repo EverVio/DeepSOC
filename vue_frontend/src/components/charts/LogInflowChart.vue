@@ -6,7 +6,10 @@
       <div class="cyber-scanner-beam"></div>
     </div>
 
-    <div v-if="loading" class="chart-mask">SYNCING LOG STREAM...</div>
+    <div v-if="loading" class="cyber-loading-mask">
+      <div class="cyber-spinner"></div>
+      <span>SYNCING LOG STREAM...</span>
+    </div>
   </div>
 </template>
 
@@ -625,23 +628,4 @@ onMounted(() => {
   }
 }
 
-.chart-mask {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(5, 8, 20, 0.4);
-  color: #7ba7bc;
-  font-family: var(--font-ui, 'Roboto Mono');
-  font-size: 0.65rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  animation: pulse-mask 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse-mask {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
 </style>

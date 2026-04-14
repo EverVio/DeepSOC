@@ -194,35 +194,7 @@ export function useEcharts(
         intersectionObserver.observe(chartRef.value)
     }
 
-    const initChart = () => {
-        if (!chartRef.value || chart) return
-
-        chart = echarts.init(chartRef.value)
-
-        if (onClick) {
-            chart.on('click', onClick)
-        }
-
-        if (onMouseOver) {
-            chart.on('mouseover', onMouseOver)
-        }
-
-        if (onMouseOut) {
-            chart.on('mouseout', onMouseOut)
-        }
-
-        setupIntersectionObserver()
-
-        resizeObserver = new ResizeObserver(() => {
-            scheduleResize()
-        })
-        resizeObserver.observe(chartRef.value)
-
-        renderChart(true)
-        scheduleResize()
-    }
-
-    const destroyChart = () => {
+    const disconnectObservers = () => {
         if (intersectionObserver) {
             intersectionObserver.disconnect()
             intersectionObserver = null
@@ -235,12 +207,48 @@ export function useEcharts(
 
         clearResizeTimers()
 
+        isInViewport = false
+    }
+
+    const initChart = () => {
+        if (!chartRef.value) return
+
+        if (!chart) {
+            chart = echarts.init(chartRef.value)
+
+            if (onClick) {
+                chart.on('click', onClick)
+            }
+
+            if (onMouseOver) {
+                chart.on('mouseover', onMouseOver)
+            }
+
+            if (onMouseOut) {
+                chart.on('mouseout', onMouseOut)
+            }
+        }
+
+        setupIntersectionObserver()
+
+        if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+            resizeObserver = new ResizeObserver(() => {
+                scheduleResize()
+            })
+            resizeObserver.observe(chartRef.value)
+        }
+
+        renderChart(true)
+        scheduleResize()
+    }
+
+    const destroyChart = () => {
+        disconnectObservers()
+
         if (chart) {
             chart.dispose()
             chart = null
         }
-
-        isInViewport = false
     }
 
     onMounted(() => {
@@ -256,7 +264,7 @@ export function useEcharts(
     })
 
     onDeactivated(() => {
-        destroyChart()
+        disconnectObservers()
     })
 
     if (watchSource) {

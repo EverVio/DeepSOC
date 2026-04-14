@@ -6,12 +6,15 @@
       </div>
     </div>
     <div ref="chartRef" class="chart-canvas"></div>
-    <div v-if="loading" class="chart-mask">EVALUATING THREAT POSTURE...</div>
+    <div v-if="loading" class="cyber-loading-mask">
+      <div class="cyber-spinner"></div>
+      <span>EVALUATING THREAT POSTURE...</span>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
 import { useResizeObserver } from '@vueuse/core'
 import { useEcharts } from '../../composables/useEcharts'
 import { createCyberTooltip, createHudCornerGraphics, createNoDataGraphic } from './cyberChartTheme'
@@ -355,6 +358,19 @@ const renderParticles = () => {
   animationFrameId = requestAnimationFrame(renderParticles)
 }
 
+const startParticles = () => {
+  if (!animationFrameId) {
+    animationFrameId = requestAnimationFrame(renderParticles)
+  }
+}
+
+const stopParticles = () => {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+}
+
 useResizeObserver(hexContainerRef, (entries) => {
   const entry = entries[0]
   const canvas = particleCanvasRef.value
@@ -367,8 +383,10 @@ useResizeObserver(hexContainerRef, (entries) => {
   for (let i = 0; i < count; i++) particles.push(new Particle(width, height))
 })
 
-onMounted(() => { animationFrameId = requestAnimationFrame(renderParticles) })
-onBeforeUnmount(() => { if (animationFrameId) cancelAnimationFrame(animationFrameId) })
+onMounted(startParticles)
+onActivated(startParticles)
+onDeactivated(stopParticles)
+onBeforeUnmount(stopParticles)
 </script>
 
 <style scoped>
@@ -482,23 +500,4 @@ onBeforeUnmount(() => { if (animationFrameId) cancelAnimationFrame(animationFram
   .chart-canvas { min-height: 175px; }
 }
 
-.chart-mask {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(5, 8, 20, 0.4);
-  color: #7ba7bc;
-  font-family: var(--font-ui);
-  font-size: 0.64rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  animation: pulse-mask 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse-mask {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
 </style>

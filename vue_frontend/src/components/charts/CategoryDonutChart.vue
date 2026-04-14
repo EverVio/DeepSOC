@@ -1,13 +1,16 @@
 <template>
   <div class="chart-wrap" @mouseleave="scheduleOrbitResume">
     <div ref="chartRef" class="chart-canvas"></div>
-    <div v-if="loading" class="chart-mask">AGGREGATING CATEGORY LOAD...</div>
+    <div v-if="loading" class="cyber-loading-mask">
+      <div class="cyber-spinner"></div>
+      <span>AGGREGATING CATEGORY LOAD...</span>
+    </div>
   </div>
 </template>
 
 <script setup>
 import * as echarts from 'echarts'
-import { onBeforeUnmount, watch, ref } from 'vue'
+import { onBeforeUnmount, watch, ref, onActivated, onDeactivated } from 'vue'
 import { useEcharts } from '../../composables/useEcharts'
 import { createCyberTooltip, createHudCornerGraphics, createNoDataGraphic } from './cyberChartTheme'
 import { CATEGORY_COLORS } from '../../constants/colorPalette'
@@ -301,43 +304,40 @@ const buildOption = () => {
     }),
 
     legend: legendConfig,
-    title: [
-      {
-        show: fullscreen,
-        text: centerTitle,
-        left: centerX,
-        top: fullscreen ? '39.5%' : '39.5%',
-        textAlign: 'center',
-        textStyle: {
-          color: '#eaf7ff',
-          fontFamily: 'Roboto Mono',
-          fontSize: fullscreen ? 30 : 20,
-          fontWeight: 500,
-          textShadowColor: 'rgba(0,229,255,0.55)',
-          textShadowBlur: 14,
+    title: {
+      show: fullscreen,
+      text: `{main|${centerTitle}}\n{sub|${centerSub}}`,
+      left: 'center',
+      top: 'center',
+      textStyle: {
+        rich: {
+          main: {
+            color: '#eaf7ff',
+            fontFamily: 'Roboto Mono',
+            fontSize: fullscreen ? 30 : 20,
+            fontWeight: 500,
+            textShadowColor: 'rgba(0,229,255,0.55)',
+            textShadowBlur: 14,
+            padding: [0, 0, 8, 0],
+            align: 'center'
+          },
+          sub: {
+            color: 'rgba(173,225,245,0.78)',
+            fontFamily: 'Roboto Mono',
+            fontSize: fullscreen ? 16 : 10,
+            letterSpacing: 2,
+            align: 'center'
+          },
         },
       },
-      {
-        show: fullscreen,
-        text: centerSub,
-        left: centerX,
-        top: fullscreen ? '49.5%' : '50.5%',
-        textAlign: 'center',
-        textStyle: {
-          color: 'rgba(173,225,245,0.78)',
-          fontFamily: 'Roboto Mono',
-          fontSize: fullscreen ? 16 : 10,
-          letterSpacing: 2,
-        },
-      },
-    ],
+    },
     series: [
       {
         id: 'innerGearOrbit',
         name: 'Inner Gear Orbit',
         type: 'pie',
         silent: true,
-        radius: fullscreen ? ['24%', '28%'] : ['22%', '26%'],
+        radius: fullscreen ? ['26%', '30%'] : ['22%', '26%'],
         center: centerCoord,
         startAngle: orbitPhase.value,
         clockwise: false,
@@ -353,7 +353,7 @@ const buildOption = () => {
         name: 'Inner Comet',
         type: 'pie',
         silent: true,
-        radius: fullscreen ? ['20%', '21.5%'] : ['18%', '19.5%'],
+        radius: fullscreen ? ['22%', '23%'] : ['18%', '19.5%'],
         center: centerCoord,
         startAngle: orbitPhase.value * 3,
         z: 3,
@@ -376,7 +376,7 @@ const buildOption = () => {
         id: 'categoryMainRing',
         name: 'Category',
         type: 'pie',
-        radius: fullscreen ? ['46%', '70%'] : ['42%', '65%'],
+        radius: fullscreen ? ['50%', '82%'] : ['42%', '65%'],
         animationType: 'expansion',
         animationDuration: 500,     
         animationEasing: 'cubicOut',
@@ -461,7 +461,7 @@ const buildOption = () => {
         name: 'Tag Cluster',
         type: 'pie',
         silent: false,
-        radius: fullscreen ? ['32%', '42%'] : ['29%', '38%'],
+        radius: fullscreen ? ['35%', '45%'] : ['29%', '38%'],
         animationDuration: 400,
         animationDelay: (idx) => idx * 10,
         center: centerCoord,
@@ -573,13 +573,26 @@ watch(
     if (orbitResumeTimer) clearTimeout(orbitResumeTimer)
     if (initialRenderTimer) clearTimeout(initialRenderTimer)
 
-    // 800ms 后再启动齿轮环的旋转
+    // 缓存实例后缩短恢复等待
     initialRenderTimer = setTimeout(() => {
       resumeOrbit()
-    }, 800)
+    }, 400)
   },
   { immediate: true } 
 )
+
+onActivated(() => {
+  if (initialRenderTimer) clearTimeout(initialRenderTimer)
+  initialRenderTimer = setTimeout(() => {
+    resumeOrbit()
+  }, 400)
+})
+
+onDeactivated(() => {
+  pauseOrbit()
+  if (orbitResumeTimer) clearTimeout(orbitResumeTimer)
+  if (initialRenderTimer) clearTimeout(initialRenderTimer)
+})
 
 onBeforeUnmount(() => {
   if (initialRenderTimer) clearTimeout(initialRenderTimer)
@@ -607,23 +620,4 @@ onBeforeUnmount(() => {
   }
 }
 
-.chart-mask {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(5, 8, 20, 0.4);
-  color: #7ba7bc;
-  font-family: var(--font-ui);
-  font-size: 0.64rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  animation: pulse-mask 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse-mask {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
 </style>

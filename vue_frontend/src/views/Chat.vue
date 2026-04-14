@@ -214,7 +214,7 @@ const hasRenderablePayload = (message) => {
 }
 
 const displayMessages = computed(() => (messages.value || []).filter((message) => hasRenderablePayload(message)))
-const isEmptyState = computed(() => displayMessages.value.length === 0)
+const isEmptyState = computed(() => displayMessages.value.length === 0 && !analysisJumpEntry.value)
 const lastDisplayMessage = computed(() => {
   if (displayMessages.value.length === 0) return null
   return displayMessages.value[displayMessages.value.length - 1]
@@ -531,7 +531,7 @@ onUnmounted(() => {
 
 .analysis-jump-card__title {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--neon-cyan);
@@ -542,8 +542,9 @@ onUnmounted(() => {
 .analysis-jump-card__prompt-label,
 .analysis-jump-card__followups-label,
 .analysis-history-strip__label {
+  margin-bottom: 0.8rem;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.85rem;
   letter-spacing: 0.08em;
   color: #6f95a9;
   text-transform: uppercase;
@@ -552,7 +553,7 @@ onUnmounted(() => {
 .analysis-jump-card__summary-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.8rem;
 }
 
 .analysis-jump-card__summary-item {
@@ -563,7 +564,7 @@ onUnmounted(() => {
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.85rem;
+  gap: 1rem;
   min-width: 0;
 }
 
@@ -579,37 +580,37 @@ onUnmounted(() => {
 .analysis-jump-card__summary-value {
   color: #d9f6ff;
   font-family: var(--font-ui);
-  font-size: 0.66rem;
+  font-size: 0.9rem;
   line-height: 1.55;
   word-break: break-word;
   text-align: left;
 }
 
 .analysis-jump-card__prompt {
-  margin-top: 0.65rem;
-  padding: 0.65rem 0.72rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
   border: 1px solid rgba(0, 229, 255, 0.16);
   background: rgba(2, 8, 22, 0.62);
 }
 
 .analysis-jump-card__prompt-text {
-  margin-top: 0.34rem;
+  margin-top: 0.5rem;
   color: #d8f5ff;
   font-family: var(--font-ui);
-  font-size: 0.67rem;
+  font-size: 0.95rem;
   line-height: 1.65;
   white-space: pre-wrap;
 }
 
 .analysis-jump-card__followups {
-  margin-top: 0.65rem;
+  margin-top: 1rem;
 }
 
 .analysis-jump-card__followups-list,
 .analysis-history-strip__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.42rem;
+  gap: 3rem;
 }
 
 .analysis-jump-card__followup-item,
@@ -618,19 +619,19 @@ onUnmounted(() => {
   background: rgba(0, 229, 255, 0.05);
   color: #b9dced;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.85rem;
   letter-spacing: 0.05em;
 }
 
 .analysis-jump-card__followup-item {
-  padding: 0.2rem 0.42rem;
+  padding: 0.3rem 0.5rem;
 }
 
 .analysis-jump-card__actions {
-  margin-top: 0.78rem;
+  margin-top: 2rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 1rem;
 }
 
 .analysis-jump-card__button {
