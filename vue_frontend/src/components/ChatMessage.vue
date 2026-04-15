@@ -16,111 +16,113 @@
       </div>
     </header>
 
-    <section v-if="!isUser && thinkProcess && showThink" class="think-panel">
-      <pre class="terminal-text think-text">{{ thinkProcess }}</pre>
-    </section>
+    <div class="terminal-message__card">
+      <section v-if="!isUser && thinkProcess && showThink" class="think-panel">
+        <pre class="terminal-text think-text">{{ thinkProcess }}</pre>
+      </section>
 
-    <section class="terminal-message__body">
-      <pre v-if="isUser" class="terminal-text">{{ content || '' }}</pre>
-      <template v-else>
-        <section v-if="isMultiAgent" class="agent-accordion">
-          <button
-            class="agent-accordion__trigger"
-            type="button"
-            @click="toggleAgentPanel"
-            :aria-expanded="showAgentPanel"
-          >
-            <span class="title-with-cn">
-              <span>VIEW TACTICAL ANALYSIS PROCESS</span>
-              <span class="title-cn">战术分析过程</span>
-            </span>
-            <ChevronDownIcon v-if="!showAgentPanel" class="icon-mini" />
-            <ChevronUpIcon v-else class="icon-mini" />
-          </button>
+      <section class="terminal-message__body">
+        <pre v-if="isUser" class="terminal-text">{{ content || '' }}</pre>
+        <template v-else>
+          <section v-if="isMultiAgent" class="agent-accordion">
+            <button
+              class="agent-accordion__trigger"
+              type="button"
+              @click="toggleAgentPanel"
+              :aria-expanded="showAgentPanel"
+            >
+              <span class="title-with-cn">
+                <span>VIEW TACTICAL ANALYSIS PROCESS</span>
+                <span class="title-cn">战术分析过程</span>
+              </span>
+              <ChevronDownIcon v-if="!showAgentPanel" class="icon-mini" />
+              <ChevronUpIcon v-else class="icon-mini" />
+            </button>
 
-          <div v-if="showAgentPanel" class="agent-accordion__body">
-            <div class="agent-grid">
-              <article class="agent-node">
-                <header class="agent-node__header">
-                  <span class="agent-node__title">
-                    <span class="agent-node__name">RAG AGENT</span>
-                    <span class="agent-node__name-cn">数据库检索智能体</span>
-                  </span>
-                  <span class="agent-node__status" :class="statusClass(agentDataSafe.rag.status)">
-                    {{ formatAgentStatus(agentDataSafe.rag.status) }}
-                  </span>
-                </header>
-                <div
-                  class="agent-node__content markdown-body message-markdown"
-                  v-html="ragRendered"
-                  @click="onMarkdownClick"
-                ></div>
-                <p v-if="agentDataSafe.rag.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.rag) }}</p>
-              </article>
+            <div v-if="showAgentPanel" class="agent-accordion__body">
+              <div class="agent-grid">
+                <article class="agent-node">
+                  <header class="agent-node__header">
+                    <span class="agent-node__title">
+                      <span class="agent-node__name">RAG AGENT</span>
+                      <span class="agent-node__name-cn">数据库检索智能体</span>
+                    </span>
+                    <span class="agent-node__status" :class="statusClass(agentDataSafe.rag.status)">
+                      {{ formatAgentStatus(agentDataSafe.rag.status) }}
+                    </span>
+                  </header>
+                  <div
+                    class="agent-node__content markdown-body message-markdown"
+                    v-html="ragRendered"
+                    @click="onMarkdownClick"
+                  ></div>
+                  <p v-if="agentDataSafe.rag.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.rag) }}</p>
+                </article>
 
-              <article class="agent-node">
-                <header class="agent-node__header">
-                  <span class="agent-node__title">
-                    <span class="agent-node__name">WEB AGENT</span>
-                    <span class="agent-node__name-cn">联网检索智能体</span>
-                  </span>
-                  <span class="agent-node__status" :class="statusClass(agentDataSafe.web.status)">
-                    {{ formatAgentStatus(agentDataSafe.web.status) }}
-                  </span>
-                </header>
-                <div
-                  class="agent-node__content markdown-body message-markdown"
-                  v-html="webRendered"
-                  @click="onMarkdownClick"
-                ></div>
-                <p v-if="agentDataSafe.web.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.web) }}</p>
-              </article>
+                <article class="agent-node">
+                  <header class="agent-node__header">
+                    <span class="agent-node__title">
+                      <span class="agent-node__name">WEB AGENT</span>
+                      <span class="agent-node__name-cn">联网检索智能体</span>
+                    </span>
+                    <span class="agent-node__status" :class="statusClass(agentDataSafe.web.status)">
+                      {{ formatAgentStatus(agentDataSafe.web.status) }}
+                    </span>
+                  </header>
+                  <div
+                    class="agent-node__content markdown-body message-markdown"
+                    v-html="webRendered"
+                    @click="onMarkdownClick"
+                  ></div>
+                  <p v-if="agentDataSafe.web.error" class="agent-node__error">{{ formatAgentError(agentDataSafe.web) }}</p>
+                </article>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section v-if="isMultiAgent" class="synthesis-panel">
-          <header class="synthesis-panel__header">
-            <span class="synthesis-panel__name-wrap">
-              <span class="synthesis-panel__name">SYNTHESIS AGENT</span>
-              <span class="synthesis-panel__name-cn">综合智能体</span>
-            </span>
-            <span class="synthesis-panel__status-wrap">
-              <span class="synthesis-panel__status">FINAL OUTPUT</span>
-            </span>
-          </header>
+          <section v-if="isMultiAgent" class="synthesis-panel">
+            <header class="synthesis-panel__header">
+              <span class="synthesis-panel__name-wrap">
+                <span class="synthesis-panel__name">SYNTHESIS AGENT</span>
+                <span class="synthesis-panel__name-cn">综合智能体</span>
+              </span>
+              <span class="synthesis-panel__status-wrap">
+                <span class="synthesis-panel__status">FINAL OUTPUT</span>
+              </span>
+            </header>
+            <div
+              class="synthesis-panel__content terminal-text markdown-body message-markdown synthesis-markdown"
+              v-html="renderedContent"
+              @click="onMarkdownClick"
+            ></div>
+          </section>
+
           <div
-            class="synthesis-panel__content terminal-text markdown-body message-markdown synthesis-markdown"
+            v-else
+            class="terminal-text markdown-body message-markdown"
             v-html="renderedContent"
             @click="onMarkdownClick"
           ></div>
-        </section>
+        </template>
+        <span v-if="!isUser && !content" class="stream-cursor">_</span>
+      </section>
 
-        <div
-          v-else
-          class="terminal-text markdown-body message-markdown"
-          v-html="renderedContent"
-          @click="onMarkdownClick"
-        ></div>
-      </template>
-      <span v-if="!isUser && !content" class="stream-cursor">_</span>
-    </section>
+      <footer class="terminal-message__actions">
+        <button class="text-btn" :title="copied ? 'COPIED' : 'COPY'" @click="copyContent" :disabled="copied || !content">
+          <CheckIcon v-if="copied" class="icon-mini" />
+          <CopyIcon v-else class="icon-mini" />
+          {{ copied ? 'COPIED' : 'COPY' }}
+        </button>
 
-    <footer class="terminal-message__actions">
-      <button class="text-btn" :title="copied ? 'COPIED' : 'COPY'" @click="copyContent" :disabled="copied || !content">
-        <CheckIcon v-if="copied" class="icon-mini" />
-        <CopyIcon v-else class="icon-mini" />
-        {{ copied ? 'COPIED' : 'COPY' }}
-      </button>
+        <button v-if="isUser && content && canEdit" class="text-btn" title="EDIT" @click="handleEdit">
+          <PencilIcon class="icon-mini" /> EDIT
+        </button>
 
-      <button v-if="isUser && content && canEdit" class="text-btn" title="EDIT" @click="handleEdit">
-        <PencilIcon class="icon-mini" /> EDIT
-      </button>
-
-      <button v-if="allowRegenerate" class="text-btn" title="REGENERATE" @click="$emit('regenerate')">
-        <RefreshIcon class="icon-mini" /> REGEN
-      </button>
-    </footer>
+        <button v-if="allowRegenerate" class="text-btn" title="REGENERATE" @click="$emit('regenerate')">
+          <RefreshIcon class="icon-mini" /> REGEN
+        </button>
+      </footer>
+    </div>
   </article>
 </template>
 
@@ -182,14 +184,6 @@ const sanitizeMarkdown = (markdownText) => {
   })
 }
 
-const ragRendered = computed(() => {
-  return sanitizeMarkdown(props.agentData?.rag?.content || '...')
-})
-
-const webRendered = computed(() => {
-  return sanitizeMarkdown(props.agentData?.web?.content || '...')
-})
-
 const props = defineProps({
   canEdit: { type: Boolean, default: false },
   isUser: { type: Boolean, required: true },
@@ -249,6 +243,18 @@ const toggleAgentPanel = () => {
 const renderedContent = computed(() => {
   if (!props.content) return ''
   return sanitizeMarkdown(props.content)
+})
+
+const ragRendered = computed(() => {
+  if (!showAgentPanel.value) return ''
+  const content = props.agentData?.rag?.content || '...'
+  return sanitizeMarkdown(content)
+})
+
+const webRendered = computed(() => {
+  if (!showAgentPanel.value) return ''
+  const content = props.agentData?.web?.content || '...'
+  return sanitizeMarkdown(content)
 })
 
 const formatAgentStatus = (status) => {
@@ -397,30 +403,57 @@ const formatTime = (date) => {
 <style scoped>
 .terminal-message {
   position: relative;
-  border-left: 2px solid var(--border-dim); /* 加粗左侧边框线 */
+  border-left: 2px solid var(--border-dim);
   padding: 1.2rem 1.5rem 1.5rem;
   width: 100%;
   box-sizing: border-box;
   max-width: 1250px;
   margin: 0 auto;
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.08) 0%, rgba(0, 229, 255, 0.02) 25%, transparent 100%);
+  background: transparent;
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  transition: background 0.2s ease, border-left-color 0.2s ease;
+  transition: border-left-color 0.2s ease;
 }
 
 .terminal-message:hover {
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.12) 0%, rgba(0, 229, 255, 0.03) 30%, transparent 100%);
   border-left-color: rgba(0, 229, 255, 0.8);
 }
 
 .terminal-message--user {
   border-left-color: rgba(0, 255, 157, 0.5);
-  background: linear-gradient(90deg, rgba(0, 255, 157, 0.08) 0%, rgba(0, 255, 157, 0.02) 30%, transparent 100%);
 }
 
 
 .terminal-message--ai {
   border-left-color: rgba(0, 229, 255, 0.55);
+}
+
+.terminal-message__card {
+  margin-top: 0.15rem;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.14) 0%, rgba(0, 255, 255, 0.08) 28%, rgba(2, 8, 22, 0.92) 100%);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: 0 0 0 1px rgba(0, 255, 255, 0.04) inset;
+}
+
+.terminal-message--user .terminal-message__card {
+  background: linear-gradient(90deg, rgba(0, 255, 157, 0.14) 0%, rgba(0, 255, 157, 0.08) 32%, rgba(2, 8, 22, 0.92) 100%);
+}
+
+.terminal-message--ai .terminal-message__card {
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.14) 0%, rgba(0, 229, 255, 0.08) 30%, rgba(2, 8, 22, 0.92) 100%);
+}
+
+.terminal-message__card > * {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.terminal-message__card .terminal-message__body {
+  padding: 1rem 1rem 0;
+}
+
+.terminal-message__card .terminal-message__actions {
+  padding: 0 1rem 1rem;
 }
 
 .terminal-message__meta {
@@ -430,7 +463,7 @@ const formatTime = (date) => {
   gap: 0.8rem;
   margin-bottom: 0.65rem;
   padding-bottom: 0.45rem;
-  border-bottom: 1px dashed rgba(0, 229, 255, 0.15); 
+  border-bottom: 1px dashed rgba(0, 229, 255, 0.15);
   font-family: var(--font-ui);
   letter-spacing: 0.06em;
 }
@@ -698,13 +731,13 @@ const formatTime = (date) => {
 .terminal-message--ai .terminal-message__body > .message-markdown :deep(p),
 .terminal-message--ai .terminal-message__body > .message-markdown :deep(li),
 .terminal-message--ai .terminal-message__body > .message-markdown :deep(blockquote) {
-  max-width: 72ch;
+  max-width: 100%;
 }
 
 .synthesis-markdown :deep(p),
 .synthesis-markdown :deep(li),
 .synthesis-markdown :deep(blockquote) {
-  max-width: 72ch;
+  max-width: 100%;
 }
 
 .synthesis-markdown :deep(pre),

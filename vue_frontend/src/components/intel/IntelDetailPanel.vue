@@ -495,13 +495,13 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
 .detail-item {
   border: 0;
   border-radius: 4px;
-  background: rgba(0, 229, 255, 0.03);
+  background: rgba(0, 229, 255, 0.12);
   padding: 0.6rem 0.8rem 0.6rem;
   transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .detail-item:hover {
-  background: rgba(0, 229, 255, 0.05);
+  background: rgba(0, 229, 255, 0.18);
   transform: translateY(-1px);
   box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.06);
 }
@@ -575,7 +575,7 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
   max-height: 180px;
   padding: 0.3rem;
   border: 0;
-  background: rgba(0, 229, 255, 0.03);
+  background: rgba(0, 229, 255, 0.12);
   border-radius: 4px;
 }
 
@@ -636,7 +636,7 @@ defineEmits(['toggle-immersive', 'close-immersive', 'send-to-chat', 'copy-field'
   right: 8px;
   bottom: 8px;
   opacity: 0;
-  background: rgba(0, 20, 30, 0.78);
+  background: rgba(0, 20, 30, 0.96);
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 10;
   padding: 6px;

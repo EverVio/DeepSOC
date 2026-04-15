@@ -24,8 +24,21 @@ from .query_service import (
     get_query_record_detail,
     list_query_records,
 )
-from .schemas import ChatIn, ErrorResponse, HistoryOut, LoginIn, LoginOut, SessionRenameIn
-from .services import get_or_create_session, model_api_call, rename_conversation_session
+from .schemas import (
+    ChatIn,
+    ErrorResponse,
+    HistoryOut,
+    LoginIn,
+    LoginOut,
+    SessionListOut,
+    SessionRenameIn,
+)
+from .services import (
+    get_or_create_session,
+    list_user_sessions,
+    model_api_call,
+    rename_conversation_session,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +252,13 @@ def _build_query_filters(
     }
 
 
+def _split_csv(value: str) -> list[str]:
+    text = (value or "").strip()
+    if not text:
+        return []
+    return [item.strip() for item in text.replace(";", ",").split(",") if item.strip()]
+
+
 @api.post("/login", response={200: LoginOut, 400: ErrorResponse, 403: ErrorResponse})
 def login(request, data: LoginIn):
     username = data.username.strip()
@@ -441,6 +461,11 @@ def chat(request, data: ChatIn):
     response = StreamingHttpResponse(stream_generator(), content_type="text/event-stream")
     response["X-Accel-Buffering"] = "no"
     return response
+
+
+@router.get("/sessions", response={200: SessionListOut})
+def sessions(request):
+    return {"sessions": list_user_sessions(request.auth)}
 
 
 @router.get("/history", response={200: HistoryOut})

@@ -282,6 +282,28 @@ export const useChatStore = defineStore('chat', () => {
     setCurrentSession(sessionId);
   };
 
+  const hydrateSessions = (sessionIds = []) => {
+    const normalized = Array.from(
+      new Set(
+        (Array.isArray(sessionIds) ? sessionIds : [])
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (normalized.length === 0) {
+      normalized.push(DEFAULT_SESSION);
+    }
+
+    sessions.value = normalized;
+    persistSessions();
+
+    if (!normalized.includes(currentSession.value)) {
+      currentSession.value = normalized[0];
+      persistCurrentSession();
+    }
+  };
+
   const setCurrentSession = (sessionId) => {
     currentSession.value = sessionId;
     persistCurrentSession();
@@ -526,6 +548,7 @@ export const useChatStore = defineStore('chat', () => {
     clearAnalysisJumpHistory,
     getAnalysisJumpHistory,
     addSession,
+    hydrateSessions,
     setCurrentSession,
     removeSession,
     renameSession,

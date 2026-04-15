@@ -47,7 +47,7 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
     return 'Ollama 本地模式不需要 API Key'
   })
 
-  const webSearchApiKeyPlaceholder = computed(() => '输入博查 Web Search API Key')
+  const webSearchApiKeyPlaceholder = computed(() => '输入 Web Search API Key')
 
   const updateProvider = (provider) => {
     appStore.setLlmProvider(provider)

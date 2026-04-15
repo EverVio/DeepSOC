@@ -27,6 +27,8 @@ export function useEcharts(
     let resizeThrottleTimer = null
     let resizeDebounceTimer = null
     let fullscreenSyncTimer = null
+    let renderFrameId = null
+    let pendingForcedRender = false
     let fullscreenSyncAttempts = 0
     let lastResizeTime = 0
     let isInViewport = false
@@ -58,6 +60,13 @@ export function useEcharts(
 
     const clearResizeTimers = () => {
         clearFullscreenSyncTimer()
+
+        if (renderFrameId) {
+            cancelAnimationFrame(renderFrameId)
+            renderFrameId = null
+        }
+
+        pendingForcedRender = false
 
         if (resizeThrottleTimer) {
             clearTimeout(resizeThrottleTimer)
@@ -122,6 +131,21 @@ export function useEcharts(
         setOptionSafe(buildOption(), { notMerge: true, lazyUpdate: true, silent: true })
     }
 
+    const scheduleRender = (force = false) => {
+        pendingForcedRender = pendingForcedRender || force
+
+        if (renderFrameId) {
+            return
+        }
+
+        renderFrameId = requestAnimationFrame(() => {
+            const shouldForce = pendingForcedRender
+            renderFrameId = null
+            pendingForcedRender = false
+            renderChart(shouldForce)
+        })
+    }
+
     const setPartialOption = (partialOption) => {
         if (!partialOption) return false
         return setOptionSafe(partialOption, {
@@ -182,7 +206,7 @@ export function useEcharts(
 
                 isInViewport = entry.isIntersecting
                 if (isInViewport) {
-                    renderChart(true)
+                    scheduleRender(true)
                     scheduleResize()
                 }
             },
@@ -238,7 +262,7 @@ export function useEcharts(
             resizeObserver.observe(chartRef.value)
         }
 
-        renderChart(true)
+        scheduleRender(true)
         scheduleResize()
     }
 
@@ -268,7 +292,7 @@ export function useEcharts(
     })
 
     if (watchSource) {
-        watch(watchSource, () => renderChart(), { deep })
+        watch(watchSource, () => scheduleRender(false), { deep })
     }
 
     onBeforeUnmount(() => {

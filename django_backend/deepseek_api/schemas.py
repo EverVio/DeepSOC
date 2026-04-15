@@ -47,5 +47,9 @@ class SessionRenameIn(Schema):
     new_session_id: str = "默认对话"
 
 
+class SessionListOut(Schema):
+    sessions: List[str]
+
+
 class ErrorResponse(Schema):
     error: str

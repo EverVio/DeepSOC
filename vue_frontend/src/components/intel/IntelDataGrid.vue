@@ -7,6 +7,7 @@
       :loading="listLoading"
       :columns="columns"
       :data="rows"
+      :row-key="rowKey"
       :row-props="rowProps"
       :scroll-x="tableScrollX"
       :max-height="460"
@@ -32,6 +33,8 @@
 <script setup>
 import { NDataTable, NPagination } from 'naive-ui'
 import FuiCard from '../FuiCard.vue'
+
+const rowKey = (row) => row?.record_id || row?._id || row?.id || JSON.stringify(row)
 
 defineProps({
   listLoading: { type: Boolean, default: false },
@@ -94,11 +97,11 @@ defineEmits(['page-change', 'page-size-change'])
 }
 
 .intel-result-card :deep(.n-data-table-tr.intel-row:hover > td) {
-  background: rgba(0, 229, 255, 0.08);
+  background: rgba(0, 229, 255, 0.18);
 }
 
 .intel-result-card :deep(.n-data-table-tr.intel-row--active) {
-  background: linear-gradient(90deg, rgba(0, 229, 255, 0.16), rgba(0, 229, 255, 0.06)) !important;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.26), rgba(0, 229, 255, 0.12)) !important;
 }
 
 .intel-result-card :deep(.n-data-table-tr.intel-row--active > td) {
@@ -117,7 +120,7 @@ defineEmits(['page-change', 'page-size-change'])
 .intel-result-card :deep(mark.highlight-cyan) {
   padding: 0 0.12rem;
   border-radius: 0.14rem;
-  background: rgba(0, 229, 255, 0.22);
+  background: rgba(0, 229, 255, 0.32);
   color: #e8fdff;
   box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.18);
 }

@@ -576,7 +576,7 @@ watch(
     // 缓存实例后缩短恢复等待
     initialRenderTimer = setTimeout(() => {
       resumeOrbit()
-    }, 400)
+    }, 800)
   },
   { immediate: true } 
 )

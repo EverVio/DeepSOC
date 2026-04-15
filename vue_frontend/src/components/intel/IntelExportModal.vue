@@ -97,7 +97,7 @@ defineEmits(['close', 'select-default', 'select-all', 'submit'])
 <style scoped>
 .export-center-panel {
   width: min(780px, 94vw);
-  background: linear-gradient(160deg, rgba(7, 20, 38, 0.9), rgba(4, 14, 30, 0.9));
+  background: linear-gradient(160deg, rgba(7, 20, 38, 0.98), rgba(4, 14, 30, 0.98));
   border: 1px solid rgba(0, 229, 255, 0.3);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(0, 229, 255, 0.18);
 }
@@ -130,14 +130,14 @@ defineEmits(['close', 'select-default', 'select-all', 'submit'])
 
 .export-option-group {
   border: 1px solid rgba(0, 229, 255, 0.2);
-  background: rgba(3, 10, 24, 0.7);
+  background: rgba(3, 10, 24, 0.92);
   padding: 0.58rem 0.65rem;
   transition: border-color 180ms ease, background-color 180ms ease;
 }
 
 .export-option-group:hover {
   border-color: rgba(0, 229, 255, 0.32);
-  background: rgba(6, 16, 36, 0.76);
+  background: rgba(6, 16, 36, 0.96);
 }
 
 .export-option-group--switch {

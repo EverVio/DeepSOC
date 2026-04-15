@@ -15,6 +15,8 @@ const DEFAULT_AGENT_DATA = () => ({
   web: { status: 'idle', content: '', error: '', errorDetail: null },
 })
 
+const STREAM_BATCH_WINDOW_MS = 50
+
 function formatProviderError(detail, fallbackMessage = '流式响应出错') {
   if (!detail || typeof detail !== 'object') return fallbackMessage
 
@@ -247,6 +249,9 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
 
   let activeStreamAbortController = null
   const isStreaming = ref(false)
+  const streamPatchQueue = []
+  let streamFlushRafId = 0
+  let streamFlushTimerId = 0
 
   const stopGenerating = () => {
     try {
@@ -254,6 +259,117 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     } catch {
       // ignore
     }
+  }
+
+  const clearStreamFlushHandles = () => {
+    if (streamFlushRafId) {
+      window.cancelAnimationFrame(streamFlushRafId)
+      streamFlushRafId = 0
+    }
+
+    if (streamFlushTimerId) {
+      clearTimeout(streamFlushTimerId)
+      streamFlushTimerId = 0
+    }
+  }
+
+  const flushStreamPatchQueue = () => {
+    clearStreamFlushHandles()
+
+    if (!streamPatchQueue.length) return
+
+    const synthesisChunks = new Map()
+    const thinkChunks = new Map()
+    const durations = new Map()
+    const agentChunks = new Map()
+
+    while (streamPatchQueue.length) {
+      const patch = streamPatchQueue.shift()
+      if (!patch) continue
+
+      if (patch.type === 'content') {
+        const key = `${patch.sessionId}::${patch.messageId}`
+        const prev = synthesisChunks.get(key)
+        if (prev) {
+          prev.chunk += patch.chunk
+        } else {
+          synthesisChunks.set(key, {
+            sessionId: patch.sessionId,
+            messageId: patch.messageId,
+            chunk: patch.chunk,
+          })
+        }
+        continue
+      }
+
+      if (patch.type === 'think') {
+        const prev = thinkChunks.get(patch.sessionId)
+        thinkChunks.set(patch.sessionId, `${prev || ''}${patch.chunk || ''}`)
+        continue
+      }
+
+      if (patch.type === 'metadata') {
+        durations.set(patch.sessionId, patch.duration)
+        continue
+      }
+
+      if (patch.type === 'agent_chunk') {
+        const key = `${patch.sessionId}::${patch.messageId}::${patch.agentId}`
+        const prev = agentChunks.get(key)
+        if (prev) {
+          prev.chunk += patch.chunk
+        } else {
+          agentChunks.set(key, {
+            sessionId: patch.sessionId,
+            messageId: patch.messageId,
+            agentId: patch.agentId,
+            chunk: patch.chunk,
+          })
+        }
+      }
+    }
+
+    synthesisChunks.forEach((payload) => {
+      if (!payload.chunk) return
+      chatStore.updateAgentChunk(payload.sessionId, payload.messageId, 'synthesis', payload.chunk)
+    })
+
+    thinkChunks.forEach((chunk, sessionId) => {
+      if (!chunk) return
+      chatStore.updateLastMessage(sessionId, { think_chunk: chunk })
+    })
+
+    durations.forEach((duration, sessionId) => {
+      if (!duration) return
+      chatStore.updateLastMessage(sessionId, { duration })
+    })
+
+    agentChunks.forEach((payload) => {
+      if (!payload.chunk) return
+      chatStore.updateAgentChunk(payload.sessionId, payload.messageId, payload.agentId, payload.chunk)
+    })
+  }
+
+  const scheduleStreamPatchFlush = () => {
+    if (!streamFlushRafId && typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      streamFlushRafId = window.requestAnimationFrame(() => {
+        streamFlushRafId = 0
+        flushStreamPatchQueue()
+      })
+    }
+
+    if (!streamFlushTimerId) {
+      streamFlushTimerId = setTimeout(() => {
+        streamFlushTimerId = 0
+        flushStreamPatchQueue()
+      }, STREAM_BATCH_WINDOW_MS)
+    }
+  }
+
+  const enqueueStreamPatch = (patch) => {
+    if (!patch) return
+    streamPatchQueue.push(patch)
+    scheduleStreamPatchFlush()
   }
 
   const runStreamChat = async (
@@ -276,11 +392,13 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
           applyGeneralEvent(sessionId, aiMessageId, data)
         },
         (message) => {
+          flushStreamPatchQueue()
           streamErrorSideEffect?.()
           appStore.setLoading(false)
           appStore.setError(message)
         },
         () => {
+          flushStreamPatchQueue()
           appStore.setLoading(false)
           streamCompleteSideEffect?.()
         },
@@ -296,14 +414,22 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
           bufferLimitBytes: 1024 * 1024,
           signal: ac.signal,
           onAgentData: (data) => {
-            chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.chunk || data.content || '')
+            enqueueStreamPatch({
+              type: 'agent_chunk',
+              sessionId,
+              messageId: aiMessageId,
+              agentId: data.agent_id,
+              chunk: data.chunk || data.content || '',
+            })
           },
           onAgentStatus: (data) => {
+            flushStreamPatchQueue()
             applyAgentStatus(sessionId, aiMessageId, data)
           },
         },
       )
     } finally {
+      flushStreamPatchQueue()
       isStreaming.value = false
       if (activeStreamAbortController === ac) {
         activeStreamAbortController = null
@@ -335,31 +461,52 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
 
   const applyGeneralEvent = (sessionId, aiMessageId, data) => {
     if (data.type === 'content') {
-      chatStore.updateAgentChunk(sessionId, aiMessageId, 'synthesis', data.chunk || '')
+      enqueueStreamPatch({
+        type: 'content',
+        sessionId,
+        messageId: aiMessageId,
+        chunk: data.chunk || '',
+      })
       return
     }
 
     if (data.type === 'think') {
-      chatStore.updateLastMessage(sessionId, { think_chunk: data.chunk })
+      enqueueStreamPatch({
+        type: 'think',
+        sessionId,
+        chunk: data.chunk || '',
+      })
       return
     }
 
     if (data.type === 'metadata') {
-      chatStore.updateLastMessage(sessionId, { duration: data.duration })
+      enqueueStreamPatch({
+        type: 'metadata',
+        sessionId,
+        duration: data.duration,
+      })
       return
     }
 
     if (data.type === 'agent_chunk') {
-      chatStore.updateAgentChunk(sessionId, aiMessageId, data.agent_id, data.chunk || data.content || '')
+      enqueueStreamPatch({
+        type: 'agent_chunk',
+        sessionId,
+        messageId: aiMessageId,
+        agentId: data.agent_id,
+        chunk: data.chunk || data.content || '',
+      })
       return
     }
 
     if (data.type === 'agent_status') {
+      flushStreamPatchQueue()
       applyAgentStatus(sessionId, aiMessageId, data)
       return
     }
 
     if (data.type === 'error') {
+      flushStreamPatchQueue()
       const fallbackMessage = data.message || data.chunk || '流式响应出错'
       const message = data.error_detail
         ? formatProviderError(data.error_detail, fallbackMessage)
@@ -495,8 +642,20 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   }
 
   const initializeChatSession = async () => {
+    try {
+      const response = await apiClient.getSessions()
+      chatStore.hydrateSessions(response?.data?.sessions || [])
+    } catch (err) {
+      appStore.setError(err.response?.data?.error || '同步后端会话列表失败，已使用本地会话列表')
+    }
+
     await loadHistory(currentSession.value)
   }
+
+  onUnmounted(() => {
+    clearStreamFlushHandles()
+    streamPatchQueue.length = 0
+  })
 
   return {
     searchQuery,

@@ -14,17 +14,18 @@
           <NForm label-placement="top" :show-feedback="false" class="panel-form">
             <div class="form-grid-2">
               <NFormItem label="MODEL PROVIDER // 模型供应商">
-                <NSelect :value="llmProvider" :options="providerOptions" @update:value="updateProvider" />
+                <NSelect class="config-control config-control--select" :value="llmProvider" :options="providerOptions" @update:value="updateProvider" />
               </NFormItem>
 
               <NFormItem label="MODEL NAME // 核心模型">
-                <NSelect :value="llmModel" :options="modelOptions" @update:value="updateModel" />
+                <NSelect class="config-control config-control--select" :value="llmModel" :options="modelOptions" @update:value="updateModel" />
               </NFormItem>
             </div>
 
             <NFormItem label="PROVIDER API KEY // 鉴权密钥">
               <div class="input-with-ping provider-key-row">
                 <NInput
+                  class="config-control config-control--input"
                   type="password"
                   show-password-on="mousedown"
                   :value="providerApiKey"
@@ -61,7 +62,7 @@
           <NForm label-placement="top" :show-feedback="false" class="panel-form">
             <NFormItem label="TARGET SESSION DUMP // 数据流转储">
               <div class="export-row">
-                <NSelect v-model:value="selectedSessionForExport" :options="sessionOptions" placeholder="选择转储目标" class="export-select" />
+                <NSelect v-model:value="selectedSessionForExport" :options="sessionOptions" placeholder="选择转储目标" class="export-select config-control config-control--select" />
                 <button 
                   type="button"
                   class="tech-execute-btn" 
@@ -90,6 +91,7 @@
             <NFormItem label="WEB SEARCH API KEY // 检索引擎密钥">
               <div class="input-with-ping search-key-row">
                 <NInput
+                  class="config-control config-control--input"
                   type="password"
                   show-password-on="mousedown"
                   :value="webSearchApiKey"
@@ -339,7 +341,7 @@ const handlePing = async (type) => {
   flex-direction: column;
   position: relative;
   background: var(--settings-panel-bg) !important;
-  border: 1px solid var(--settings-panel-border);
+  border: 2px solid var(--settings-panel-border);
   box-shadow: inset 0 0 28px rgba(0, 229, 255, 0.04), 0 8px 30px rgba(0, 0, 0, 0.28);
 }
 
@@ -422,7 +424,7 @@ const handlePing = async (type) => {
 
 .data-tag, .status-badge {
   background: #0a1320;
-  border: 1px solid #1a3344;
+  border: 2px solid #1a3344;
   color: #6a95a8;
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -535,7 +537,7 @@ const handlePing = async (type) => {
 .provider-key-row :deep(.n-input),
 .provider-key-row :deep(.n-base-selection) {
   background: #080f18 !important;
-  border: 1px solid #1c3645 !important;
+  border: 2px solid #1c3645 !important;
   border-radius: 0 !important;
   transition: all 0s;
 }
@@ -543,7 +545,7 @@ const handlePing = async (type) => {
 .search-key-row :deep(.n-input),
 .search-key-row :deep(.n-base-selection) {
   background: #07131c !important;
-  border: 1px solid #173649 !important;
+  border: 2px solid #173649 !important;
   border-radius: 0 !important;
   transition: all 0s;
 }
@@ -576,23 +578,58 @@ const handlePing = async (type) => {
   border-color: #00e5ff !important;
 }
 
-.search-key-row :deep(.n-input:hover),
-.search-key-row :deep(.n-base-selection:hover),
-.search-key-row :deep(.n-base-selection--active),
-.search-key-row :deep(.n-input--focus) {
-  background: #0a1620 !important;
-  border-color: #66d9ff !important;
+.config-control {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid #1c3645 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.provider-key-row :deep(.n-input__input-el),
-.provider-key-row :deep(.n-base-selection-input__content),
-.search-key-row :deep(.n-input__input-el),
-.search-key-row :deep(.n-base-selection-input__content) {
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 0.88rem;
+.config-control--input {
+  background: #080f18 !important;
 }
 
+.search-key-row .config-control,
+.settings-panel--plugins .config-control,
+.export-select.config-control {
+  background: #07131c !important;
+}
+
+.config-control:hover {
+  border-bottom-color: #00e5ff !important;
+  background: #0b1522 !important;
+}
+
+.config-control:focus-within,
+.config-control--input.n-input--focus,
+.config-control--select.n-base-selection--focus,
+.config-control--select.n-base-selection--active {
+  border-bottom-color: #00e5ff !important;
+  background: #0b1522 !important;
+}
+
+.config-control--select :deep(.n-base-selection__border),
+.config-control--select :deep(.n-input__border),
+.config-control--select :deep(.n-input-wrapper),
+.config-control--input :deep(.n-input__border),
+.config-control--input :deep(.n-input-wrapper) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.config-control--select :deep(.n-base-selection__state-border),
+.config-control--select :deep(.n-input__state-border),
+.config-control--input :deep(.n-input__state-border) {
+  border: none !important;
+}
+
+.config-control--select :deep(.n-base-selection-label),
+.config-control--input :deep(.n-input-wrapper) {
+  min-height: 38px;
+  background: transparent !important;
+}
 /* 赛博朋克按钮体系（完全摒弃 rgba 圆角） */
 .tech-action-btn, .tech-execute-btn, .tech-kill-btn {
   font-family: var(--font-mono);
@@ -600,22 +637,7 @@ const handlePing = async (type) => {
   font-weight: 700;
   text-transform: uppercase;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  border: none;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Ping 按钮：小尺寸战术切角 */
-.tech-action-btn {
-  min-width: 96px;
-  padding: 0 0.85rem;
-  background: #0c1a29;
-  color: #00e5ff;
-  border: 1px solid #1a3a4f;
+  border: 2px solid transparent;
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
 .tech-action-btn:hover:not(:disabled) {
@@ -639,6 +661,7 @@ const handlePing = async (type) => {
   padding: 0 1.25rem;
   background: #00e5ff;
   color: #000;
+  border-color: #00e5ff;
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 .tech-execute-btn:hover:not(:disabled) {
@@ -651,6 +674,7 @@ const handlePing = async (type) => {
   height: 44px;
   background: #ff0055;
   color: #fff;
+  border-color: #ff0055;
   clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
   letter-spacing: 0.08em;
 }
@@ -665,10 +689,10 @@ const handlePing = async (type) => {
 /* 纯色告警块 */
 .warning-box.solid-warning {
   background: #1c0a10;
-  border-left: 4px solid #ff0055;
-  border-top: 1px solid #3d1521;
-  border-right: 1px solid #3d1521;
-  border-bottom: 1px solid #3d1521;
+  border-left: 6px solid #ff0055;
+  border-top: 2px solid #3d1521;
+  border-right: 2px solid #3d1521;
+  border-bottom: 2px solid #3d1521;
   padding: 1rem;
   display: flex;
   gap: 1rem;

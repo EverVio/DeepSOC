@@ -10,9 +10,9 @@
   /* ── 背景层 ─────────────────────────────────────── */
   --bg-base: #050814;
   /* 极深蓝黑，主背景 */
-  --bg-panel: rgba(13, 22, 43, 0.72);
-  /* 面板/卡片，毛玻璃底色 */
-  --bg-overlay: rgba(5, 8, 20, 0.85);
+  --bg-panel: rgba(13, 22, 43, 0.94);
+  /* 面板/卡片，改为更实的深色底 */
+  --bg-overlay: rgba(5, 8, 20, 0.96);
   /* 悬浮层 */
 
   /* ── 强调色 ─────────────────────────────────────── */
@@ -61,7 +61,7 @@
   --chart-axis-secondary-contrast: #c8d8e6;
 
   /* ── 看板交互控件 ─────────────────────────────── */
-  --toolbar-surface: linear-gradient(135deg, rgba(22, 42, 70, 0.92), rgba(8, 19, 38, 0.92));
+  --toolbar-surface: linear-gradient(135deg, rgba(22, 42, 70, 0.98), rgba(8, 19, 38, 0.98));
   --toolbar-border: rgba(0, 255, 255, 0.5);
   --toolbar-focus-border: rgba(0, 255, 255, 0.85);
   --toolbar-placeholder: #b9d6ea;
@@ -93,7 +93,7 @@
   --card-bg: var(--bg-panel);
   --border-color: var(--border-dim);
   --text-light: var(--text-muted);
-  --code-bg: rgba(0, 0, 0, 0.45);
+  --code-bg: rgba(0, 0, 0, 0.68);
   --code-text: var(--neon-green);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
@@ -101,7 +101,7 @@
   --radius: 0px;
   /* FUI 不使用圆角，统一切角 */
 
-  --user-message-bg: var(--neon-cyan-dim);
+  --user-message-bg: rgba(0, 229, 255, 0.22);
   --user-message-text: var(--neon-cyan);
   --bot-message-bg: var(--bg-panel);
   --bot-message-border: var(--border-dim);
@@ -124,6 +124,30 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.34) rgba(2, 8, 22, 0.5);
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(2, 8, 22, 0.5);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.42), rgba(34, 48, 68, 0.96));
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.56), rgba(44, 62, 84, 0.98));
 }
 
 body {

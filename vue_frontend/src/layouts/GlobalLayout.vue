@@ -118,8 +118,8 @@ const handleSiderLeave = () => {
   overflow: hidden;
   position: relative;
   z-index: 1;
-  --menu-bg-hover: rgba(0, 229, 255, 0.08);
-  --menu-bg-active: rgba(0, 229, 255, 0.12);
+  --menu-bg-hover: rgba(0, 229, 255, 0.16);
+  --menu-bg-active: rgba(0, 229, 255, 0.24);
   --transition-bezier: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -155,7 +155,7 @@ const handleSiderLeave = () => {
   letter-spacing: 0.1em;
   font-family: var(--font-brand);
   border: 1px solid rgba(0, 229, 255, 0.2);
-  background: linear-gradient(135deg, rgba(0, 229, 255, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(0, 229, 255, 0.04) 100%);
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   /* 仅针对视觉属性施加动画，避免影响宽度 */
   transition: background-color 0.3s, border-color 0.3s, text-shadow 0.3s;

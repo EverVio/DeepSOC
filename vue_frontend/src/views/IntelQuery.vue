@@ -132,6 +132,10 @@ const suppressKeywordAutoSearch = ref(false)
 const showAdvancedFilters = ref(false)
 const isDetailImmersive = ref(false)
 const copiedField = ref('')
+const highlightRegex = ref(null)
+const highlightSignature = ref('')
+const highlightCache = new Map()
+const MAX_HIGHLIGHT_CACHE = 500
 let copiedFieldTimer = null
 
 function escapeRegExp(value) {
@@ -147,8 +151,8 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;')
 }
 
-function getKeywordTerms() {
-  return String(keywordInput.value || '')
+function getKeywordTerms(keyword = keywordInput.value) {
+  return String(keyword || '')
     .trim()
     .split(/\s+/)
     .map((item) => item.trim())
@@ -156,17 +160,51 @@ function getKeywordTerms() {
     .slice(0, 8)
 }
 
-function getHighlightedText(rawText) {
-  const safeText = escapeHtml(rawText ?? '-')
-  const terms = getKeywordTerms()
-  if (!terms.length) return safeText
+function syncHighlightMatcher(keyword) {
+  const terms = getKeywordTerms(keyword)
+  const signature = terms.join('\u0001')
+  if (signature === highlightSignature.value) return
+
+  highlightSignature.value = signature
+  if (!terms.length) {
+    highlightRegex.value = null
+    highlightCache.clear()
+    return
+  }
 
   const pattern = terms.map(escapeRegExp).join('|')
-  if (!pattern) return safeText
-
-  const regex = new RegExp(`(${pattern})`, 'gi')
-  return safeText.replace(regex, '<mark class="highlight-cyan">$1</mark>')
+  highlightRegex.value = pattern ? new RegExp(`(${pattern})`, 'gi') : null
+  highlightCache.clear()
 }
+
+function getHighlightedText(rawText, cacheId = '') {
+  const safeText = escapeHtml(rawText ?? '-')
+  if (!highlightRegex.value) return safeText
+
+  const cacheKey = `${highlightSignature.value}|${cacheId}|${safeText}`
+  const cached = highlightCache.get(cacheKey)
+  if (cached) return cached
+
+  const highlighted = safeText.replace(highlightRegex.value, '<mark class="highlight-cyan">$1</mark>')
+  highlightCache.set(cacheKey, highlighted)
+
+  if (highlightCache.size > MAX_HIGHLIGHT_CACHE) {
+    const firstKey = highlightCache.keys().next().value
+    if (firstKey) {
+      highlightCache.delete(firstKey)
+    }
+  }
+
+  return highlighted
+}
+
+watch(
+  keywordInput,
+  (value) => {
+    syncHighlightMatcher(value)
+  },
+  { immediate: true },
+)
 
 watch(
   keywordInput,
@@ -322,7 +360,10 @@ const columns = [
     minWidth: 360,
     render: (row) => h('span', {
       class: 'intel-highlight-text',
-      innerHTML: getHighlightedText(row.search_content || '-'),
+      innerHTML: getHighlightedText(
+        row.search_content || '-',
+        row.record_id || row._id || row.raw_content_hash || row.ioc_value || row.cve_id || '',
+      ),
     }),
   },
 ]
@@ -393,6 +434,7 @@ onBeforeUnmount(() => {
     window.clearTimeout(copiedFieldTimer)
     copiedFieldTimer = null
   }
+  highlightCache.clear()
 })
 </script>
 

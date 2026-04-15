@@ -766,6 +766,16 @@ def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
     return session
 
 
+def list_user_sessions(user: APIKey) -> List[str]:
+    """按最近更新时间返回当前用户会话列表。"""
+    session_ids = list(
+        ConversationSession.objects.filter(user=user)
+        .order_by("-updated_at", "-id")
+        .values_list("session_id", flat=True)
+    )
+    return session_ids or ["默认对话"]
+
+
 def get_cached_reply(prompt: str, session_id: str, user: APIKey) -> str | None:
     """缓存键包含 session_id 和 user，避免跨会话冲突"""
     cache_key = f"reply:{user.user}:{session_id}:{hash(prompt)}"

@@ -430,6 +430,10 @@ export default {
 
   streamChat,
 
+  getSessions() {
+    return axiosApi.get('/sessions');
+  },
+
   getHistory(sessionId) {
     return axiosApi.get('/history', { params: { session_id: sessionId } });
   },

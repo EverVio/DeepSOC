@@ -60,7 +60,6 @@
                   </button>
                 </template>
                 <ThreatRadarChart
-                  :key="`dashboard-radar-${isPanelActive('radar') ? 'fullscreen' : 'normal'}`"
                   :stats="dashboardStats"
                   :loading="statsLoading"
                   :fullscreen="isPanelActive('radar')"
@@ -92,7 +91,6 @@
                   </button>
                 </template>
                 <LogInflowChart
-                  :key="`dashboard-stream-${isPanelActive('stream') ? 'fullscreen' : 'normal'}`"
                   :stats="dashboardStats"
                   :loading="statsLoading"
                   :enable-zoom="isPanelActive('stream')"
@@ -125,7 +123,6 @@
                   </button>
                 </template>
                 <CategoryDonutChart
-                  :key="`dashboard-category-${isPanelActive('category') ? 'fullscreen' : 'normal'}`"
                   :stats="dashboardStats"
                   :loading="statsLoading"
                   :fullscreen="isPanelActive('category')"
