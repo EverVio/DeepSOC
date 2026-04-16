@@ -99,7 +99,6 @@
             <div class="terminal-empty-inner">
               <img class="terminal-empty-logo" :src="deepsocEmptyLogo" alt="DeepSOC" />
               <div class="terminal-empty-brand">
-                <p class="terminal-empty-brand__line">DEEPSOC</p>
                 <p class="terminal-empty-brand__line">智能安全运营中心系统</p>
               </div>
               <p class="terminal-empty-hint">有什么我能帮您的吗？</p>
@@ -750,13 +749,14 @@ onUnmounted(() => {
 /** 与 .terminal-empty-hint 同字号、同色；额外霓虹发光 */
 .terminal-empty-brand__line {
   margin: 0;
-  font-size: 2rem;
+  font-size: 3rem;
   font-family: var(--font-ui);
-  font-weight: 1000;
-  letter-spacing: 0.04em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   color: var(--neon-cyan);
   text-shadow: var(--neon-cyan-glow);
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .terminal-empty-text {
@@ -773,7 +773,7 @@ onUnmounted(() => {
 
 .terminal-empty-hint {
   margin-top: 1.05rem;
-  font-size: 1.1rem;
+  font-size: 1.5rem;
   font-family: var(--font-ui);
   font-weight: 600;
   letter-spacing: 0.04em;

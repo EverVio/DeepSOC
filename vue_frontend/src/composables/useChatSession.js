@@ -44,6 +44,8 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     useWebSearch,
     llmProvider,
     llmModel,
+    embeddingMode,
+    embeddingModel,
     providerApiKey,
     webSearchApiKey,
   } = storeToRefs(appStore)
@@ -243,6 +245,8 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   const buildModelOptions = () => ({
     provider: llmProvider.value,
     modelName: llmModel.value,
+    embeddingMode: embeddingMode.value,
+    embeddingModel: embeddingModel.value,
     providerApiKey: providerApiKey.value,
     webSearchApiKey: webSearchApiKey.value,
   })

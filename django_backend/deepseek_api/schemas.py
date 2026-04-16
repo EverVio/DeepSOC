@@ -19,7 +19,11 @@ class ChatIn(Schema):
     use_db_search: bool = True  # 默认开启数据库
     use_web_search: bool = False  # 默认关闭联网
     model_name: Optional[str] = None  # 前端选择的模型
-    provider: Optional[str] = "ollama"  # 模型提供商：ollama/openai/deepseek/minimax/siliconflow
+    provider: Optional[str] = (
+        "ollama"  # 模型提供商：ollama/openai/deepseek/minimax/siliconflow
+    )
+    embedding_mode: Optional[str] = "local"  # 向量化方式：local/siliconflow
+    embedding_model: Optional[str] = None  # 向量模型名称
     provider_api_key: Optional[str] = None  # OpenAI 兼容提供商 API Key
     web_search_api_key: Optional[str] = None  # 联网搜索 API Key（博查）
     mode: Optional[str] = None  # single / multi_agent

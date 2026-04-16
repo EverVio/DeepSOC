@@ -42,6 +42,17 @@ SILICONFLOW_MODEL_ALIASES = {
     "qwen2.5-72b": "Qwen/Qwen2.5-72B-Instruct",
 }
 
+SILICONFLOW_EMBEDDING_MODEL_ALIASES = {
+    "Qwen/Qwen3-Embedding-8B": "Qwen/Qwen3-Embedding-8B",
+    "Qwen3-Embedding-8B": "Qwen/Qwen3-Embedding-8B",
+    "qwen3-embedding-8b": "Qwen/Qwen3-Embedding-8B",
+}
+
+DEFAULT_EMBEDDING_MODELS = {
+    "local": "qwen3-embedding:4b",
+    "siliconflow": "Qwen/Qwen3-Embedding-8B",
+}
+
 
 # OpenAI 兼容提供商的基础 URL
 DEFAULT_OPENAI_COMPATIBLE_BASE_URLS = {
@@ -110,6 +121,35 @@ def normalize_provider(provider: Optional[str]) -> str:
     return "ollama"
 
 
+def normalize_embedding_mode(mode: Optional[str]) -> str:
+    if not mode:
+        return "local"
+
+    normalized = mode.strip().lower()
+    if normalized in {"siliconflow", "remote"}:
+        return "siliconflow"
+    return "local"
+
+
+def resolve_embedding_model(mode: str, model_name: Optional[str]) -> str:
+    normalized_model = (model_name or "").strip()
+    if mode != "siliconflow":
+        return normalized_model or DEFAULT_EMBEDDING_MODELS["local"]
+
+    if not normalized_model:
+        return DEFAULT_EMBEDDING_MODELS["siliconflow"]
+
+    alias = SILICONFLOW_EMBEDDING_MODEL_ALIASES.get(normalized_model)
+    if alias:
+        return alias
+
+    alias_lower = SILICONFLOW_EMBEDDING_MODEL_ALIASES.get(normalized_model.lower())
+    if alias_lower:
+        return alias_lower
+
+    return normalized_model
+
+
 def resolve_model_name(provider: str, model_name: Optional[str]) -> str:
     normalized_model = (model_name or "").strip()
     if not normalized_model:
@@ -118,15 +158,25 @@ def resolve_model_name(provider: str, model_name: Optional[str]) -> str:
     if provider == "siliconflow":
         custom_sf_aliases = getattr(settings, "SILICONFLOW_MODEL_ALIASES", None)
         if isinstance(custom_sf_aliases, dict):
-            candidate = custom_sf_aliases.get(normalized_model) or custom_sf_aliases.get(normalized_model.lower())
+            candidate = custom_sf_aliases.get(
+                normalized_model
+            ) or custom_sf_aliases.get(normalized_model.lower())
             if candidate:
                 return candidate
-        alias = SILICONFLOW_MODEL_ALIASES.get(normalized_model) or SILICONFLOW_MODEL_ALIASES.get(normalized_model.lower())
+        alias = SILICONFLOW_MODEL_ALIASES.get(
+            normalized_model
+        ) or SILICONFLOW_MODEL_ALIASES.get(normalized_model.lower())
         if alias:
             return alias
 
         lowered_model = normalized_model.lower()
-        if lowered_model in {"deepseek-chat", "deepseek-reasoner", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"}:
+        if lowered_model in {
+            "deepseek-chat",
+            "deepseek-reasoner",
+            "gpt-4o-mini",
+            "gpt-4",
+            "gpt-3.5-turbo",
+        }:
             fallback = PROVIDER_DEFAULT_MODELS["siliconflow"]
             logger.warning(
                 f"siliconflow 模型 '{normalized_model}' 未直接支持，回退到默认模型 '{fallback}'"
@@ -134,17 +184,21 @@ def resolve_model_name(provider: str, model_name: Optional[str]) -> str:
             return fallback
 
         return normalized_model
-    
+
     if provider != "ollama":
         return normalized_model
 
     custom_aliases = getattr(settings, "LLM_MODEL_ALIASES", None)
     if isinstance(custom_aliases, dict):
-        candidate = custom_aliases.get(normalized_model) or custom_aliases.get(normalized_model.lower())
+        candidate = custom_aliases.get(normalized_model) or custom_aliases.get(
+            normalized_model.lower()
+        )
         if candidate:
             return candidate
 
-    alias = OLLAMA_MODEL_ALIASES.get(normalized_model) or OLLAMA_MODEL_ALIASES.get(normalized_model.lower())
+    alias = OLLAMA_MODEL_ALIASES.get(normalized_model) or OLLAMA_MODEL_ALIASES.get(
+        normalized_model.lower()
+    )
     if alias:
         return alias
 
@@ -154,13 +208,17 @@ def resolve_model_name(provider: str, model_name: Optional[str]) -> str:
 def resolve_provider_base_url(provider: str) -> str:
     custom_base_urls = getattr(settings, "OPENAI_COMPATIBLE_BASE_URLS", None)
     if isinstance(custom_base_urls, dict):
-        candidate = custom_base_urls.get(provider) or custom_base_urls.get(provider.lower())
+        candidate = custom_base_urls.get(provider) or custom_base_urls.get(
+            provider.lower()
+        )
         if candidate:
             return candidate
     return DEFAULT_OPENAI_COMPATIBLE_BASE_URLS[provider]
 
 
-def resolve_provider_api_key(provider: str, provider_api_key: Optional[str]) -> Optional[str]:
+def resolve_provider_api_key(
+    provider: str, provider_api_key: Optional[str]
+) -> Optional[str]:
     if provider_api_key and provider_api_key.strip():
         return provider_api_key.strip()
 
@@ -181,6 +239,70 @@ def resolve_web_search_api_key(web_search_api_key: Optional[str]) -> Optional[st
     if fallback_key and fallback_key.strip():
         return fallback_key.strip()
     return None
+
+
+def create_remote_embeddings(
+    inputs: List[str],
+    model_name: Optional[str] = None,
+    provider_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    normalized_inputs = [
+        str(item).strip() for item in (inputs or []) if str(item).strip()
+    ]
+    if not normalized_inputs:
+        raise ValueError("Embedding 输入不能为空")
+
+    provider = "siliconflow"
+    api_key = resolve_provider_api_key(provider, provider_api_key)
+    if not api_key:
+        raise ValueError("SiliconFlow API Key 为空，请在设置中填写后重试。")
+
+    resolved_model_name = resolve_embedding_model("siliconflow", model_name)
+    base_url = resolve_provider_base_url(provider)
+    logger.info(
+        "调用远程 embedding provider=%s model=%s count=%s",
+        provider,
+        resolved_model_name,
+        len(normalized_inputs),
+    )
+
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    try:
+        response = client.embeddings.create(
+            model=resolved_model_name,
+            input=normalized_inputs,
+            encoding_format="float",
+        )
+    except Exception as e:
+        _raise_openai_compatible_error(provider, resolved_model_name, e)
+
+    vectors: List[Dict[str, Any]] = []
+    for item in getattr(response, "data", []) or []:
+        vectors.append(
+            {
+                "index": int(getattr(item, "index", 0) or 0),
+                "embedding": list(getattr(item, "embedding", []) or []),
+            }
+        )
+
+    usage_data: Dict[str, Any] = {}
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        total_tokens = getattr(usage, "total_tokens", None)
+        if prompt_tokens is not None:
+            usage_data["prompt_tokens"] = prompt_tokens
+        if total_tokens is not None:
+            usage_data["total_tokens"] = total_tokens
+
+    return {
+        "provider": provider,
+        "mode": "siliconflow",
+        "model": resolved_model_name,
+        "count": len(vectors),
+        "data": vectors,
+        "usage": usage_data,
+    }
 
 
 class ProviderHttpError(Exception):
@@ -208,7 +330,9 @@ def _extract_error_body(exc: Exception) -> Dict[str, Any]:
     return {}
 
 
-def build_openai_compatible_error_detail(provider: str, model: str, exc: Exception) -> Dict[str, Any]:
+def build_openai_compatible_error_detail(
+    provider: str, model: str, exc: Exception
+) -> Dict[str, Any]:
     response = getattr(exc, "response", None)
     status_code = getattr(exc, "status_code", None)
     if status_code is None and response is not None:
@@ -270,54 +394,51 @@ def web_search(
 ) -> List[Dict]:
     """
     调用博查 Web Search API 进行联网检索
-    
+
     设计思路：
     1. 鉴于原始搜索引擎（如 DuckDuckGo）摘要过短，此处显式设置 "summary": True，要求博查引擎返回深度摘要，提升 RAG 质量。
     2. 提取响应中的网页列表（webPages -> value），组装成统一的上下文格式供 LLM 消费。
-    
+
     边界情况：
     - API 实际返回的数量可能小于 count，需遍历实际返回的列表。
     - 某些页面可能无法生成 summary，此时降级使用 snippet 字段。
     """
     logger.info(f"[REAL-WEB-SEARCH] 正在执行博查联网搜索: {query}")
-    
+
     url = "https://api.bocha.cn/v1/web-search"
     api_key = resolve_web_search_api_key(web_search_api_key)
     if not api_key:
         logger.warning("联网搜索 API Key 为空，跳过联网检索。")
         return []
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
     payload = {
         "query": query,
-        "summary": True, 
+        "summary": True,
         "count": max_results,
-        "freshness": "noLimit" 
+        "freshness": "noLimit",
     }
-    
+
     response = requests.post(url, headers=headers, json=payload)
     response_data = response.json()
-    
+
     # 解析响应结构: SearchData -> webPages -> value
     # 根据标准 API 包装格式，通常数据位于 data 键下
     web_pages = response_data.get("data", {}).get("webPages", {}).get("value", [])
-    
+
     results = []
     for page in web_pages:
         # 优先取深度摘要 summary，若为空则取简短片段 snippet
         content = page.get("summary") or page.get("snippet") or ""
         source = page.get("url", "N/A")
-        
+
         if content:
             results.append({"content": content, "source": source})
-            
+
     if not results:
         logger.warning(f"联网搜索 '{query}' 没有返回结果。")
-        
+
     return results
 
 
@@ -328,7 +449,9 @@ def _build_openai_messages(
     web_results: list[dict],
 ) -> list[dict[str, str]]:
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S %A")
-    dynamic_system_prompt = f"{SRE_SYSTEM_PROMPT}\n\n[系统环境信息]\n当前系统时间：{current_time}"
+    dynamic_system_prompt = (
+        f"{SRE_SYSTEM_PROMPT}\n\n[系统环境信息]\n当前系统时间：{current_time}"
+    )
 
     def _deserialize_metadata_list(raw_value: Any) -> List[str]:
         if raw_value is None:
@@ -336,7 +459,11 @@ def _build_openai_messages(
         if isinstance(raw_value, list):
             return [str(item).strip() for item in raw_value if str(item).strip()]
         if isinstance(raw_value, str):
-            return [item.strip() for item in raw_value.replace(";", ",").split(",") if item.strip()]
+            return [
+                item.strip()
+                for item in raw_value.replace(";", ",").split(",")
+                if item.strip()
+            ]
         return []
 
     def _normalize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
@@ -354,7 +481,9 @@ def _build_openai_messages(
             "verified": bool(metadata.get("verified", False)),
             "record_file": metadata.get("record_file"),
             "record_line": metadata.get("record_line"),
-            "mitre_attack_id": _deserialize_metadata_list(metadata.get("mitre_attack_id")),
+            "mitre_attack_id": _deserialize_metadata_list(
+                metadata.get("mitre_attack_id")
+            ),
             "tags": _deserialize_metadata_list(metadata.get("tags")),
         }
 
@@ -375,7 +504,8 @@ def _build_openai_messages(
                 "risk_level": evidence.get("risk_level") or metadata.get("risk_level"),
                 "source": evidence.get("source") or metadata.get("source"),
                 "confidence": evidence.get("confidence") or metadata.get("confidence"),
-                "raw_content_hash": evidence.get("raw_content_hash") or metadata.get("raw_content_hash"),
+                "raw_content_hash": evidence.get("raw_content_hash")
+                or metadata.get("raw_content_hash"),
             },
             "member_count": item.get("member_count", 1),
             "entity_summary": item.get("entity_summary", {}),
@@ -400,7 +530,9 @@ def _build_openai_messages(
             "source": item.get("source", "N/A"),
         }
 
-    def _format_structured_payload(items: List[Dict[str, Any]], payload_type: str) -> str:
+    def _format_structured_payload(
+        items: List[Dict[str, Any]], payload_type: str
+    ) -> str:
         payload = {
             "type": payload_type,
             "count": len(items),
@@ -409,8 +541,10 @@ def _build_openai_messages(
         if not items:
             payload["note"] = "未检索到相关内容"
         return json.dumps(payload, ensure_ascii=False, indent=2)
-    
-    messages: list[dict[str, str]] = [{"role": "system", "content": dynamic_system_prompt}]
+
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": dynamic_system_prompt}
+    ]
 
     if conversation_history:
         for msg in conversation_history:
@@ -426,8 +560,12 @@ def _build_openai_messages(
     structured_log_results = [_normalize_log_item(item) for item in log_results]
     structured_web_results = [_normalize_web_item(item) for item in web_results]
 
-    log_context_payload = _format_structured_payload(structured_log_results, "log_evidence_chain")
-    web_context_payload = _format_structured_payload(structured_web_results, "web_context")
+    log_context_payload = _format_structured_payload(
+        structured_log_results, "log_evidence_chain"
+    )
+    web_context_payload = _format_structured_payload(
+        structured_web_results, "web_context"
+    )
 
     context_blocks.append(log_context_payload)
     context_blocks.append(web_context_payload)
@@ -452,9 +590,13 @@ def stream_openai_compatible_response(
         return
 
     base_url = resolve_provider_base_url(provider)
-    messages = _build_openai_messages(prompt, conversation_history, log_results, web_results)
+    messages = _build_openai_messages(
+        prompt, conversation_history, log_results, web_results
+    )
 
-    logger.info(f"使用 OpenAI 兼容接口调用 provider={provider}, model={model_name}, base_url={base_url}")
+    logger.info(
+        f"使用 OpenAI 兼容接口调用 provider={provider}, model={model_name}, base_url={base_url}"
+    )
 
     client = OpenAI(api_key=api_key, base_url=base_url)
     request_kwargs = {
@@ -522,7 +664,11 @@ def stream_llm_from_messages(
 
         base_url = resolve_provider_base_url(provider_name)
         client = OpenAI(api_key=api_key, base_url=base_url)
-        request_kwargs = {"model": resolved_model_name, "messages": oa_messages, "stream": True}
+        request_kwargs = {
+            "model": resolved_model_name,
+            "messages": oa_messages,
+            "stream": True,
+        }
         if provider_name == "minimax":
             request_kwargs["extra_body"] = {"reasoning_split": True}
             request_kwargs["temperature"] = 1.0
@@ -569,6 +715,8 @@ def model_api_call(
     use_web_search: bool = False,
     model_name: Optional[str] = None,
     provider: Optional[str] = "ollama",
+    embedding_mode: Optional[str] = "local",
+    embedding_model: Optional[str] = None,
     provider_api_key: Optional[str] = None,
     web_search_api_key: Optional[str] = None,
 ):
@@ -578,8 +726,18 @@ def model_api_call(
 
     provider_name = normalize_provider(provider)
     resolved_model_name = resolve_model_name(provider_name, model_name)
+    resolved_embedding_mode = normalize_embedding_mode(embedding_mode)
+    resolved_embedding_model = resolve_embedding_model(
+        resolved_embedding_mode, embedding_model
+    )
 
-    logger.info(f"模型调用参数: provider={provider_name}, model={resolved_model_name}")
+    logger.info(
+        "模型调用参数: provider=%s, model=%s, embedding_mode=%s, embedding_model=%s",
+        provider_name,
+        resolved_model_name,
+        resolved_embedding_mode,
+        resolved_embedding_model,
+    )
 
     log_results: List[Dict] = []
     web_results: List[Dict] = []
@@ -595,11 +753,27 @@ def model_api_call(
                 for index, result in enumerate(log_results, start=1):
                     metadata = result.get("metadata", {}) or {}
                     evidence = result.get("evidence", {}) or {}
-                    db_type = metadata.get("db_type") or evidence.get("db_type") or "unknown"
-                    risk_level = metadata.get("risk_level") or evidence.get("risk_level") or "unknown"
-                    confidence = metadata.get("confidence") or evidence.get("confidence") or "unknown"
-                    source = metadata.get("source") or evidence.get("source") or "unknown"
-                    hash_value = metadata.get("raw_content_hash") or evidence.get("raw_content_hash") or "unknown"
+                    db_type = (
+                        metadata.get("db_type") or evidence.get("db_type") or "unknown"
+                    )
+                    risk_level = (
+                        metadata.get("risk_level")
+                        or evidence.get("risk_level")
+                        or "unknown"
+                    )
+                    confidence = (
+                        metadata.get("confidence")
+                        or evidence.get("confidence")
+                        or "unknown"
+                    )
+                    source = (
+                        metadata.get("source") or evidence.get("source") or "unknown"
+                    )
+                    hash_value = (
+                        metadata.get("raw_content_hash")
+                        or evidence.get("raw_content_hash")
+                        or "unknown"
+                    )
                     logger.info(
                         "[%s] 匹配分数: %.4f | 命中方式: %s | DB: %s | Risk: %s | Confidence: %s | Source: %s | Hash: %s | 内容: %s",
                         index,
@@ -615,7 +789,9 @@ def model_api_call(
 
         if use_web_search:
             logger.info(f"执行联网搜索: {prompt}")
-            web_results = web_search(prompt, max_results=10, web_search_api_key=web_search_api_key)
+            web_results = web_search(
+                prompt, max_results=10, web_search_api_key=web_search_api_key
+            )
 
         if provider_name in OPENAI_COMPATIBLE_PROVIDERS:
             for chunk in stream_openai_compatible_response(
@@ -636,7 +812,7 @@ def model_api_call(
             return
 
         combined_context = {"log_context": log_results, "web_context": web_results}
-        
+
         for chunk in log_system.generate_response(
             prompt,
             context=combined_context,
@@ -647,7 +823,11 @@ def model_api_call(
 
     except ProviderHttpError as e:
         logger.error("model_api_call provider 调用失败: %s", e.detail)
-        yield {"type": "error", "chunk": e.detail.get("message") or str(e), "error_detail": e.detail}
+        yield {
+            "type": "error",
+            "chunk": e.detail.get("message") or str(e),
+            "error_detail": e.detail,
+        }
     except Exception as e:
         logger.error(f"model_api_call 流式处理失败: {e}")
         yield {"type": "error", "chunk": f"API 调用失败: {e}"}
@@ -690,7 +870,9 @@ def check_rate_limit(key_str: str) -> bool:
     """检查 API Key 的请求频率是否超过限制"""
     with rate_lock:
         try:
-            rate_limit = RateLimit.objects.select_related("api_key").get(api_key__key=key_str)
+            rate_limit = RateLimit.objects.select_related("api_key").get(
+                api_key__key=key_str
+            )
 
             current_time = time.time()
             if current_time > rate_limit.reset_time:
@@ -717,7 +899,9 @@ def check_rate_limit(key_str: str) -> bool:
                 return False
 
 
-def rename_conversation_session(user: APIKey, old_session_id: str, new_session_id: str) -> tuple[str, str]:
+def rename_conversation_session(
+    user: APIKey, old_session_id: str, new_session_id: str
+) -> tuple[str, str]:
     """
     将当前用户下某条 ConversationSession 的 session_id 更新为新名称。
     若旧会话在数据库中不存在（尚未与后端同步），则不做数据库变更，由前端仅迁移本地列表。
@@ -740,7 +924,11 @@ def rename_conversation_session(user: APIKey, old_session_id: str, new_session_i
         if not row:
             return old_id, new_id
 
-        conflict = ConversationSession.objects.filter(user=user, session_id=new_id).exclude(pk=row.pk).exists()
+        conflict = (
+            ConversationSession.objects.filter(user=user, session_id=new_id)
+            .exclude(pk=row.pk)
+            .exists()
+        )
         if conflict:
             raise ValueError("该会话名称已存在，请使用其他名称")
 
@@ -762,7 +950,9 @@ def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
         user=user,
         defaults={"context": ""},
     )
-    logger.info(f"会话 {session_id}（用户：{user.user}）{'创建新会话' if created else '加载旧会话'}")
+    logger.info(
+        f"会话 {session_id}（用户：{user.user}）{'创建新会话' if created else '加载旧会话'}"
+    )
     return session
 
 
@@ -782,7 +972,9 @@ def get_cached_reply(prompt: str, session_id: str, user: APIKey) -> str | None:
     return cache.get(cache_key)
 
 
-def set_cached_reply(prompt: str, reply: str, session_id: str, user: APIKey, timeout=3600):
+def set_cached_reply(
+    prompt: str, reply: str, session_id: str, user: APIKey, timeout=3600
+):
     cache_key = f"reply:{user.user}:{session_id}:{hash(prompt)}"
     cache.set(cache_key, reply, timeout)
 

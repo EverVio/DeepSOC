@@ -246,11 +246,15 @@ async function streamChat(
 
     const provider = modelOptions.provider?.trim();
     const modelName = modelOptions.modelName?.trim();
+    const embeddingMode = modelOptions.embeddingMode?.trim();
+    const embeddingModel = modelOptions.embeddingModel?.trim();
     const providerApiKey = modelOptions.providerApiKey?.trim();
     const webSearchApiKey = modelOptions.webSearchApiKey?.trim();
 
     if (provider) body.provider = provider;
     if (modelName) body.model_name = modelName;
+    if (embeddingMode) body.embedding_mode = embeddingMode;
+    if (embeddingModel) body.embedding_model = embeddingModel;
     if (providerApiKey) body.provider_api_key = providerApiKey;
     if (webSearchApiKey) body.web_search_api_key = webSearchApiKey;
 
@@ -426,6 +430,10 @@ export default {
 
   testConnection(data) {
     return axiosApi.post('/test_connection', data);
+  },
+
+  createEmbeddings(data) {
+    return axiosApi.post('/embeddings', data);
   },
 
   streamChat,

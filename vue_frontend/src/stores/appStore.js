@@ -20,6 +20,8 @@ const readSensitiveValue = (key) => {
 
 const DEFAULT_PROVIDER = localStorage.getItem('llmProvider') || 'ollama'
 const DEFAULT_MODEL = localStorage.getItem('llmModel') || 'DeepSeek-R1:7b'
+const DEFAULT_EMBEDDING_MODE = localStorage.getItem('embeddingMode') || 'local'
+const DEFAULT_EMBEDDING_MODEL = localStorage.getItem('embeddingModel') || 'qwen3-embedding:4b'
 const DEFAULT_PROVIDER_API_KEY = readSensitiveValue('providerApiKey')
 const DEFAULT_WEB_SEARCH_API_KEY = readSensitiveValue('webSearchApiKey')
 
@@ -33,6 +35,8 @@ export const useAppStore = defineStore('app', {
     editingMessageId: null,
     llmProvider: DEFAULT_PROVIDER,
     llmModel: DEFAULT_MODEL,
+    embeddingMode: DEFAULT_EMBEDDING_MODE,
+    embeddingModel: DEFAULT_EMBEDDING_MODEL,
     providerApiKey: DEFAULT_PROVIDER_API_KEY,
     webSearchApiKey: DEFAULT_WEB_SEARCH_API_KEY,
   }),
@@ -80,6 +84,16 @@ export const useAppStore = defineStore('app', {
     setLlmModel(model) {
       this.llmModel = model
       localStorage.setItem('llmModel', model)
+    },
+
+    setEmbeddingMode(mode) {
+      this.embeddingMode = mode
+      localStorage.setItem('embeddingMode', mode)
+    },
+
+    setEmbeddingModel(model) {
+      this.embeddingModel = model
+      localStorage.setItem('embeddingModel', model)
     },
 
     setProviderApiKey(apiKey) {

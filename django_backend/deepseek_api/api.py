@@ -65,37 +65,60 @@ def api_key_auth(request):
 
 router = Router(auth=api_key_auth)
 
+
 # Ping 测试的数据结构 ===
 class TestConnectionIn(Schema):
     type: str
     provider: str = None
     api_key: str = None
+    model: str = None
+
+
+class EmbeddingIn(Schema):
+    inputs: list[str] | None = None
+    text: str = None
+    provider: str = "siliconflow"
+    model: str = "Qwen/Qwen3-Embedding-8B"
+    api_key: str = None
+
 
 # Ping 测试后端接口 ===
-@router.post("/test_connection", response={200: dict, 400: ErrorResponse, 408: ErrorResponse})
+@router.post(
+    "/test_connection", response={200: dict, 400: ErrorResponse, 408: ErrorResponse}
+)
 def test_connection(request, data: TestConnectionIn):
     start_time = time.time()
-    
+
     try:
         if data.type == "provider":
             # 【修复点 1】：强制转为小写并去除空格，防止大小写不匹配
             provider = (data.provider or "").strip().lower()
             api_key = data.api_key
             headers = {"Authorization": f"Bearer {api_key}"}
-            
+
             if provider == "deepseek":
-                r = requests.get("https://api.deepseek.com/models", headers=headers, timeout=8)
+                r = requests.get(
+                    "https://api.deepseek.com/models", headers=headers, timeout=8
+                )
             elif provider == "openai":
-                r = requests.get("https://api.openai.com/v1/models", headers=headers, timeout=8)
+                r = requests.get(
+                    "https://api.openai.com/v1/models", headers=headers, timeout=8
+                )
             elif provider == "minimax":
-                r = requests.get("https://api.minimax.chat/v1/models", headers=headers, timeout=8)
+                r = requests.get(
+                    "https://api.minimax.chat/v1/models", headers=headers, timeout=8
+                )
             elif provider == "siliconflow":
-                r = requests.get("https://api.siliconflow.cn/v1/models", headers=headers, timeout=8)
+                r = requests.get(
+                    "https://api.siliconflow.cn/v1/models", headers=headers, timeout=8
+                )
             elif provider == "ollama":
                 r = requests.get("http://localhost:11434/api/tags", timeout=4)
             else:
-                return 400, {"error": f"后端的 Ping 不支持此模型提供商: {data.provider}"}
-                
+                return 400, {
+                    "error": f"后端的 Ping 不支持此模型提供商: {data.provider}"
+                }
+
             r.raise_for_status()
 
         elif data.type == "search":
@@ -109,9 +132,14 @@ def test_connection(request, data: TestConnectionIn):
                 "count": 1,
                 "freshness": "noLimit",
             }
-            r = requests.post("https://api.bocha.cn/v1/web-search", headers=headers, json=payload, timeout=8)
+            r = requests.post(
+                "https://api.bocha.cn/v1/web-search",
+                headers=headers,
+                json=payload,
+                timeout=8,
+            )
             r.raise_for_status()
-            
+
         else:
             return 400, {"error": "未知的测试类型"}
 
@@ -127,10 +155,46 @@ def test_connection(request, data: TestConnectionIn):
                 err_msg = str(err_json.get("error", err_json))
         except Exception:
             pass
-        return 400, {"error": f"第三方拒绝访问 (HTTP {e.response.status_code}): {err_msg}"}
-        
+        return 400, {
+            "error": f"第三方拒绝访问 (HTTP {e.response.status_code}): {err_msg}"
+        }
+
     except requests.exceptions.RequestException as e:
         return 408, {"error": f"网络不可达或超时，请检查服务器网络或代理设置"}
+
+
+@router.post("/embeddings", response={200: dict, 400: ErrorResponse})
+def create_embeddings(request, data: EmbeddingIn):
+    provider = (data.provider or "siliconflow").strip().lower()
+    if provider != "siliconflow":
+        return 400, {"error": "当前仅支持 siliconflow 远程 embedding"}
+
+    normalized_inputs: list[str] = []
+    if isinstance(data.inputs, list):
+        normalized_inputs.extend(
+            str(item).strip() for item in data.inputs if str(item).strip()
+        )
+
+    single_text = (data.text or "").strip()
+    if single_text:
+        normalized_inputs.append(single_text)
+
+    if not normalized_inputs:
+        return 400, {"error": "请输入 text 或 inputs"}
+
+    try:
+        payload = services.create_remote_embeddings(
+            inputs=normalized_inputs,
+            model_name=data.model,
+            provider_api_key=data.api_key,
+        )
+        return {"status": "ok", **payload}
+    except ValueError as e:
+        return 400, {"error": str(e)}
+    except services.ProviderHttpError as e:
+        message = e.detail.get("message") if isinstance(e.detail, dict) else None
+        return 400, {"error": message or str(e)}
+
 
 def _sse_line(payload: dict) -> str:
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
@@ -192,7 +256,9 @@ def _build_agent_cfg(base_llm: LlmConfig, agent_cfgs: dict, agent_id: str) -> Ll
     )
 
 
-def _build_multi_agent_config(base_llm: LlmConfig, agent_cfgs: dict) -> MultiAgentConfig:
+def _build_multi_agent_config(
+    base_llm: LlmConfig, agent_cfgs: dict
+) -> MultiAgentConfig:
     return MultiAgentConfig(
         rag=_build_agent_cfg(base_llm, agent_cfgs, "rag"),
         web=_build_agent_cfg(base_llm, agent_cfgs, "web"),
@@ -212,7 +278,12 @@ def _serialize_multi_agent_meta(agent_meta: dict | None) -> str:
     return f"【MULTI_AGENT_META】{payload}【/MULTI_AGENT_META】"
 
 
-def _render_context(history_for_llm, user_input: str, final_reply: str, current_agent_meta: dict | None = None) -> str:
+def _render_context(
+    history_for_llm,
+    user_input: str,
+    final_reply: str,
+    current_agent_meta: dict | None = None,
+) -> str:
     lines = []
     for msg in history_for_llm:
         if msg.get("role") == "user":
@@ -308,16 +379,20 @@ def chat(request, data: ChatIn):
     use_web_search = data.use_web_search
     selected_model = data.model_name
     selected_provider = (data.provider or "ollama").strip().lower()
+    selected_embedding_mode = (data.embedding_mode or "local").strip().lower()
+    selected_embedding_model = data.embedding_model
     provider_api_key = data.provider_api_key
     web_search_api_key = data.web_search_api_key
     mode = (data.mode or "").strip().lower() or "single"
 
     logger.info(
-        "搜索选项 - 数据库: %s, 联网: %s, provider: %s, model: %s",
+        "搜索选项 - 数据库: %s, 联网: %s, provider: %s, model: %s, embedding_mode: %s, embedding_model: %s",
         use_db_search,
         use_web_search,
         selected_provider,
         selected_model or "default",
+        selected_embedding_mode,
+        selected_embedding_model or "default",
     )
 
     if data.context is not None:
@@ -364,13 +439,19 @@ def chat(request, data: ChatIn):
                 return
 
             if evt.get("type") == "agent_chunk":
-                agent_state[agent_id]["content"] += evt.get("content", evt.get("chunk", "")) or ""
+                agent_state[agent_id]["content"] += (
+                    evt.get("content", evt.get("chunk", "")) or ""
+                )
                 return
 
             if evt.get("type") == "agent_status":
-                agent_state[agent_id]["status"] = evt.get("status") or agent_state[agent_id]["status"]
+                agent_state[agent_id]["status"] = (
+                    evt.get("status") or agent_state[agent_id]["status"]
+                )
                 if evt.get("status") == "error":
-                    agent_state[agent_id]["error"] = evt.get("error") or evt.get("message") or ""
+                    agent_state[agent_id]["error"] = (
+                        evt.get("error") or evt.get("message") or ""
+                    )
                     agent_state[agent_id]["errorDetail"] = evt.get("error_detail")
                 elif evt.get("status") == "done" and not agent_state[agent_id]["error"]:
                     agent_state[agent_id]["errorDetail"] = None
@@ -384,6 +465,8 @@ def chat(request, data: ChatIn):
                     use_web_search,
                     model_name=selected_model,
                     provider=selected_provider,
+                    embedding_mode=selected_embedding_mode,
+                    embedding_model=selected_embedding_model,
                     provider_api_key=provider_api_key,
                     web_search_api_key=web_search_api_key,
                 ):
@@ -392,9 +475,17 @@ def chat(request, data: ChatIn):
 
                     if isinstance(raw_chunk, dict):
                         if raw_chunk.get("type") == "error":
-                            msg = (raw_chunk.get("message") or raw_chunk.get("chunk") or "模型调用失败").strip()
+                            msg = (
+                                raw_chunk.get("message")
+                                or raw_chunk.get("chunk")
+                                or "模型调用失败"
+                            ).strip()
                             detail = raw_chunk.get("error_detail")
-                            yield _sse_line(_error_event(msg, detail if isinstance(detail, dict) else None))
+                            yield _sse_line(
+                                _error_event(
+                                    msg, detail if isinstance(detail, dict) else None
+                                )
+                            )
                         else:
                             yield _sse_line(raw_chunk)
                         continue
@@ -402,7 +493,11 @@ def chat(request, data: ChatIn):
                     yield _sse_line({"type": "content", "chunk": raw_chunk})
                     full_clean_reply += raw_chunk
             else:
-                base_llm = LlmConfig(provider=selected_provider, model=selected_model, provider_api_key=provider_api_key)
+                base_llm = LlmConfig(
+                    provider=selected_provider,
+                    model=selected_model,
+                    provider_api_key=provider_api_key,
+                )
                 cfg = _build_multi_agent_config(base_llm, data.agent_configs or {})
                 orch = Orchestrator()
 
@@ -418,7 +513,10 @@ def chat(request, data: ChatIn):
                 ):
                     _update_agent_state_from_event(evt)
                     yield _sse_line(evt)
-                    if evt.get("type") == "agent_chunk" and evt.get("agent_id") == "synthesis":
+                    if (
+                        evt.get("type") == "agent_chunk"
+                        and evt.get("agent_id") == "synthesis"
+                    ):
                         full_clean_reply += evt.get("content", "")
 
             final_save = full_clean_reply.strip()
@@ -431,11 +529,16 @@ def chat(request, data: ChatIn):
                 current_agent_meta = agent_state
 
             if data.context is not None or is_regeneration:
-                session.context = _render_context(history_for_llm, user_input, final_save, current_agent_meta)
+                session.context = _render_context(
+                    history_for_llm, user_input, final_save, current_agent_meta
+                )
                 session.save()
             else:
                 if current_agent_meta:
-                    session.update_context(user_input, f"{final_save}\n{_serialize_multi_agent_meta(current_agent_meta)}")
+                    session.update_context(
+                        user_input,
+                        f"{final_save}\n{_serialize_multi_agent_meta(current_agent_meta)}",
+                    )
                 else:
                     session.update_context(user_input, final_save)
 
@@ -458,7 +561,9 @@ def chat(request, data: ChatIn):
         finally:
             yield _sse_line({"type": "done"})
 
-    response = StreamingHttpResponse(stream_generator(), content_type="text/event-stream")
+    response = StreamingHttpResponse(
+        stream_generator(), content_type="text/event-stream"
+    )
     response["X-Accel-Buffering"] = "no"
     return response
 

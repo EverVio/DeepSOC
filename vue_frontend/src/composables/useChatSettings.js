@@ -26,18 +26,37 @@ const MODELS_BY_PROVIDER = {
   siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen2.5-72B'],
 }
 
+const EMBEDDING_MODE_OPTIONS = [
+  { value: 'local', label: 'Local (Ollama)' },
+  { value: 'siliconflow', label: 'Remote (SiliconFlow)' },
+]
+
+const EMBEDDING_MODELS_BY_MODE = {
+  local: ['qwen3-embedding:4b'],
+  siliconflow: ['Qwen/Qwen3-Embedding-8B'],
+}
+
 export function useChatSettings({ router, apiClient, currentSession, sessions }) {
   const authStore = useAuthStore()
   const chatStore = useChatStore()
   const appStore = useAppStore()
 
-  const { llmProvider, llmModel, providerApiKey, webSearchApiKey } = storeToRefs(appStore)
+  const {
+    llmProvider,
+    llmModel,
+    embeddingMode,
+    embeddingModel,
+    providerApiKey,
+    webSearchApiKey,
+  } = storeToRefs(appStore)
 
   const isExporting = ref(false)
   const selectedSessionForExport = ref(currentSession.value)
 
   const availableProviders = PROVIDER_OPTIONS
   const availableModels = computed(() => MODELS_BY_PROVIDER[llmProvider.value] || [])
+  const availableEmbeddingModes = EMBEDDING_MODE_OPTIONS
+  const availableEmbeddingModels = computed(() => EMBEDDING_MODELS_BY_MODE[embeddingMode.value] || [])
 
   const providerApiKeyPlaceholder = computed(() => {
     if (llmProvider.value === 'openai') return 'sk-...'
@@ -55,6 +74,14 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
 
   const updateModel = (model) => {
     appStore.setLlmModel(model)
+  }
+
+  const updateEmbeddingMode = (mode) => {
+    appStore.setEmbeddingMode(mode)
+  }
+
+  const updateEmbeddingModel = (model) => {
+    appStore.setEmbeddingModel(model)
   }
 
   const updateProviderApiKey = (key) => {
@@ -123,6 +150,18 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
     { immediate: true }
   )
 
+  watch(
+    embeddingMode,
+    (mode) => {
+      const models = EMBEDDING_MODELS_BY_MODE[mode] || []
+      if (models.length === 0) return
+      if (!models.includes(embeddingModel.value)) {
+        appStore.setEmbeddingModel(models[0])
+      }
+    },
+    { immediate: true }
+  )
+
   const ensureSessionMessages = async (sessionId) => {
     const cachedMessages = chatStore.messages[sessionId]
     if (cachedMessages?.length > 0) {
@@ -183,14 +222,20 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
     selectedSessionForExport,
     llmProvider,
     llmModel,
+    embeddingMode,
+    embeddingModel,
     providerApiKey,
     webSearchApiKey,
     availableProviders,
     availableModels,
+    availableEmbeddingModes,
+    availableEmbeddingModels,
     providerApiKeyPlaceholder,
     webSearchApiKeyPlaceholder,
     updateProvider,
     updateModel,
+    updateEmbeddingMode,
+    updateEmbeddingModel,
     updateProviderApiKey,
     updateWebSearchApiKey,
     handleExportSelectedSession,

@@ -2,52 +2,102 @@
   <div class="dashboard-page settings-dashboard scanline-bg">
     <n-grid :x-gap="16" :y-gap="16" cols="1 s:1 m:2 l:3" responsive="screen" class="settings-grid">
       
-      <n-gi :span="2">
-        <FuiCard :title="aiEngineTitle" class="settings-panel solid-tech-panel">
+      <n-gi :span="2" class="merged-engine-column">
+        <FuiCard :title="aiEngineTitle" class="settings-panel solid-tech-panel settings-panel--merged-container">
           <div class="panel-decorative-corner"></div>
-          <div class="summary-strip summary-strip--triple">
-            <span class="status-badge"><span class="dot blink-green"></span> ONLINE</span>
-            <span class="data-tag">PROVIDER <strong class="ticker-value">{{ llmProvider.toUpperCase() }}</strong></span>
-            <span class="data-tag">MODE <strong class="ticker-value highlight-cyan">SECURE</strong></span>
+
+          <div class="merged-engine-body">
+            <section class="merged-engine-section merged-engine-section--core">
+              <div class="summary-strip summary-strip--quad">
+                <span class="status-badge"><span class="dot blink-green"></span> ONLINE</span>
+                <span class="data-tag">PROVIDER <strong class="ticker-value">{{ llmProvider.toUpperCase() }}</strong></span>
+                <span class="data-tag">EMBED <strong class="ticker-value">{{ embeddingMode.toUpperCase() }}</strong></span>
+                <span class="data-tag">MODE <strong class="ticker-value highlight-cyan">SECURE</strong></span>
+              </div>
+
+              <NForm label-placement="top" :show-feedback="false" class="panel-form">
+                <div class="form-grid-2">
+                  <NFormItem label="MODEL PROVIDER // 模型供应商">
+                    <NSelect class="config-control config-control--select" :value="llmProvider" :options="providerOptions" @update:value="updateProvider" />
+                  </NFormItem>
+
+                  <NFormItem label="MODEL NAME // 核心模型">
+                    <NSelect class="config-control config-control--select" :value="llmModel" :options="modelOptions" @update:value="updateModel" />
+                  </NFormItem>
+
+                  <NFormItem label="EMBEDDING MODE // 向量化方式">
+                    <NSelect class="config-control config-control--select" :value="embeddingMode" :options="embeddingModeOptions" @update:value="updateEmbeddingMode" />
+                  </NFormItem>
+
+                  <NFormItem label="EMBEDDING MODEL // 向量模型">
+                    <NSelect class="config-control config-control--select" :value="embeddingModel" :options="embeddingModelOptions" @update:value="updateEmbeddingModel" />
+                  </NFormItem>
+                </div>
+
+                <NFormItem label="PROVIDER API KEY // 鉴权密钥">
+                  <div class="input-with-ping provider-key-row">
+                    <NInput
+                      class="config-control config-control--input"
+                      type="password"
+                      show-password-on="mousedown"
+                      :value="providerApiKey"
+                      :placeholder="providerApiKeyPlaceholder"
+                      :disabled="llmProvider === 'ollama'"
+                      @update:value="updateProviderApiKey"
+                    />
+                    <button 
+                      type="button"
+                      class="tech-action-btn" 
+                      :class="{ 'pinging': isPingingProvider, 'success': providerPingStatus.endsWith('ms') }"
+                      :disabled="llmProvider === 'ollama'"
+                      @click="handlePing('provider')"
+                    >
+                      <ActivityIcon class="btn-icon" v-if="!isPingingProvider" />
+                      <span class="ping-text">{{ providerPingStatus }}</span>
+                    </button>
+                  </div>
+                  <div class="terminal-hint">
+                  </div>
+                </NFormItem>
+              </NForm>
+            </section>
+
+            <section class="merged-engine-section merged-engine-section--plugins">
+              <div class="merged-section-heading">
+                <span class="merged-section-heading__title">{{ pluginsTitle }}</span>
+                <span class="merged-section-heading__meta">MODULE <strong>WEB_SEARCH</strong></span>
+              </div>
+
+              <div class="summary-strip summary-strip--compact">
+                <span class="data-tag">HEALTH <strong class="ticker-value highlight-green">100%</strong></span>
+              </div>
+
+              <NForm label-placement="top" :show-feedback="false" class="panel-form panel-form--compact">
+                <NFormItem label="WEB SEARCH API KEY // 检索引擎密钥">
+                  <div class="input-with-ping search-key-row">
+                    <NInput
+                      class="config-control config-control--input"
+                      type="password"
+                      show-password-on="mousedown"
+                      :value="webSearchApiKey"
+                      :placeholder="webSearchApiKeyPlaceholder"
+                      @update:value="updateWebSearchApiKey"
+                    />
+                    <button 
+                      type="button"
+                      class="tech-action-btn" 
+                      :class="{ 'pinging': isPingingSearch, 'success': searchPingStatus.endsWith('ms') }"
+                      :disabled="isPingingSearch"
+                      @click="handlePing('search')"
+                    >
+                      <ActivityIcon class="btn-icon" v-if="!isPingingSearch" />
+                      <span class="ping-text">{{ searchPingStatus }}</span>
+                    </button>
+                  </div>
+                </NFormItem>
+              </NForm>
+            </section>
           </div>
-
-          <NForm label-placement="top" :show-feedback="false" class="panel-form">
-            <div class="form-grid-2">
-              <NFormItem label="MODEL PROVIDER // 模型供应商">
-                <NSelect class="config-control config-control--select" :value="llmProvider" :options="providerOptions" @update:value="updateProvider" />
-              </NFormItem>
-
-              <NFormItem label="MODEL NAME // 核心模型">
-                <NSelect class="config-control config-control--select" :value="llmModel" :options="modelOptions" @update:value="updateModel" />
-              </NFormItem>
-            </div>
-
-            <NFormItem label="PROVIDER API KEY // 鉴权密钥">
-              <div class="input-with-ping provider-key-row">
-                <NInput
-                  class="config-control config-control--input"
-                  type="password"
-                  show-password-on="mousedown"
-                  :value="providerApiKey"
-                  :placeholder="providerApiKeyPlaceholder"
-                  :disabled="llmProvider === 'ollama'"
-                  @update:value="updateProviderApiKey"
-                />
-                <button 
-                  type="button"
-                  class="tech-action-btn" 
-                  :class="{ 'pinging': isPingingProvider, 'success': providerPingStatus.endsWith('ms') }"
-                  :disabled="llmProvider === 'ollama'"
-                  @click="handlePing('provider')"
-                >
-                  <ActivityIcon class="btn-icon" v-if="!isPingingProvider" />
-                  <span class="ping-text">{{ providerPingStatus }}</span>
-                </button>
-              </div>
-              <div class="terminal-hint">
-              </div>
-            </NFormItem>
-          </NForm>
         </FuiCard>
       </n-gi>
 
@@ -72,41 +122,6 @@
                 >
                   <DownloadIcon class="btn-icon" />
                   <span>{{ isExporting ? 'DUMPING_DATA...' : 'EXECUTE_DUMP' }}</span>
-                </button>
-              </div>
-            </NFormItem>
-          </NForm>
-        </FuiCard>
-      </n-gi>
-
-      <n-gi :span="2">
-        <FuiCard :title="pluginsTitle" class="settings-panel solid-tech-panel settings-panel--plugins">
-          <div class="panel-decorative-corner"></div>
-          <div class="summary-strip">
-            <span class="data-tag">MODULE <strong class="ticker-value">WEB_SEARCH</strong></span>
-            <span class="data-tag">HEALTH <strong class="ticker-value highlight-green">100%</strong></span>
-          </div>
-
-          <NForm label-placement="top" :show-feedback="false" class="panel-form">
-            <NFormItem label="WEB SEARCH API KEY // 检索引擎密钥">
-              <div class="input-with-ping search-key-row">
-                <NInput
-                  class="config-control config-control--input"
-                  type="password"
-                  show-password-on="mousedown"
-                  :value="webSearchApiKey"
-                  :placeholder="webSearchApiKeyPlaceholder"
-                  @update:value="updateWebSearchApiKey"
-                />
-                <button 
-                  type="button"
-                  class="tech-action-btn" 
-                  :class="{ 'pinging': isPingingSearch, 'success': searchPingStatus.endsWith('ms') }"
-                  :disabled="isPingingSearch"
-                  @click="handlePing('search')"
-                >
-                  <ActivityIcon class="btn-icon" v-if="!isPingingSearch" />
-                  <span class="ping-text">{{ searchPingStatus }}</span>
                 </button>
               </div>
             </NFormItem>
@@ -190,14 +205,20 @@ const {
   selectedSessionForExport,
   llmProvider,
   llmModel,
+  embeddingMode,
+  embeddingModel,
   providerApiKey,
   webSearchApiKey,
   availableProviders,
   availableModels,
+  availableEmbeddingModes,
+  availableEmbeddingModels,
   providerApiKeyPlaceholder,
   webSearchApiKeyPlaceholder,
   updateProvider,
   updateModel,
+  updateEmbeddingMode,
+  updateEmbeddingModel,
   updateProviderApiKey,
   updateWebSearchApiKey,
   handleExportSelectedSession,
@@ -212,6 +233,8 @@ const {
 const sessionOptions = computed(() => (sessions.value || []).map((item) => ({ label: item, value: item })))
 const providerOptions = computed(() => (availableProviders || []).map((item) => ({ label: item.label, value: item.value })))
 const modelOptions = computed(() => (availableModels.value || []).map((item) => ({ label: item, value: item })))
+const embeddingModeOptions = computed(() => (availableEmbeddingModes || []).map((item) => ({ label: item.label, value: item.value })))
+const embeddingModelOptions = computed(() => (availableEmbeddingModels.value || []).map((item) => ({ label: item, value: item })))
 
 const isPingingProvider = ref(false)
 const providerPingStatus = ref('PING')
@@ -422,6 +445,100 @@ const handlePing = async (type) => {
   white-space: nowrap;
 }
 
+.summary-strip--quad {
+  display: flex;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex-wrap: nowrap;
+}
+
+.summary-strip--quad > * {
+  min-width: 140px;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.merged-engine-column {
+  grid-row: span 2;
+}
+
+.settings-panel--merged-container {
+  min-height: 0;
+}
+
+.settings-panel--merged-container :deep(.fui-card-body) {
+  padding-top: 1.1rem;
+  padding-bottom: 1.05rem;
+}
+
+.merged-engine-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 1.1rem;
+}
+
+.merged-engine-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.merged-engine-section--core {
+  flex: 0 0 auto;
+}
+
+.merged-engine-section--plugins {
+  flex: 0 0 auto;
+  margin-top: 0.85rem;
+  padding-top: 3rem;
+  border-top: 1px solid rgba(0, 229, 255, 0.18);
+}
+
+.merged-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.045em;
+}
+
+.merged-section-heading__title {
+  color: #8fdff0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.merged-section-heading__meta {
+  color: #4a7587;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.summary-strip--compact {
+  margin-bottom: 0.5rem;
+}
+
+.panel-form--compact {
+  gap: 0.6rem;
+}
+
+.merged-engine-section--core .panel-form,
+.merged-engine-section--plugins .panel-form {
+  flex: 0 0 auto;
+}
+
+.merged-engine-section--core .summary-strip {
+  margin-bottom: 0.7rem;
+}
+
+.merged-engine-section--core .panel-form {
+  gap: 1.2rem;
+}
+
 .data-tag, .status-badge {
   background: #0a1320;
   border: 2px solid #1a3344;
@@ -473,7 +590,7 @@ const handlePing = async (type) => {
 .panel-form {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 0.8rem;
   flex: 1;
 }
 
@@ -506,7 +623,7 @@ const handlePing = async (type) => {
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6rem;
+  gap: 3rem;
 }
 
 .export-row {
