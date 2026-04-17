@@ -5,40 +5,54 @@
 -->
 
 <template>
-  <div class="dashboard-page">
+  <div class="dashboard-page" :class="{ 'dashboard-page--topology-collapsed': isTopologyCollapsed }">
 
     <n-grid :x-gap="14" :y-gap="14" cols="1" responsive="screen">
       <n-gi>
-        <div ref="topologyPanelRef" class="topology-panel-host" v-if="!isTopologyCollapsed">
-          <FuiCard :title="topologyTitle" class="center-topology-card" :glow="true">
-            <template #actions>
-              <button
-                class="fui-icon-btn"
-                :title="isPanelActive('topology') ? '退出全屏拓扑图' : '全屏拓扑图'"
-                @click="toggleTopologyFullscreen"
-              >
-                <MinimizeIcon v-if="isPanelActive('topology')" class="btn-icon" />
-                <MaximizeIcon v-else class="btn-icon" />
-              </button>
-              <button class="fui-icon-btn" @click="toggleTopology" title="折叠拓扑图">
-                <ChevronUpIcon class="btn-icon" />
-              </button>
-            </template>
-            <TopologyScene :topology="dashboardStats.topology" />
-          </FuiCard>
-        </div>
+        <div class="topology-anim-container">
+          <Transition name="fade-slide">
+            <div ref="topologyPanelRef" v-if="!isTopologyCollapsed" class="topology-panel-host">
+              <FuiCard :title="topologyTitle" class="center-topology-card" :glow="true">
+                <template #actions>
+                  <button
+                    class="fui-icon-btn"
+                    :title="isPanelActive('topology') ? '退出全屏拓扑图' : '全屏拓扑图'"
+                    @click="toggleTopologyFullscreen"
+                  >
+                    <MinimizeIcon v-if="isPanelActive('topology')" class="btn-icon" />
+                    <MaximizeIcon v-else class="btn-icon" />
+                  </button>
+                  <button class="fui-icon-btn" @click="toggleTopology" title="折叠拓扑图">
+                    <ChevronUpIcon class="btn-icon" />
+                  </button>
+                </template>
+                <TopologyScene :topology="dashboardStats.topology" />
+              </FuiCard>
+            </div>
+          </Transition>
 
-        <div v-else class="topology-collapsed-bar">
-          <button class="topology-restore-btn" @click="toggleTopology">
-            <ChevronDownIcon class="btn-icon" />
-            SHOW GLOBAL ATTACK TOPOLOGY
-          </button>
+          <Transition name="fade-slide">
+            <div v-if="isTopologyCollapsed" class="topology-collapsed-bar">
+              <button class="topology-restore-btn" @click="toggleTopology">
+                <ChevronDownIcon class="btn-icon" />
+                SHOW GLOBAL ATTACK TOPOLOGY
+              </button>
+            </div>
+          </Transition>
         </div>
       </n-gi>
 
       <n-gi>
-        <n-grid cols="1 s:1 m:3" responsive="screen" :x-gap="14" :y-gap="14">
-          <n-gi>
+        <n-grid
+          ref="chartsGridRef"
+          cols="1 s:1 m:3"
+          responsive="screen"
+          :x-gap="14"
+          :y-gap="14"
+          class="dashboard-charts-grid"
+          :class="{ 'dashboard-charts-grid--topology-collapsed': isTopologyCollapsed }"
+        >
+          <n-gi class="dashboard-chart-slot dashboard-chart-slot--radar">
             <div ref="radarPanelRef" class="chart-panel-host">
               <ChartDrillGuidance
                 :banner-visible="isBannerVisible('radar')"
@@ -69,7 +83,7 @@
             </div>
           </n-gi>
 
-          <n-gi>
+          <n-gi class="dashboard-chart-slot dashboard-chart-slot--stream">
             <div ref="streamPanelRef" class="chart-panel-host">
               <ChartDrillGuidance
                 :banner-visible="isBannerVisible('stream')"
@@ -101,7 +115,7 @@
             </div>
           </n-gi>
 
-          <n-gi>
+          <n-gi class="dashboard-chart-slot dashboard-chart-slot--category">
             <div ref="categoryPanelRef" class="chart-panel-host">
               <ChartDrillGuidance
                 :banner-visible="isBannerVisible('category')"
@@ -222,7 +236,7 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NButton, NCard, NGi, NGrid, NModal } from 'naive-ui'
 import {
   ChevronDownIcon,
@@ -252,6 +266,7 @@ const topologyPanelRef = ref(null)
 const radarPanelRef = ref(null)
 const streamPanelRef = ref(null)
 const categoryPanelRef = ref(null)
+const chartsGridRef = ref(null)
 // 标题文本由乱码动画驱动，避免直接写死在模板中
 const topologyTitle = ref('GLOBAL ATTACK TOPOLOGY')
 // 图表卡标题响应式状态
@@ -323,7 +338,7 @@ const openAnalysisTerminal = (sourceKey, params) => {
   chatStore.setSessionDraft(chatStore.currentSession, analysisJumpEntry.prompt)
   chatStore.setAnalysisJumpDraft(analysisJumpEntry)
   router.push({ path: '/chat', query: { autoSend: 'true' } })
-  closeExpanded()
+  closeFallbackPanel()
 }
 
 const handleRadarChartClick = (params) => {
@@ -356,6 +371,97 @@ const categoryDistributionScramble = useTextScramble((value) => {
 })
 
 const animationTimers = []
+const chartFlipDurationMs = 560
+const chartFlipEasing = 'cubic-bezier(0.22, 1, 0.36, 1)'
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const isDesktopViewport = () => window.matchMedia('(min-width: 641px)').matches
+
+const getChartsGridElement = () => {
+  const target = chartsGridRef.value
+  if (!target) {
+    return null
+  }
+  return target.$el || target
+}
+
+const getChartSlots = () => {
+  const gridElement = getChartsGridElement()
+  if (!gridElement) {
+    return []
+  }
+  return Array.from(gridElement.querySelectorAll('.dashboard-chart-slot'))
+}
+
+const captureChartRects = () => {
+  const slots = getChartSlots()
+  const rectMap = new Map()
+  slots.forEach((slot) => {
+    rectMap.set(slot, slot.getBoundingClientRect())
+  })
+  return rectMap
+}
+
+const shouldRunChartFlip = () => isDesktopViewport() && !prefersReducedMotion()
+
+const runChartFlipAnimation = (beforeRects) => {
+  const slots = getChartSlots()
+  slots.forEach((slot) => {
+    const firstRect = beforeRects.get(slot)
+    if (!firstRect) {
+      return
+    }
+
+    const lastRect = slot.getBoundingClientRect()
+    const deltaX = firstRect.left - lastRect.left
+    const deltaY = firstRect.top - lastRect.top
+    const scaleX = lastRect.width > 0 ? firstRect.width / lastRect.width : 1
+    const scaleY = lastRect.height > 0 ? firstRect.height / lastRect.height : 1
+    const hasMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5
+    const hasScale = Math.abs(scaleX - 1) > 0.005 || Math.abs(scaleY - 1) > 0.005
+
+    if (!hasMove && !hasScale) {
+      slot.style.removeProperty('will-change')
+      return
+    }
+
+    slot.classList.add('dashboard-chart-slot--animating')
+    slot.style.willChange = 'transform'
+    slot.style.transition = 'none'
+    slot.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`
+    slot.getBoundingClientRect()
+    slot.style.transition = `transform ${chartFlipDurationMs}ms ${chartFlipEasing}`
+    slot.style.transform = 'translate(0, 0) scale(1, 1)'
+
+    const cleanup = () => {
+      slot.style.removeProperty('transition')
+      slot.style.removeProperty('transform')
+      slot.style.removeProperty('will-change')
+      slot.classList.remove('dashboard-chart-slot--animating')
+    }
+
+    const timeoutId = setTimeout(cleanup, chartFlipDurationMs + 80)
+    slot.addEventListener('transitionend', () => {
+      clearTimeout(timeoutId)
+      cleanup()
+    }, { once: true })
+  })
+}
+
+const toggleTopologyWithFlip = async () => {
+  if (!shouldRunChartFlip()) {
+    isTopologyCollapsed.value = !isTopologyCollapsed.value
+    return
+  }
+
+  const beforeRects = captureChartRects()
+  isTopologyCollapsed.value = !isTopologyCollapsed.value
+  await nextTick()
+  requestAnimationFrame(() => {
+    runChartFlipAnimation(beforeRects)
+  })
+}
 
 onMounted(() => {
   // 启动标题动画，并通过小延迟形成分层入场效果
@@ -381,7 +487,7 @@ onBeforeUnmount(() => {
 })
 
 const toggleTopology = () => {
-  isTopologyCollapsed.value = !isTopologyCollapsed.value
+  toggleTopologyWithFlip()
 }
 
 const toggleTopologyFullscreen = () => {
@@ -418,6 +524,11 @@ const handleFullscreenModalChange = (show) => {
   display: grid;
   grid-template-rows: minmax(0, 1.5fr) minmax(0, 0.9fr);
   align-content: stretch;
+  transition: grid-template-rows 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-page--topology-collapsed > .n-grid {
+  grid-template-rows: 40px minmax(0, 1fr) !important;
 }
 
 .dashboard-page > .n-grid > .n-gi {
@@ -432,7 +543,7 @@ const handleFullscreenModalChange = (show) => {
   display: flex;
 }
 
-.dashboard-page > .n-grid > .n-gi:last-child > .n-grid {
+.dashboard-charts-grid {
   min-height: 0;
   height: 100%;
   display: grid;
@@ -441,10 +552,32 @@ const handleFullscreenModalChange = (show) => {
   align-content: stretch;
 }
 
-.dashboard-page > .n-grid > .n-gi:last-child > .n-grid > .n-gi {
+.dashboard-chart-slot {
   min-height: 0;
   display: flex;
   height: 100%;
+  transform-origin: top left;
+  backface-visibility: hidden;
+}
+
+.dashboard-charts-grid--topology-collapsed {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1.06fr) minmax(0, 0.94fr);
+}
+
+.dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--stream {
+  grid-column: 1 / 3 !important;
+  grid-row: 1 !important;
+}
+
+.dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--radar {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+}
+
+.dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--category {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
 }
 
 .topology-panel-host {
@@ -494,6 +627,32 @@ const handleFullscreenModalChange = (show) => {
   position: relative;
   flex: 1;
   height: 100%;
+}
+
+.topology-anim-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.topology-anim-container > .topology-panel-host,
+.topology-anim-container > .topology-collapsed-bar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(15px);
 }
 
 .chart-panel-host:fullscreen,
@@ -709,9 +868,72 @@ const handleFullscreenModalChange = (show) => {
   height: 100%;
 }
 
+@media (min-width: 641px) {
+  .dashboard-charts-grid {
+    display: block !important;
+    position: relative;
+  }
+
+  .dashboard-chart-slot {
+    position: absolute;
+    transition: none;
+    contain: layout paint;
+  }
+
+  .dashboard-chart-slot.dashboard-chart-slot--animating {
+    pointer-events: none;
+  }
+
+  .dashboard-chart-slot--radar {
+    top: 0;
+    left: 0;
+    width: calc((100% - 28px) / 3);
+    height: 100%;
+  }
+
+  .dashboard-chart-slot--stream {
+    top: 0;
+    left: calc((100% - 28px) / 3 + 14px);
+    width: calc((100% - 28px) / 3);
+    height: 100%;
+  }
+
+  .dashboard-chart-slot--category {
+    top: 0;
+    left: calc(((100% - 28px) / 3) * 2 + 28px);
+    width: calc((100% - 28px) / 3);
+    height: 100%;
+  }
+
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--stream {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: calc(50% - 7px);
+  }
+
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--radar {
+    top: calc(50% + 7px);
+    left: 0;
+    width: calc(50% - 7px);
+    height: calc(50% - 7px);
+  }
+
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--category {
+    top: calc(50% + 7px);
+    left: calc(50% + 7px);
+    width: calc(50% - 7px);
+    height: calc(50% - 7px);
+  }
+}
+
 @media (max-width: 1024px) {
   .dashboard-page > .n-grid {
     grid-template-rows: minmax(0, 1.4fr) minmax(0, 0.9fr);
+  }
+
+  .dashboard-page--topology-collapsed > .n-grid {
+    grid-template-rows: 40px minmax(0, 1fr);
   }
 
   .topology-modal-wrap {
@@ -727,6 +949,25 @@ const handleFullscreenModalChange = (show) => {
 @media (max-width: 640px) {
   .dashboard-page {
     gap: 10px;
+  }
+
+  .topology-anim-container > .topology-panel-host,
+  .topology-anim-container > .topology-collapsed-bar {
+    position: static;
+    inset: auto;
+  }
+
+  .dashboard-charts-grid,
+  .dashboard-charts-grid--topology-collapsed {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: repeat(3, minmax(0, auto)) !important;
+  }
+
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--stream,
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--radar,
+  .dashboard-charts-grid--topology-collapsed .dashboard-chart-slot--category {
+    grid-column: auto !important;
+    grid-row: auto !important;
   }
 
   .topology-restore-btn {

@@ -36,7 +36,7 @@ const EMBEDDING_MODELS_BY_MODE = {
   siliconflow: ['Qwen/Qwen3-Embedding-8B'],
 }
 
-export function useChatSettings({ router, apiClient, currentSession, sessions }) {
+export function useChatSettings({ router, apiClient, currentSession, sessions, onConfirmLogout }) {
   const authStore = useAuthStore()
   const chatStore = useChatStore()
   const appStore = useAppStore()
@@ -209,8 +209,9 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
     }
   }
 
-  const handleLogout = () => {
-    if (!window.confirm('确定要退出登录吗？')) return false
+  const handleLogout = async () => {
+    const confirmed = onConfirmLogout ? await onConfirmLogout() : window.confirm('确定要退出登录吗？')
+    if (!confirmed) return false
 
     authStore.clearApiKey()
     router.push('/login')

@@ -156,13 +156,39 @@
 
     </n-grid>
   </div>
+
+  <n-modal
+    :show="logoutConfirm.show"
+    :mask-closable="true"
+    :auto-focus="false"
+    :show-icon="false"
+    @update:show="handleLogoutConfirmVisibleChange"
+  >
+    <section class="settings-confirm-modal">
+      <header class="settings-confirm-modal__header">
+        <LogoutIcon class="settings-confirm-modal__icon" />
+        <h3 class="settings-confirm-modal__title">退出登录</h3>
+      </header>
+
+      <p class="settings-confirm-modal__desc">退出后将返回登录页。</p>
+
+      <footer class="settings-confirm-modal__actions">
+        <NButton class="settings-confirm-modal__btn settings-confirm-modal__btn--ghost" @click="closeLogoutConfirm(false)">
+          取消
+        </NButton>
+        <NButton class="settings-confirm-modal__btn settings-confirm-modal__btn--danger" @click="closeLogoutConfirm(true)">
+          退出登录
+        </NButton>
+      </footer>
+    </section>
+  </n-modal>
 </template>
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { NGrid, NGi, NForm, NFormItem, NInput, NSelect, createDiscreteApi } from 'naive-ui'
+import { NButton, NForm, NFormItem, NGrid, NGi, NInput, NModal, NSelect, createDiscreteApi } from 'naive-ui'
 import { DownloadIcon, LogoutIcon, ActivityIcon, AlertTriangleIcon } from 'vue-tabler-icons'
 import api from '../api'
 
@@ -194,11 +220,46 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   scramblers.forEach(s => s.stop())
+  closeLogoutConfirm(false)
 })
 
 const router = useRouter()
 const chatStore = useChatStore()
 const { sessions, currentSession } = storeToRefs(chatStore)
+const logoutConfirm = ref({
+  show: false,
+})
+let logoutConfirmResolver = null
+
+const openLogoutConfirm = () => {
+  if (logoutConfirmResolver) {
+    logoutConfirmResolver(false)
+    logoutConfirmResolver = null
+  }
+
+  return new Promise((resolve) => {
+    logoutConfirmResolver = resolve
+    logoutConfirm.value = { show: true }
+  })
+}
+
+const closeLogoutConfirm = (accepted = false) => {
+  if (!logoutConfirm.value.show && !logoutConfirmResolver) return
+
+  const resolver = logoutConfirmResolver
+  logoutConfirmResolver = null
+  logoutConfirm.value = { show: false }
+  resolver?.(Boolean(accepted))
+}
+
+const handleLogoutConfirmVisibleChange = (nextShow) => {
+  if (nextShow) {
+    logoutConfirm.value = { show: true }
+    return
+  }
+
+  closeLogoutConfirm(false)
+}
 
 const {
   isExporting,
@@ -228,6 +289,7 @@ const {
   apiClient: api,
   currentSession,
   sessions,
+  onConfirmLogout: openLogoutConfirm,
 })
 
 const sessionOptions = computed(() => (sessions.value || []).map((item) => ({ label: item, value: item })))
@@ -889,4 +951,98 @@ const handlePing = async (type) => {
 .dashboard-page::-webkit-scrollbar-track { background: #000; }
 .dashboard-page::-webkit-scrollbar-thumb { background: #1a3a4f; }
 .dashboard-page::-webkit-scrollbar-thumb:hover { background: #00e5ff; }
+
+.settings-confirm-modal {
+  width: min(92vw, 520px);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background:
+    radial-gradient(circle at 80% -30%, rgba(0, 229, 255, 0.12), transparent 55%),
+    linear-gradient(160deg, rgba(8, 16, 34, 0.98), rgba(3, 9, 23, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.1),
+    0 20px 60px rgba(0, 0, 0, 0.58);
+  padding: 1.15rem 1.2rem 1rem;
+  padding-left: 28px;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+
+.settings-confirm-modal__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.72rem;
+}
+
+.settings-confirm-modal__icon {
+  width: 18px;
+  height: 18px;
+  color: var(--neon-cyan);
+  margin-top: 0.12rem;
+  flex-shrink: 0;
+}
+
+.settings-confirm-modal__title {
+  margin: 0;
+  color: #e6f4ff;
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+}
+
+.settings-confirm-modal__desc {
+  margin-top: 0.8rem;
+  color: #bdd9e8;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  padding-left: 28px;
+}
+
+.settings-confirm-modal__actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.62rem;
+}
+
+.settings-confirm-modal__btn {
+  min-width: 118px;
+}
+
+.settings-confirm-modal__btn--ghost {
+  border: 1px solid rgba(0, 229, 255, 0.26);
+  color: var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.settings-confirm-modal__btn--ghost:hover {
+  border-color: rgba(0, 229, 255, 0.5);
+  background: rgba(0, 229, 255, 0.18);
+}
+
+.settings-confirm-modal__btn--danger {
+  border: 1px solid rgba(255, 0, 85, 0.42);
+  color: #ffd9e5;
+  background: rgba(255, 0, 85, 0.24);
+}
+
+.settings-confirm-modal__btn--danger:hover {
+  border-color: rgba(255, 0, 85, 0.7);
+  background: rgba(255, 0, 85, 0.38);
+}
+
+@media (max-width: 640px) {
+  .settings-confirm-modal {
+    width: min(94vw, 420px);
+    padding: 0.95rem 0.92rem 0.88rem;
+  }
+
+  .settings-confirm-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .settings-confirm-modal__btn {
+    width: 100%;
+  }
+}
 </style>

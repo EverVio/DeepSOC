@@ -653,8 +653,8 @@ onBeforeUnmount(() => {
 /* ================= 登录按钮 ================= */
 .login-button {
   height: 50px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 500;
   letter-spacing: 0.25em;
   background: var(--neon-cyan-dim);
   color: var(--neon-cyan);
