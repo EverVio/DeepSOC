@@ -22,7 +22,20 @@
       </section>
 
       <section class="terminal-message__body">
-        <pre v-if="isUser" class="terminal-text">{{ content || '' }}</pre>
+        <template v-if="isUser">
+          <textarea
+            v-if="isInlineEditing"
+            ref="inlineEditorRef"
+            v-model="editDraft"
+            class="terminal-text terminal-text--editor"
+            rows="4"
+            :disabled="busy"
+            @keydown="onInlineEditKeydown"
+          ></textarea>
+
+          <pre v-else class="terminal-text">{{ content || '' }}</pre>
+        </template>
+
         <template v-else>
           <section v-if="isMultiAgent" class="agent-accordion">
             <button
@@ -108,27 +121,50 @@
       </section>
 
       <footer class="terminal-message__actions">
-        <button class="text-btn" :title="copied ? 'COPIED' : 'COPY'" @click="copyContent" :disabled="copied || !content">
-          <CheckIcon v-if="copied" class="icon-mini" />
-          <CopyIcon v-else class="icon-mini" />
-          {{ copied ? 'COPIED' : 'COPY' }}
-        </button>
+        <template v-if="isUser && isInlineEditing">
+          <button
+            type="button"
+            class="text-btn text-btn--inline-save"
+            :disabled="inlineSendDisabled"
+            @click="submitInlineEdit"
+          >
+            <CheckIcon class="icon-mini" /> SEND
+          </button>
 
-        <button v-if="isUser && content && canEdit" class="text-btn" title="EDIT" @click="handleEdit">
-          <PencilIcon class="icon-mini" /> EDIT
-        </button>
+          <button type="button" class="text-btn" :disabled="busy" @click="cancelInlineEdit">
+            <XIcon class="icon-mini" /> CANCEL
+          </button>
+        </template>
 
-        <button v-if="allowRegenerate" class="text-btn" title="REGENERATE" @click="$emit('regenerate')">
-          <RefreshIcon class="icon-mini" /> REGEN
-        </button>
+        <template v-else>
+          <button type="button" class="text-btn" :title="copied ? 'COPIED' : 'COPY'" @click="copyContent" :disabled="copied || !content">
+            <CheckIcon v-if="copied" class="icon-mini" />
+            <CopyIcon v-else class="icon-mini" />
+            {{ copied ? 'COPIED' : 'COPY' }}
+          </button>
+
+          <button
+            v-if="isUser && content && canEdit"
+            class="text-btn"
+            :title="isInlineEditing ? 'EDITING' : 'EDIT'"
+            :disabled="busy || isInlineEditing"
+            @click="handleEdit"
+          >
+            <PencilIcon class="icon-mini" /> {{ isInlineEditing ? 'EDITING' : 'EDIT' }}
+          </button>
+
+          <button v-if="allowRegenerate" class="text-btn" title="REGENERATE" @click="$emit('regenerate')">
+            <RefreshIcon class="icon-mini" /> REGEN
+          </button>
+        </template>
       </footer>
     </div>
   </article>
 </template>
 
 <script setup>
-import { computed, defineEmits, defineProps, onUnmounted, ref, watch } from 'vue'
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CopyIcon, PencilIcon, RefreshIcon } from 'vue-tabler-icons'
+import { computed, defineEmits, defineProps, nextTick, onUnmounted, ref, watch } from 'vue'
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from 'vue-tabler-icons'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
@@ -145,6 +181,41 @@ const decodeFromCodeB64 = (b64) => {
   } catch {
     return ''
   }
+}
+
+const copyTextToClipboard = async (text) => {
+  const normalizedText = String(text ?? '')
+  if (!normalizedText) return false
+
+  const textarea = document.createElement('textarea')
+  textarea.value = normalizedText
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+
+  let copiedSuccessfully = false
+  try {
+    copiedSuccessfully = document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  if (copiedSuccessfully) return true
+
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(normalizedText)
+      return true
+    }
+  } catch {
+    // No-op: return false below.
+  }
+
+  return false
 }
 
 marked.use({
@@ -193,6 +264,7 @@ const props = defineProps({
   thinkProcess: { type: String, default: '' },
   duration: { type: Number, default: null },
   allowRegenerate: { type: Boolean, default: false },
+  busy: { type: Boolean, default: false },
   messageId: { type: [String, Number], default: null },
   isMultiAgent: { type: Boolean, default: false },
   agentData: {
@@ -208,6 +280,9 @@ const emit = defineEmits(['regenerate', 'edit'])
 
 const showThink = ref(false)
 const showAgentPanel = ref(false)
+const isInlineEditing = ref(false)
+const editDraft = ref('')
+const inlineEditorRef = ref(null)
 const copied = ref(false)
 const displayTime = ref(props.duration ? props.duration.toFixed(1) : '0.0')
 let timerId = null
@@ -232,12 +307,60 @@ const agentDataSafe = computed(() => ({
   },
 }))
 
+const inlineSendDisabled = computed(() => {
+  if (props.busy) return true
+  const normalizedDraft = String(editDraft.value || '').trim()
+  if (!normalizedDraft) return true
+  return normalizedDraft === String(props.content || '').trim()
+})
+
 const toggleThink = () => {
   showThink.value = !showThink.value
 }
 
 const toggleAgentPanel = () => {
   showAgentPanel.value = !showAgentPanel.value
+}
+
+const focusInlineEditor = () => {
+  nextTick(() => {
+    const el = inlineEditorRef.value
+    if (!el || typeof el.focus !== 'function') return
+    el.focus()
+    const length = String(editDraft.value || '').length
+    if (typeof el.setSelectionRange === 'function') {
+      el.setSelectionRange(length, length)
+    }
+  })
+}
+
+const cancelInlineEdit = () => {
+  isInlineEditing.value = false
+  editDraft.value = props.content || ''
+}
+
+const submitInlineEdit = () => {
+  if (inlineSendDisabled.value) return
+
+  emit('edit', {
+    messageId: props.messageId,
+    content: String(editDraft.value || '').trim(),
+  })
+
+  isInlineEditing.value = false
+}
+
+const onInlineEditKeydown = (event) => {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    cancelInlineEdit()
+    return
+  }
+
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    event.preventDefault()
+    submitInlineEdit()
+  }
 }
 
 const renderedContent = computed(() => {
@@ -317,20 +440,38 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => props.content,
+  (nextContent) => {
+    if (isInlineEditing.value) return
+    editDraft.value = nextContent || ''
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.messageId,
+  () => {
+    if (isInlineEditing.value) {
+      cancelInlineEdit()
+    }
+  }
+)
+
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
 })
 
 const copyContent = () => {
   if (!props.content || copied.value) return
-  navigator.clipboard.writeText(props.content)
-    .then(() => {
-      copied.value = true
-      setTimeout(() => {
-        copied.value = false
-      }, 1500)
-    })
-    .catch(() => {})
+  void copyTextToClipboard(props.content).then((copiedSuccessfully) => {
+    if (!copiedSuccessfully) return
+
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 1500)
+  })
 }
 
 const codeCopyTimers = new WeakMap()
@@ -351,23 +492,9 @@ const handleCodeCopyButton = async (btn) => {
     text = (code?.innerText ?? '').replace(/\u00a0/g, ' ')
   }
   if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.setAttribute('readonly', '')
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    ta.style.left = '-9999px'
-    document.body.appendChild(ta)
-    ta.select()
-    try {
-      document.execCommand('copy')
-    } finally {
-      document.body.removeChild(ta)
-    }
-  }
+  const copiedSuccessfully = await copyTextToClipboard(text)
+  if (!copiedSuccessfully) return
+
   const prevHtml = btn.innerHTML
   btn.innerHTML = CODE_CHECK_ICON_SVG
   btn.classList.add('code-copy-btn--done')
@@ -382,11 +509,10 @@ const handleCodeCopyButton = async (btn) => {
 }
 
 const handleEdit = () => {
-  if (!props.canEdit || !props.messageId || !props.content) return
-  emit('edit', {
-    messageId: props.messageId,
-    content: props.content,
-  })
+  if (!props.canEdit || !props.messageId || !props.content || props.busy) return
+  isInlineEditing.value = true
+  editDraft.value = props.content || ''
+  focusInlineEditor()
 }
 
 const formatTime = (date) => {
@@ -532,6 +658,31 @@ const formatTime = (date) => {
 .terminal-message__body {
   position: relative;
   min-height: 1.2rem;
+}
+
+.terminal-text--editor {
+  position: relative;
+  width: 100%;
+  min-height: 96px;
+  margin: 0;
+  resize: vertical;
+  appearance: none;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  padding: 0.6rem 0.7rem;
+  box-shadow: none;
+  caret-color: var(--neon-cyan);
+}
+
+.terminal-text--editor:focus-visible {
+  outline: 1px solid rgba(0, 229, 255, 0.62);
+  outline-offset: 2px;
+  border-color: rgba(0, 229, 255, 0.55);
 }
 
 .agent-accordion {
@@ -810,6 +961,18 @@ const formatTime = (date) => {
   color: var(--neon-cyan);
   border-color: rgba(0, 229, 255, 0.5);
   background: rgba(0, 229, 255, 0.1);
+}
+
+.text-btn--inline-save {
+  border-color: rgba(0, 255, 157, 0.45);
+  color: #b8ffd8;
+  background: rgba(0, 255, 157, 0.14);
+}
+
+.text-btn--inline-save:hover:not(:disabled) {
+  color: #deffef;
+  border-color: rgba(0, 255, 157, 0.64);
+  background: rgba(0, 255, 157, 0.2);
 }
 
 .text-btn:disabled {

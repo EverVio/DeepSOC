@@ -413,7 +413,7 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
         {
           mode: extra?.mode,
           agentConfigs: extra?.agentConfigs,
-          idleTimeoutMs: 30000,
+          idleTimeoutMs: 120000,
           maxRetries: 1,
           bufferLimitBytes: 1024 * 1024,
           signal: ac.signal,
@@ -520,6 +520,17 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
   }
 
   const handleNormalSend = async (sessionId, content, extra) => {
+    const historyContext = (chatStore.messages[sessionId] || [])
+      .filter((message) => {
+        const text = String(message?.content || '').trim()
+        return text.length > 0
+      })
+      .map((message) => ({
+        role: message.isUser ? 'user' : 'assistant',
+        content: String(message.content || ''),
+      }))
+      .slice(-24)
+
     lastUserMessage.value = content
 
     chatStore.addMessage(sessionId, true, {
@@ -542,11 +553,16 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
 
     const input = extra?.attachmentText ? `${content}\n\n[附件]\n${extra.attachmentText}` : content
 
-    await runStreamChat(sessionId, aiMessageId, input, undefined, extra, undefined, undefined)
+    await runStreamChat(sessionId, aiMessageId, input, historyContext, extra, undefined, undefined)
   }
 
-  const submitEditedLastUserMessage = async (sessionId, editedContent, extra) => {
-    const messageId = editingMessageId.value
+  const submitEditedLastUserMessage = async (sessionId, messageId, editedContent, extra) => {
+    if (!messageId) {
+      appStore.setError('缺少要编辑的消息标识')
+      appStore.clearEditing()
+      return
+    }
+
     const historySlice = chatStore.messages[sessionId]
     if (!historySlice || historySlice.length === 0) {
       appStore.setError('没有可编辑的消息')
@@ -612,7 +628,7 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
 
   const handleSendMessage = async (content, extra) => {
     if (isEditing.value && editingMessageId.value) {
-      await submitEditedLastUserMessage(currentSession.value, content, extra)
+      await submitEditedLastUserMessage(currentSession.value, editingMessageId.value, content, extra)
       return
     }
     await handleNormalSend(currentSession.value, content, extra)
@@ -628,21 +644,31 @@ export function useChatSession({ apiClient, messagesContainerRef, chatInputRef }
     await handleNormalSend(currentSession.value, lastUserMessage.value)
   }
 
-  const handleEditMessage = ({ messageId, content }) => {
+  const handleEditMessage = async ({ messageId, content, extra } = {}) => {
+    if (loading.value || isStreaming.value) return
+
+    const editedContent = String(content || '').trim()
+    if (!messageId || !editedContent) return
+
     const raw = chatStore.messages[currentSession.value] || []
     let lastUserId = null
+    let lastUserContent = ''
     for (let i = raw.length - 1; i >= 0; i -= 1) {
       if (raw[i].isUser && String(raw[i].content || '').trim()) {
         lastUserId = raw[i].id
+        lastUserContent = raw[i].content || ''
         break
       }
     }
-    if (messageId !== lastUserId) return
 
-    appStore.setEditing(messageId)
-    chatInputRef.value?.setContent(content)
-    scrollMessagesToBottomForced()
-    nextTick(() => chatInputRef.value?.focus())
+    if (messageId !== lastUserId) {
+      appStore.setError('只能编辑最近一条用户消息')
+      return
+    }
+
+    if (editedContent === String(lastUserContent || '').trim()) return
+
+    await submitEditedLastUserMessage(currentSession.value, messageId, editedContent, extra)
   }
 
   const initializeChatSession = async () => {

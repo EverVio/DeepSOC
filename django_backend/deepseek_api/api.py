@@ -1,10 +1,13 @@
+import asyncio
 import json
 import logging
 import os
 import re
+import threading
 import zipfile
 import time
 import requests
+from queue import Queue
 from typing import Generator
 from ninja import File, NinjaAPI, Router, Schema
 
@@ -450,6 +453,9 @@ def chat(request, data: ChatIn):
             "web": {"status": "idle", "content": "", "error": "", "errorDetail": None},
         }
 
+        # 先发送一个轻量心跳，确保客户端尽快进入流式读取状态。
+        yield _sse_line({"type": "ping"})
+
         def _update_agent_state_from_event(evt: dict) -> None:
             agent_id = evt.get("agent_id")
             if agent_id not in agent_state:
@@ -578,10 +584,34 @@ def chat(request, data: ChatIn):
         finally:
             yield _sse_line({"type": "done"})
 
+    async def async_stream_generator():
+        sentinel = object()
+        stream_queue: Queue = Queue()
+
+        def producer() -> None:
+            try:
+                for chunk in stream_generator():
+                    stream_queue.put(chunk)
+            except Exception as e:
+                logger.exception("异步流生产器异常: %s", e)
+                stream_queue.put(_sse_line(_error_event(f"流处理失败: {e}")))
+                stream_queue.put(_sse_line({"type": "done"}))
+            finally:
+                stream_queue.put(sentinel)
+
+        threading.Thread(target=producer, daemon=True).start()
+
+        while True:
+            item = await asyncio.to_thread(stream_queue.get)
+            if item is sentinel:
+                break
+            yield item
+
     response = StreamingHttpResponse(
-        stream_generator(), content_type="text/event-stream"
+        async_stream_generator(), content_type="text/event-stream"
     )
     response["X-Accel-Buffering"] = "no"
+    response["Cache-Control"] = "no-cache"
     return response
 
 

@@ -93,7 +93,10 @@
         :disabled="sendButtonDisabled"
         :aria-label="streaming ? '停止回答' : '发送消息'"
       >
-        <span v-if="streaming" class="stop-icon" aria-hidden="true" />
+        <span v-if="streaming" class="stop-icon" aria-hidden="true">
+          <span class="stop-icon__bar" />
+          <span class="stop-icon__bar" />
+        </span>
         <SendIcon v-else class="stage-icon" />
       </NButton>
     </div>
@@ -341,7 +344,7 @@ defineExpose({
   position: relative;
   border: 1px solid var(--border-dim);
   background: rgba(2, 8, 22, 0.75);
-  padding: 0.55rem 0.75rem 0.72rem;
+  padding: 0.55rem 1rem 0.72rem;
   clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
   box-shadow: inset 0 0 22px rgba(0, 229, 255, 0.05);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -531,7 +534,8 @@ defineExpose({
   display: grid;
   grid-template-columns: auto auto 1fr auto;
   align-items: flex-end;
-  gap: 0.55rem;
+  gap: 0.72rem;
+  padding: 0 0.22rem;
   position: relative;
 }
 
@@ -549,14 +553,16 @@ defineExpose({
 
 .terminal-textarea {
   min-height: 2rem;
-  margin-left: 10px;
+  margin-left: 0.4rem;
+  margin-right: 0.9rem;
 }
 
 .terminal-textarea :deep(.n-input-wrapper) {
   background: transparent;
   box-shadow: none;
   border: none;
-  padding-left: 20px;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
 }
 
 .terminal-textarea :deep(.n-input__textarea-el) {
@@ -568,7 +574,7 @@ defineExpose({
   line-height: 1.55;
   resize: none;
   clip-path: none;
-  padding: 0.35rem 0rem;
+  padding: 0.38rem 0.15rem;
 }
 
 .terminal-textarea :deep(.n-input__textarea-el::placeholder) {
@@ -576,8 +582,8 @@ defineExpose({
 }
 
 .stage-btn {
-  width: 2rem;
-  height: 2rem;
+  width: 2.15rem;
+  height: 2.15rem;
   padding: 0;
   --n-border: 1px solid var(--border-dim);
   --n-color: rgba(0, 229, 255, 0.06);
@@ -593,22 +599,48 @@ defineExpose({
 }
 
 .send-btn--stop {
-  --n-border: 1px solid rgba(255, 107, 147, 0.45);
-  --n-color: rgba(255, 107, 147, 0.1);
-  --n-color-hover: rgba(255, 107, 147, 0.2);
-  --n-color-pressed: rgba(255, 107, 147, 0.28);
-  --n-text-color: #ffb3c7;
-  --n-text-color-hover: #ffd6e0;
-  --n-text-color-pressed: #fff0f3;
+  position: relative;
+  --n-border: 1px solid rgba(255, 107, 147, 0.58);
+  --n-color: linear-gradient(180deg, rgba(255, 107, 147, 0.24) 0%, rgba(255, 107, 147, 0.14) 100%);
+  --n-color-hover: linear-gradient(180deg, rgba(255, 107, 147, 0.34) 0%, rgba(255, 107, 147, 0.2) 100%);
+  --n-color-pressed: linear-gradient(180deg, rgba(255, 107, 147, 0.42) 0%, rgba(255, 107, 147, 0.26) 100%);
+  --n-text-color: #ffd0dc;
+  --n-text-color-hover: #fff0f3;
+  --n-text-color-pressed: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(255, 107, 147, 0.24),
+    0 0 0 4px rgba(255, 107, 147, 0.06),
+    0 0 18px rgba(255, 107, 147, 0.28);
+  transform: translateY(-1px);
+}
+
+.send-btn--stop::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 107, 147, 0.38);
+  opacity: 0;
+  pointer-events: none;
+  animation: stopPulse 1.15s ease-out infinite;
 }
 
 .stop-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 0.7rem;
+  height: 0.7rem;
+  filter: drop-shadow(0 0 6px rgba(255, 107, 147, 0.56));
+}
+
+.stop-icon__bar {
   display: block;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 3px;
+  width: 0.2rem;
+  height: 0.62rem;
+  border-radius: 1px;
   background: currentColor;
-  box-shadow: 0 0 6px rgba(255, 107, 147, 0.45);
 }
 
 .stage-icon {
@@ -669,9 +701,23 @@ defineExpose({
   }
 }
 
+@keyframes stopPulse {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1.28);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .input-stage {
     grid-template-columns: auto 1fr auto;
+    gap: 0.55rem;
+    padding: 0 0.1rem;
   }
 
   .prompt-col {
@@ -681,6 +727,8 @@ defineExpose({
 
   .terminal-textarea {
     grid-column: 1 / 3;
+    margin-left: 0.12rem;
+    margin-right: 0.5rem;
   }
 
   .attachment-name {

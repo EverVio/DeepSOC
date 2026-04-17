@@ -108,7 +108,7 @@
           <ChatMessage v-for="(msg, index) in displayMessages" :key="msg.id" :is-user="msg.isUser"
             :content="msg.content" :attachment-name="msg.attachmentName" :think-process="msg.think_process"
             :duration="msg.duration" :timestamp="msg.timestamp" :message-id="msg.id" :is-multi-agent="msg.isMultiAgent"
-            :agent-data="msg.agentData"
+            :agent-data="msg.agentData" :busy="Boolean(loading || streaming)"
             :allow-regenerate="!msg.isUser && index === displayMessages.length - 1 && !loading"
             :can-edit="Boolean(msg.isUser && msg.id === lastEditableUserMessageId)" @regenerate="onRegenerate"
             @edit="onEditMessage" />
@@ -809,7 +809,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   margin-top: 0.5rem;
   border-top: 1px solid rgba(0, 229, 255, 0.16);
-  padding-top: 0.56rem;
+  padding: 0.56rem 0.45rem 0;
 }
 
 .terminal-entry-hint {

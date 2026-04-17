@@ -6,6 +6,7 @@ import re
 import threading
 import time
 import datetime
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Any, Dict, Optional, List, Iterable
 
 from ddgs import DDGS
@@ -18,7 +19,7 @@ import requests
 
 from topklogsystem import TopKLogSystem
 from .models import APIKey, RateLimit, ConversationSession
-from .query_service import get_query_record_detail, list_query_records
+from .query_service import list_query_records
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,31 @@ try:
 except Exception as e:
     log_system = None
     logger.error(f"TopKLogSystem 全局初始化失败: {e}")
+
+
+def _warm_query_records_cache() -> None:
+    if not bool(getattr(settings, "WARM_QUERY_RECORD_CACHE", True)):
+        return
+
+    try:
+        list_query_records(
+            query="",
+            page=1,
+            page_size=1,
+            filters={},
+            start_time="",
+            end_time="",
+            sort_by="fetched_at",
+            sort_order="desc",
+            include_facets=False,
+            truncate_summary=False,
+        )
+        logger.info("查询记录缓存预热完成")
+    except Exception as exc:
+        logger.warning("查询记录缓存预热失败: %s", exc)
+
+
+_warm_query_records_cache()
 
 
 def normalize_provider(provider: Optional[str]) -> str:
@@ -394,7 +420,7 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
     if log_system is None:
         return []
 
-    limit = max(int(top_k or 5), 1)
+    limit = max(int(top_k or 5), 3)
     query_signals = log_system._extract_query_signals(prompt)
     query_terms = log_system._build_query_terms(prompt)
 
@@ -410,24 +436,48 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
         "回答",
     }
 
+    max_queries = max(
+        int(getattr(settings, "REMOTE_RETRIEVAL_MAX_QUERIES", 3) or 3),
+        1,
+    )
+    enable_relaxed_pass = bool(
+        getattr(settings, "REMOTE_RETRIEVAL_ENABLE_RELAXED", False)
+    )
+
+    def append_query(target: List[str], value: str) -> None:
+        normalized_value = (value or "").strip().lower()
+        if (
+            not normalized_value
+            or normalized_value in stop_tokens
+            or normalized_value in target
+            or len(target) >= max_queries
+        ):
+            return
+        target.append(normalized_value)
+
     primary_queries: List[str] = []
-    if raw_prompt:
-        primary_queries.append(raw_prompt)
+    append_query(primary_queries, raw_prompt)
+
     for token in token_candidates:
+        if len(primary_queries) >= max_queries:
+            break
+
         normalized = token.strip().lower()
-        if not normalized or normalized in stop_tokens:
+        if not normalized:
             continue
-        if normalized not in primary_queries:
-            primary_queries.append(normalized)
+
+        append_query(primary_queries, normalized)
+
         if re.fullmatch(r"[\u4e00-\u9fff]{4,}", normalized):
             for size in (2, 3):
                 upper_bound = len(normalized) - size + 1
                 for start in range(max(upper_bound, 0)):
+                    if len(primary_queries) >= max_queries:
+                        break
                     fragment = normalized[start : start + size]
-                    if fragment in stop_tokens:
-                        continue
-                    if fragment not in primary_queries:
-                        primary_queries.append(fragment)
+                    append_query(primary_queries, fragment)
+                if len(primary_queries) >= max_queries:
+                    break
 
     if not primary_queries:
         primary_queries = [""]
@@ -441,7 +491,7 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
         exact_filters.append({"ioc_value": ip_value})
 
     def build_candidate_map(queries: List[str], relaxed: bool = False) -> Dict[str, Dict[str, Any]]:
-        fetch_size = max(limit * 8, 40) if relaxed else max(limit * 4, 20)
+        fetch_size = max(limit * 5, 25) if relaxed else max(limit * 3, 15)
         candidate_map: Dict[str, Dict[str, Any]] = {}
 
         def upsert_candidate(
@@ -449,14 +499,25 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
             force_exact: bool = False,
         ) -> None:
             record_id = str(item.get("record_id") or "").strip()
-            detail = get_query_record_detail(record_id) if record_id else None
-            detail_payload = detail or {}
-            metadata = detail_payload.get("metadata") or {}
-            content = (
-                detail_payload.get("search_content")
-                or item.get("search_content")
-                or ""
-            ).strip()
+            metadata = {
+                "_id": item.get("_id"),
+                "db_type": item.get("db_type"),
+                "risk_level": item.get("risk_level"),
+                "source": item.get("source"),
+                "source_dataset": item.get("source_dataset"),
+                "source_url": item.get("source_url"),
+                "fetched_at": item.get("fetched_at"),
+                "confidence": item.get("confidence"),
+                "verified": bool(item.get("verified", False)),
+                "cve_id": item.get("cve_id"),
+                "ioc_value": item.get("ioc_value"),
+                "mitre_attack_id": item.get("mitre_attack_id") or [],
+                "tags": item.get("tags") or [],
+                "raw_content_hash": item.get("raw_content_hash"),
+                "record_file": item.get("record_file"),
+                "record_line": item.get("record_line"),
+            }
+            content = (item.get("search_content") or "").strip()
             if not content:
                 return
 
@@ -503,6 +564,8 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
                 end_time="",
                 sort_by="fetched_at",
                 sort_order="desc",
+                include_facets=False,
+                truncate_summary=False,
             )
             for result_item in payload.get("items") or []:
                 upsert_candidate(result_item, force_exact=True)
@@ -517,6 +580,8 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
                 end_time="",
                 sort_by="fetched_at",
                 sort_order="desc",
+                include_facets=False,
+                truncate_summary=False,
             )
             for result_item in payload.get("items") or []:
                 upsert_candidate(result_item, force_exact=False)
@@ -527,9 +592,9 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
     ranked_items = log_system._rank_candidates(primary_candidates, query_signals)
 
     best_score = ranked_items[0]["score"] if ranked_items else 0.0
-    if not ranked_items or best_score < 0.35:
-        relaxed_queries = list(primary_queries)
-        if "" not in relaxed_queries:
+    if enable_relaxed_pass and (not ranked_items or best_score < 0.35):
+        relaxed_queries = list(primary_queries[:max_queries])
+        if "" not in relaxed_queries and len(relaxed_queries) < max_queries:
             relaxed_queries.append("")
         relaxed_candidates = build_candidate_map(relaxed_queries, relaxed=True)
         relaxed_ranked_items = log_system._rank_candidates(relaxed_candidates, query_signals)
@@ -583,8 +648,28 @@ def web_search(
         "freshness": "noLimit",
     }
 
-    response = requests.post(url, headers=headers, json=payload)
-    response_data = response.json()
+    timeout_seconds = max(
+        int(getattr(settings, "WEB_SEARCH_TIMEOUT_SECONDS", 15) or 15),
+        1,
+    )
+
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=timeout_seconds,
+        )
+        response.raise_for_status()
+        response_data = response.json()
+    except requests.RequestException as exc:
+        logger.warning(
+            "联网搜索请求失败（query=%s, timeout=%ss）: %s",
+            query,
+            timeout_seconds,
+            exc,
+        )
+        return []
 
     # 解析响应结构: SearchData -> webPages -> value
     # 根据标准 API 包装格式，通常数据位于 data 键下
@@ -616,6 +701,19 @@ def _build_openai_messages(
         f"{SRE_SYSTEM_PROMPT}\n\n[系统环境信息]\n当前系统时间：{current_time}"
     )
 
+    log_item_max_chars = max(
+        int(getattr(settings, "RAG_LOG_ITEM_MAX_CHARS", 320) or 320),
+        80,
+    )
+    web_item_max_chars = max(
+        int(getattr(settings, "RAG_WEB_ITEM_MAX_CHARS", 320) or 320),
+        80,
+    )
+    evidence_max_items = max(
+        int(getattr(settings, "RAG_EVIDENCE_MAX_ITEMS", 1) or 1),
+        0,
+    )
+
     def _deserialize_metadata_list(raw_value: Any) -> List[str]:
         if raw_value is None:
             return []
@@ -628,6 +726,12 @@ def _build_openai_messages(
                 if item.strip()
             ]
         return []
+
+    def _truncate_text(value: Any, max_len: int) -> str:
+        text = str(value or "").strip()
+        if len(text) <= max_len:
+            return text
+        return f"{text[:max_len]}..."
 
     def _normalize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         return {
@@ -655,41 +759,39 @@ def _build_openai_messages(
         evidence = item.get("evidence", {}) or {}
         evidence_chain = item.get("evidence_chain", []) or []
 
-        return {
-            "group_key": item.get("group_key"),
+        compact = {
             "group_type": item.get("group_type"),
             "score": item.get("score", 0.0),
             "source": item.get("source", "unknown"),
-            "content": item.get("content", ""),
-            "metadata": _normalize_metadata(metadata),
+            "content": _truncate_text(item.get("content", ""), log_item_max_chars),
             "evidence": {
                 "db_type": evidence.get("db_type") or metadata.get("db_type"),
                 "risk_level": evidence.get("risk_level") or metadata.get("risk_level"),
                 "source": evidence.get("source") or metadata.get("source"),
                 "confidence": evidence.get("confidence") or metadata.get("confidence"),
-                "raw_content_hash": evidence.get("raw_content_hash")
-                or metadata.get("raw_content_hash"),
+                "cve_id": metadata.get("cve_id"),
+                "ioc_value": metadata.get("ioc_value"),
+                "tags": _deserialize_metadata_list(metadata.get("tags")),
+                "mitre_attack_id": _deserialize_metadata_list(metadata.get("mitre_attack_id")),
             },
             "member_count": item.get("member_count", 1),
-            "entity_summary": item.get("entity_summary", {}),
-            "evidence_chain": [
+        }
+
+        if evidence_max_items > 0:
+            compact["evidence_chain"] = [
                 {
-                    "content": member.get("content", ""),
+                    "content": _truncate_text(member.get("content", ""), 220),
                     "score": member.get("score", 0.0),
                     "source": member.get("source", "unknown"),
-                    "vector_score": member.get("vector_score", 0.0),
-                    "keyword_score": member.get("keyword_score", 0.0),
-                    "exact_match_boost": member.get("exact_match_boost", 0.0),
-                    "metadata": _normalize_metadata(member.get("metadata", {}) or {}),
-                    "evidence": member.get("evidence", {}),
                 }
-                for member in evidence_chain
-            ],
-        }
+                for member in evidence_chain[:evidence_max_items]
+            ]
+
+        return compact
 
     def _normalize_web_item(item: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "content": item.get("content", ""),
+            "content": _truncate_text(item.get("content", ""), web_item_max_chars),
             "source": item.get("source", "N/A"),
         }
 
@@ -755,6 +857,13 @@ def stream_openai_compatible_response(
     base_url = resolve_provider_base_url(provider)
     messages = _build_openai_messages(
         prompt, conversation_history, log_results, web_results
+    )
+
+    prompt_size_chars = sum(len(str(msg.get("content", ""))) for msg in messages)
+    logger.info(
+        "OpenAI 兼容请求上下文大小: messages=%s, chars=%s",
+        len(messages),
+        prompt_size_chars,
     )
 
     logger.info(
@@ -904,18 +1013,87 @@ def model_api_call(
 
     log_results: List[Dict] = []
     web_results: List[Dict] = []
+    web_future = None
+    web_executor = None
 
     try:
+        # 联网搜索网络耗时通常较长；当同时启用 DB+Web 时并发发起以降低总等待。
+        if use_web_search and use_db_search:
+            web_max_results = max(
+                int(getattr(settings, "WEB_SEARCH_MAX_RESULTS", 5) or 5),
+                1,
+            )
+            web_executor = ThreadPoolExecutor(max_workers=1)
+            web_future = web_executor.submit(
+                web_search,
+                prompt,
+                web_max_results,
+                web_search_api_key,
+            )
+
         if use_db_search:
+            db_retrieval_started_at = time.perf_counter()
             if log_system is None:
                 logger.warning("log_system 未初始化，跳过数据库日志检索。")
             else:
                 logger.info(f"执行数据库日志检索: {prompt}")
+                retrieval_top_k = max(
+                    int(getattr(settings, "DB_RETRIEVAL_TOP_K", 3) or 3),
+                    1,
+                )
                 if resolved_embedding_mode == "siliconflow":
-                    logger.info("当前为远程 embedding 模式，使用关键词检索路径。")
-                    log_results = retrieve_logs_remote_mode(prompt, top_k=5)
-                else:
-                    log_results = log_system.retrieve_logs(prompt, top_k=5)
+                    retrieval_top_k = max(retrieval_top_k, 3)
+
+                retrieval_cache_ttl = max(
+                    int(getattr(settings, "DB_RETRIEVAL_CACHE_SECONDS", 300) or 300),
+                    0,
+                )
+                retrieval_cache_key = (
+                    f"db_retrieval:{resolved_embedding_mode}:{retrieval_top_k}:"
+                    f"{hashlib.sha256(prompt.strip().lower().encode('utf-8')).hexdigest()}"
+                )
+
+                if retrieval_cache_ttl > 0:
+                    cached_results = cache.get(retrieval_cache_key)
+                    if isinstance(cached_results, list):
+                        log_results = cached_results
+                        logger.info("命中数据库检索缓存: top_k=%s", retrieval_top_k)
+
+                if not log_results:
+                    retrieval_timeout = max(
+                        int(getattr(settings, "DB_RETRIEVAL_TIMEOUT_SECONDS", 4) or 4),
+                        1,
+                    )
+                    db_executor = ThreadPoolExecutor(max_workers=1)
+                    try:
+                        if resolved_embedding_mode == "siliconflow":
+                            logger.info("当前为远程 embedding 模式，使用关键词检索路径。")
+                            db_future = db_executor.submit(
+                                retrieve_logs_remote_mode,
+                                prompt,
+                                retrieval_top_k,
+                            )
+                        else:
+                            db_future = db_executor.submit(
+                                log_system.retrieve_logs,
+                                prompt,
+                                retrieval_top_k,
+                            )
+
+                        try:
+                            log_results = db_future.result(timeout=retrieval_timeout)
+                        except FuturesTimeoutError:
+                            log_results = []
+                            logger.warning(
+                                "数据库日志检索超时（%ss），跳过检索直连模型。",
+                                retrieval_timeout,
+                            )
+                    finally:
+                        db_executor.shutdown(wait=False)
+
+                    if retrieval_cache_ttl > 0 and log_results:
+                        cache.set(retrieval_cache_key, log_results, retrieval_cache_ttl)
+
                 logger.info(f"针对查询 '{prompt}' 的 Top-K 检索结果：")
                 for index, result in enumerate(log_results, start=1):
                     metadata = result.get("metadata", {}) or {}
@@ -953,11 +1131,40 @@ def model_api_call(
                         hash_value,
                         result.get("content", ""),
                     )
+            logger.info(
+                "数据库日志检索耗时: %.2fs",
+                time.perf_counter() - db_retrieval_started_at,
+            )
 
-        if use_web_search:
+        if web_future is not None:
+            logger.info(f"等待联网搜索结果: {prompt}")
+            join_timeout = max(
+                int(getattr(settings, "WEB_SEARCH_JOIN_TIMEOUT_SECONDS", 3) or 3),
+                0,
+            )
+            if join_timeout <= 0:
+                if web_future.done():
+                    web_results = web_future.result()
+                else:
+                    logger.warning("联网搜索未完成，跳过并直接进入模型生成。")
+            else:
+                try:
+                    web_results = web_future.result(timeout=join_timeout)
+                except FuturesTimeoutError:
+                    logger.warning(
+                        "联网搜索等待超时（%ss），跳过并直接进入模型生成。",
+                        join_timeout,
+                    )
+        elif use_web_search:
             logger.info(f"执行联网搜索: {prompt}")
+            web_max_results = max(
+                int(getattr(settings, "WEB_SEARCH_MAX_RESULTS", 5) or 5),
+                1,
+            )
             web_results = web_search(
-                prompt, max_results=10, web_search_api_key=web_search_api_key
+                prompt,
+                max_results=web_max_results,
+                web_search_api_key=web_search_api_key,
             )
 
         if provider_name in OPENAI_COMPATIBLE_PROVIDERS:
@@ -998,6 +1205,9 @@ def model_api_call(
     except Exception as e:
         logger.error(f"model_api_call 流式处理失败: {e}")
         yield {"type": "error", "chunk": f"API 调用失败: {e}"}
+    finally:
+        if web_executor is not None:
+            web_executor.shutdown(wait=False)
 
 
 def create_api_key(username: str) -> str:
@@ -1112,7 +1322,7 @@ def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
     - 若用户+session_id已存在 -> 加载旧会话（保留历史）
     - 若不存在 -> 创建新会话（空历史）
     """
-    session, created = ConversationSession.objects.get_or_create(
+    session, created = ConversationSession.objects.defer("context").get_or_create(
         session_id=session_id,
         user=user,
         defaults={"context": ""},

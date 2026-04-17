@@ -59,10 +59,10 @@ export function useChatSettings({ router, apiClient, currentSession, sessions })
   const availableEmbeddingModels = computed(() => EMBEDDING_MODELS_BY_MODE[embeddingMode.value] || [])
 
   const providerApiKeyPlaceholder = computed(() => {
-    if (llmProvider.value === 'openai') return 'sk-...'
-    if (llmProvider.value === 'deepseek') return 'sk-...'
+    if (llmProvider.value === 'openai') return '输入 OpenAI API Key'
+    if (llmProvider.value === 'deepseek') return '输入 DeepSeek API Key'
     if (llmProvider.value === 'minimax') return '输入 MiniMax API Key'
-    if (llmProvider.value === 'siliconflow') return 'sk-...（硅基流动 API Key）'
+    if (llmProvider.value === 'siliconflow') return '输入 硅基流动 API Key'
     return 'Ollama 本地模式不需要 API Key'
   })
 

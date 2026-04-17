@@ -1,10 +1,13 @@
 import csv
 import io
 import json
+import time
 import re
 from datetime import datetime
 from pathlib import Path
 from threading import RLock
+
+from django.conf import settings
 
 
 LOG_ROOT = Path(__file__).resolve().parents[1] / "data" / "log"
@@ -55,6 +58,7 @@ DEFAULT_EXPORT_FIELDS = [
 _CACHE_LOCK = RLock()
 _CACHE_SIGNATURE = None
 _CACHE_RECORDS = []
+_CACHE_LAST_CHECK_TS = 0.0
 
 
 def _iter_jsonl_files(log_root: Path) -> list[Path]:
@@ -127,11 +131,22 @@ def _normalize_record(record: dict, file_path: Path, line_no: int) -> dict:
 
 
 def _load_records() -> list[dict]:
-    global _CACHE_SIGNATURE, _CACHE_RECORDS
-    files = _iter_jsonl_files(LOG_ROOT)
-    signature = _build_signature(files)
+    global _CACHE_SIGNATURE, _CACHE_RECORDS, _CACHE_LAST_CHECK_TS
+
+    refresh_seconds = max(
+        int(getattr(settings, "QUERY_RECORD_CACHE_REFRESH_SECONDS", 30) or 30),
+        1,
+    )
+    now = time.monotonic()
 
     with _CACHE_LOCK:
+        if _CACHE_RECORDS and (now - _CACHE_LAST_CHECK_TS) < refresh_seconds:
+            return _CACHE_RECORDS
+
+        _CACHE_LAST_CHECK_TS = now
+
+        files = _iter_jsonl_files(LOG_ROOT)
+        signature = _build_signature(files)
         if signature == _CACHE_SIGNATURE:
             return _CACHE_RECORDS
 
@@ -269,15 +284,17 @@ def _build_facets(records: list[dict]) -> dict:
     }
 
 
-def _to_list_item(record: dict) -> dict:
+def _to_list_item(record: dict, truncate_summary: bool = True) -> dict:
     text = _to_text(record.get("search_content"))
-    summary = text if len(text) <= 180 else f"{text[:180]}..."
+    summary = text if (not truncate_summary or len(text) <= 180) else f"{text[:180]}..."
     return {
         "record_id": record.get("_record_id"),
         "_id": record.get("_id"),
         "db_type": record.get("db_type"),
         "risk_level": record.get("risk_level"),
         "source": record.get("source"),
+        "source_dataset": record.get("source_dataset"),
+        "source_url": record.get("source_url"),
         "fetched_at": record.get("fetched_at"),
         "confidence": record.get("confidence"),
         "verified": bool(record.get("verified", False)),
@@ -289,6 +306,8 @@ def _to_list_item(record: dict) -> dict:
         "tags": record.get("tags") or [],
         "raw_content_hash": record.get("raw_content_hash"),
         "search_content": summary,
+        "record_file": record.get("_source_file"),
+        "record_line": record.get("_line_no"),
     }
 
 
@@ -301,6 +320,8 @@ def list_query_records(
     end_time: str,
     sort_by: str,
     sort_order: str,
+    include_facets: bool = True,
+    truncate_summary: bool = True,
 ) -> dict:
     normalized_page = max(int(page or 1), 1)
     normalized_page_size = int(page_size or DEFAULT_PAGE_SIZE)
@@ -323,13 +344,16 @@ def list_query_records(
     page_items = sorted_records[start:end]
 
     return {
-        "items": [_to_list_item(item) for item in page_items],
+        "items": [
+            _to_list_item(item, truncate_summary=truncate_summary)
+            for item in page_items
+        ],
         "total": total,
         "page": normalized_page,
         "page_size": normalized_page_size,
         "sort_by": (sort_by or "fetched_at").strip().lower(),
         "sort_order": (sort_order or "desc").strip().lower(),
-        "facets": _build_facets(matched),
+        "facets": _build_facets(matched) if include_facets else {},
         "applied_filters": {
             "q": query,
             **{key: value for key, value in filters.items() if _to_text(value)},
