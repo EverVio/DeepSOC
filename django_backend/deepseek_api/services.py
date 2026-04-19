@@ -421,8 +421,22 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
         return []
 
     limit = max(int(top_k or 5), 3)
+    logger.info(
+        "[REMOTE-RETRIEVAL] 开始远程检索: prompt=%s | top_k=%s | limit=%s",
+        prompt,
+        top_k,
+        limit,
+    )
     query_signals = log_system._extract_query_signals(prompt)
     query_terms = log_system._build_query_terms(prompt)
+    logger.info(
+        "[REMOTE-RETRIEVAL] 查询信号: cve=%s ip=%s hash=%s mitre=%s terms=%s",
+        len(query_signals.get("cve_ids", [])),
+        len(query_signals.get("ip_addresses", [])),
+        len(query_signals.get("hashes", [])),
+        len(query_signals.get("mitre_ids", [])),
+        len(query_terms),
+    )
 
     raw_prompt = (prompt or "").strip()
     token_candidates = re.findall(r"[A-Za-z0-9_.:/-]+|[\u4e00-\u9fff]{2,}", raw_prompt)
@@ -458,29 +472,53 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
     primary_queries: List[str] = []
     append_query(primary_queries, raw_prompt)
 
-    for token in token_candidates:
-        if len(primary_queries) >= max_queries:
-            break
+    # 优先加入结构化强信号和英文/数字 token，避免被中文片段扩展过早挤占查询配额。
+    prioritized_terms: List[str] = []
+    prioritized_terms.extend(query_signals.get("exact_terms", []))
 
+    cjk_tokens: List[str] = []
+    for token in token_candidates:
         normalized = token.strip().lower()
         if not normalized:
             continue
+        if re.fullmatch(r"[\u4e00-\u9fff]+", normalized):
+            cjk_tokens.append(normalized)
+        else:
+            prioritized_terms.append(normalized)
 
-        append_query(primary_queries, normalized)
+    for term in prioritized_terms:
+        if len(primary_queries) >= max_queries:
+            break
+        append_query(primary_queries, term)
 
-        if re.fullmatch(r"[\u4e00-\u9fff]{4,}", normalized):
-            for size in (2, 3):
-                upper_bound = len(normalized) - size + 1
-                for start in range(max(upper_bound, 0)):
-                    if len(primary_queries) >= max_queries:
-                        break
-                    fragment = normalized[start : start + size]
-                    append_query(primary_queries, fragment)
+    for token in cjk_tokens:
+        if len(primary_queries) >= max_queries:
+            break
+        append_query(primary_queries, token)
+
+    for token in cjk_tokens:
+        if len(primary_queries) >= max_queries:
+            break
+        if not re.fullmatch(r"[\u4e00-\u9fff]{4,}", token):
+            continue
+        for size in (2, 3):
+            upper_bound = len(token) - size + 1
+            for start in range(max(upper_bound, 0)):
                 if len(primary_queries) >= max_queries:
                     break
+                fragment = token[start : start + size]
+                append_query(primary_queries, fragment)
+            if len(primary_queries) >= max_queries:
+                break
 
     if not primary_queries:
         primary_queries = [""]
+
+    logger.info(
+        "[REMOTE-RETRIEVAL] 主查询序列(%s): %s",
+        len(primary_queries),
+        primary_queries,
+    )
 
     exact_filters: List[Dict[str, Any]] = []
     for cve_id in query_signals.get("cve_ids", []):
@@ -490,9 +528,18 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
     for ip_value in query_signals.get("ip_addresses", []):
         exact_filters.append({"ioc_value": ip_value})
 
+    if exact_filters:
+        logger.info(
+            "[REMOTE-RETRIEVAL] 精准过滤器(%s): %s",
+            len(exact_filters),
+            exact_filters,
+        )
+
     def build_candidate_map(queries: List[str], relaxed: bool = False) -> Dict[str, Dict[str, Any]]:
         fetch_size = max(limit * 5, 25) if relaxed else max(limit * 3, 15)
         candidate_map: Dict[str, Dict[str, Any]] = {}
+        exact_hit_total = 0
+        query_hit_total = 0
 
         def upsert_candidate(
             item: Dict[str, Any],
@@ -569,6 +616,7 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
             )
             for result_item in payload.get("items") or []:
                 upsert_candidate(result_item, force_exact=True)
+                exact_hit_total += 1
 
         for query_text in queries:
             payload = list_query_records(
@@ -585,14 +633,34 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
             )
             for result_item in payload.get("items") or []:
                 upsert_candidate(result_item, force_exact=False)
+                query_hit_total += 1
+
+        logger.info(
+            "[REMOTE-RETRIEVAL] 召回统计(%s): fetch_size=%s exact_hits=%s query_hits=%s unique_candidates=%s",
+            "relaxed" if relaxed else "primary",
+            fetch_size,
+            exact_hit_total,
+            query_hit_total,
+            len(candidate_map),
+        )
 
         return candidate_map
 
     primary_candidates = build_candidate_map(primary_queries, relaxed=False)
     ranked_items = log_system._rank_candidates(primary_candidates, query_signals)
+    logger.info(
+        "[REMOTE-RETRIEVAL] 主召回重排完成: ranked_count=%s best_score=%.4f",
+        len(ranked_items),
+        float(ranked_items[0]["score"]) if ranked_items else 0.0,
+    )
 
     best_score = ranked_items[0]["score"] if ranked_items else 0.0
     if enable_relaxed_pass and (not ranked_items or best_score < 0.35):
+        logger.info(
+            "[REMOTE-RETRIEVAL] 触发 relaxed 召回: enable_relaxed=%s best_score=%.4f",
+            enable_relaxed_pass,
+            float(best_score),
+        )
         relaxed_queries = list(primary_queries[:max_queries])
         if "" not in relaxed_queries and len(relaxed_queries) < max_queries:
             relaxed_queries.append("")
@@ -607,6 +675,11 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
             ranked_items = relaxed_ranked_items
 
     grouped_items = log_system._group_retrieval_results(ranked_items)
+    logger.info(
+        "[REMOTE-RETRIEVAL] 分组完成: grouped_count=%s return_count=%s",
+        len(grouped_items),
+        min(len(grouped_items), limit),
+    )
     for item in grouped_items:
         raw_source = str(item.get("source") or "")
         item["source"] = (
@@ -631,7 +704,11 @@ def web_search(
     - API 实际返回的数量可能小于 count，需遍历实际返回的列表。
     - 某些页面可能无法生成 summary，此时降级使用 snippet 字段。
     """
-    logger.info(f"[REAL-WEB-SEARCH] 正在执行博查联网搜索: {query}")
+    logger.info(
+        "[REAL-WEB-SEARCH] 开始联网搜索: query=%s | max_results=%s",
+        query,
+        max_results,
+    )
 
     url = "https://api.bocha.cn/v1/web-search"
     api_key = resolve_web_search_api_key(web_search_api_key)
@@ -652,6 +729,11 @@ def web_search(
         int(getattr(settings, "WEB_SEARCH_TIMEOUT_SECONDS", 15) or 15),
         1,
     )
+    logger.info(
+        "[REAL-WEB-SEARCH] 请求参数: timeout=%ss payload=%s",
+        timeout_seconds,
+        payload,
+    )
 
     try:
         response = requests.post(
@@ -662,6 +744,10 @@ def web_search(
         )
         response.raise_for_status()
         response_data = response.json()
+        logger.info(
+            "[REAL-WEB-SEARCH] 请求成功: status=%s",
+            response.status_code,
+        )
     except requests.RequestException as exc:
         logger.warning(
             "联网搜索请求失败（query=%s, timeout=%ss）: %s",
@@ -674,18 +760,27 @@ def web_search(
     # 解析响应结构: SearchData -> webPages -> value
     # 根据标准 API 包装格式，通常数据位于 data 键下
     web_pages = response_data.get("data", {}).get("webPages", {}).get("value", [])
+    logger.info("[REAL-WEB-SEARCH] 原始结果数量: %s", len(web_pages))
 
     results = []
-    for page in web_pages:
+    for index, page in enumerate(web_pages, start=1):
         # 优先取深度摘要 summary，若为空则取简短片段 snippet
         content = page.get("summary") or page.get("snippet") or ""
         source = page.get("url", "N/A")
 
         if content:
             results.append({"content": content, "source": source})
+        logger.info(
+            "[REAL-WEB-SEARCH] 结果[%s]: url=%s content_len=%s",
+            index,
+            source,
+            len(content),
+        )
 
     if not results:
         logger.warning(f"联网搜索 '{query}' 没有返回结果。")
+
+    logger.info("[REAL-WEB-SEARCH] 过滤后结果数量: %s", len(results))
 
     return results
 
@@ -1106,6 +1201,12 @@ def model_api_call(
         resolved_embedding_mode,
         resolved_embedding_model,
     )
+    logger.info(
+        "[RAG-PIPELINE] 开始处理: prompt=%s | use_db_search=%s | use_web_search=%s",
+        prompt,
+        use_db_search,
+        use_web_search,
+    )
 
     log_results: List[Dict] = []
     web_results: List[Dict] = []
@@ -1125,6 +1226,10 @@ def model_api_call(
                 prompt,
                 web_max_results,
                 web_search_api_key,
+            )
+            logger.info(
+                "[RAG-PIPELINE] 已并发启动联网搜索任务: max_results=%s",
+                web_max_results,
             )
 
         if use_db_search:
@@ -1153,7 +1258,12 @@ def model_api_call(
                     cached_results = cache.get(retrieval_cache_key)
                     if isinstance(cached_results, list):
                         log_results = cached_results
-                        logger.info("命中数据库检索缓存: top_k=%s", retrieval_top_k)
+                        logger.info(
+                            "命中数据库检索缓存: top_k=%s cache_key=%s count=%s",
+                            retrieval_top_k,
+                            retrieval_cache_key,
+                            len(log_results),
+                        )
 
                 if not log_results:
                     retrieval_timeout = max(
@@ -1178,6 +1288,11 @@ def model_api_call(
 
                         try:
                             log_results = db_future.result(timeout=retrieval_timeout)
+                            logger.info(
+                                "数据库日志检索成功: timeout=%ss result_count=%s",
+                                retrieval_timeout,
+                                len(log_results),
+                            )
                         except FuturesTimeoutError:
                             log_results = []
                             logger.warning(
@@ -1231,6 +1346,8 @@ def model_api_call(
                 "数据库日志检索耗时: %.2fs",
                 time.perf_counter() - db_retrieval_started_at,
             )
+        else:
+            logger.info("[RAG-PIPELINE] 已关闭数据库检索。")
 
         if web_future is not None:
             logger.info(f"等待联网搜索结果: {prompt}")
@@ -1241,11 +1358,17 @@ def model_api_call(
             if join_timeout <= 0:
                 if web_future.done():
                     web_results = web_future.result()
+                    logger.info("联网搜索已完成: result_count=%s", len(web_results))
                 else:
                     logger.warning("联网搜索未完成，跳过并直接进入模型生成。")
             else:
                 try:
                     web_results = web_future.result(timeout=join_timeout)
+                    logger.info(
+                        "联网搜索等待完成: timeout=%ss result_count=%s",
+                        join_timeout,
+                        len(web_results),
+                    )
                 except FuturesTimeoutError:
                     logger.warning(
                         "联网搜索等待超时（%ss），跳过并直接进入模型生成。",
@@ -1262,6 +1385,16 @@ def model_api_call(
                 max_results=web_max_results,
                 web_search_api_key=web_search_api_key,
             )
+            logger.info("联网搜索执行完成: result_count=%s", len(web_results))
+        else:
+            logger.info("[RAG-PIPELINE] 已关闭联网搜索。")
+
+        logger.info(
+            "[RAG-PIPELINE] 上下文汇总: log_results=%s web_results=%s provider=%s",
+            len(log_results),
+            len(web_results),
+            provider_name,
+        )
 
         if provider_name in OPENAI_COMPATIBLE_PROVIDERS:
             for chunk in stream_openai_compatible_response(
