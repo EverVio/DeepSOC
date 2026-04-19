@@ -103,10 +103,15 @@
     :show="renameModalVisible"
     :mask-closable="false"
     :auto-focus="false"
+    :trap-focus="false"
     :show-icon="false"
     @update:show="handleRenameModalVisibleChange"
   >
-    <section class="session-confirm-modal">
+    <section 
+      class="session-confirm-modal" 
+      @keydown.stop 
+      @mousedown.stop
+    >
       <header class="session-confirm-modal__header">
         <PencilIcon class="session-confirm-modal__icon" />
         <h3 class="session-confirm-modal__title">重命名会话</h3>
@@ -519,12 +524,13 @@ const confirmRename = () => {
   border: 1px solid rgba(0, 229, 255, 0.22);
   background:
     radial-gradient(circle at 80% -30%, rgba(0, 229, 255, 0.12), transparent 55%),
-    linear-gradient(160deg, rgba(8, 16, 34, 0.98), rgba(3, 9, 23, 0.96));
+    linear-gradient(160deg, rgba(8, 16, 34, 0.9), rgba(3, 9, 23, 0.8));
   box-shadow:
     0 0 0 1px rgba(0, 229, 255, 0.1),
     0 20px 60px rgba(0, 0, 0, 0.58);
   padding: 1.15rem 1.2rem 1rem;
   clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  user-select: text;
 }
 
 .session-confirm-modal__header {

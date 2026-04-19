@@ -58,6 +58,12 @@ defineEmits(['page-change', 'page-size-change'])
   transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.intel-result-card :deep(.fui-card-header .fui-card-title) {
+  font-size: 1rem;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+}
+
 .intel-result-card:hover {
   transform: translateY(-1px);
 }
