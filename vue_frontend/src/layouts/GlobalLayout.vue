@@ -131,10 +131,9 @@ const handleSiderLeave = () => {
   --transition-bezier: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 优化侧边栏背景与阴影。移除了自定义的 width transition，交还给 Naive UI */
 .global-sider {
   z-index: 130;
-  background: linear-gradient(180deg, rgba(6, 14, 30, 0.98), rgba(2, 6, 16, 0.98));
+  background: linear-gradient(180deg, rgba(6, 14, 30, 0.9), rgba(2, 6, 16, 0.8));
   box-shadow: 4px 0 24px rgba(0, 229, 255, 0.05);
 }
 

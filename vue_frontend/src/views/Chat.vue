@@ -450,7 +450,7 @@ onMounted(() => {
 .analysis-jump-card {
   margin-bottom: 0.68rem;
   border: 1px solid rgba(0, 229, 255, 0.22);
-  background: linear-gradient(180deg, rgba(8, 18, 34, 0.98), rgba(4, 10, 22, 0.95));
+  background: linear-gradient(180deg, rgba(8, 18, 34, 0.9), rgba(4, 10, 22, 0.8));
 }
 
 .analysis-jump-card__header {

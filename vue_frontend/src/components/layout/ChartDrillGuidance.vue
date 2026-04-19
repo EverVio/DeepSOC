@@ -110,7 +110,7 @@ const emit = defineEmits(['dismiss'])
   width: min(560px, 88%);
   padding: 1.1rem 1.2rem 0.95rem;
   border: 1px solid rgba(0, 229, 255, 0.36);
-  background: linear-gradient(180deg, rgba(6, 14, 28, 0.98), rgba(4, 10, 22, 0.94));
+  background: linear-gradient(180deg, rgba(6, 14, 28, 0.9), rgba(4, 10, 22, 0.8));
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.42), inset 0 0 18px rgba(0, 229, 255, 0.08);
   clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
   color: #d9f6ff;
