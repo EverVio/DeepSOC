@@ -13,10 +13,10 @@ const SOURCE_TEMPLATES = {
     },
     stream: {
         sourceKey: 'stream',
-        sourceLabel: '日志流入趋势',
+        sourceLabel: '日志流入趋势图',
         entryLabel: '日志流入问题模板',
         focusLabel: '时间点或来源',
-        promptLead: '请结合日志流入趋势中的关注点展开分析，判断是否存在异常抬升、来源集中或时间波动，并给出排查建议。',
+        promptLead: '请结合日志流入趋势图中的关注点展开分析，判断是否存在异常抬升、来源集中或时间波动，并给出排查建议。',
         followUps: [
             '是否需要定位异常峰值对应的时间窗口？',
             '是否需要对比来源、主机或应用维度？',

@@ -35,7 +35,7 @@
             <div v-if="isTopologyCollapsed" class="topology-collapsed-bar">
               <button class="topology-restore-btn" @click="toggleTopology">
                 <ChevronDownIcon class="btn-icon" />
-                SHOW GLOBAL ATTACK TOPOLOGY
+                SHOW 全局攻击拓扑图
               </button>
             </div>
           </Transition>
@@ -267,12 +267,10 @@ const radarPanelRef = ref(null)
 const streamPanelRef = ref(null)
 const categoryPanelRef = ref(null)
 const chartsGridRef = ref(null)
-// 标题文本由乱码动画驱动，避免直接写死在模板中
-const topologyTitle = ref('GLOBAL ATTACK TOPOLOGY')
-// 图表卡标题响应式状态
-const threatRadarTitle = ref('THREAT RADAR')
-const logIngestStreamTitle = ref('LOG INGEST STREAM')
-const categoryDistributionTitle = ref('CATEGORY DISTRIBUTION')
+const topologyTitle = ref('全局攻击拓扑图')
+const threatRadarTitle = ref('威胁雷达图')
+const logIngestStreamTitle = ref('日志流入趋势图')
+const categoryDistributionTitle = ref('告警分类分布图')
 
 const { dashboardStats, statsLoading, startPolling, stopPolling } = useDashboardStats(api)
 const { fallbackPanelKey, togglePanel, closeFallbackPanel, isPanelActive } = useFullscreenPanel({
@@ -465,13 +463,13 @@ const toggleTopologyWithFlip = async () => {
 
 onMounted(() => {
   // 启动标题动画，并通过小延迟形成分层入场效果
-  topologyScramble.start('GLOBAL ATTACK TOPOLOGY', 300)
-  threatRadarScramble.start('THREAT RADAR', 300)
+  topologyScramble.start('全局攻击拓扑图', 300)
+  threatRadarScramble.start('威胁雷达图', 300)
   animationTimers.push(setTimeout(() => {
-    logIngestStreamScramble.start('LOG INGEST STREAM', 300)
+    logIngestStreamScramble.start('日志流入趋势图', 300)
   }, 50))
   animationTimers.push(setTimeout(() => {
-    categoryDistributionScramble.start('CATEGORY DISTRIBUTION', 300)
+    categoryDistributionScramble.start('告警分类分布图', 300)
   }, 100))
 })
 
@@ -689,6 +687,12 @@ const handleFullscreenModalChange = (show) => {
 .chart-panel-host:-webkit-full-screen .chart-card :deep(.fui-card-header) {
   min-height: 60px;
   padding: 0.6rem 1.5rem;
+}
+
+.chart-card :deep(.fui-card-title),
+.center-topology-card :deep(.fui-card-title) {
+  font-size: 1rem;
+  font-weight: 500;  
 }
 
 .chart-panel-host:fullscreen .chart-card :deep(.fui-card-title),

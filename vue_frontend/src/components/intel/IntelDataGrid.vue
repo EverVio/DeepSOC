@@ -1,5 +1,5 @@
 <template>
-  <FuiCard title="QUERY RESULT" class="intel-result-card">
+  <FuiCard title="检索结果" class="intel-result-card">
     <NDataTable
       remote
       virtual-scroll

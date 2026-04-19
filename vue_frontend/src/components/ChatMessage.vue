@@ -128,33 +128,33 @@
             :disabled="inlineSendDisabled"
             @click="submitInlineEdit"
           >
-            <CheckIcon class="icon-mini" /> SEND
+            <CheckIcon class="icon-mini" /> 发送
           </button>
 
           <button type="button" class="text-btn" :disabled="busy" @click="cancelInlineEdit">
-            <XIcon class="icon-mini" /> CANCEL
+            <XIcon class="icon-mini" /> 取消
           </button>
         </template>
 
         <template v-else>
-          <button type="button" class="text-btn" :title="copied ? 'COPIED' : 'COPY'" @click="copyContent" :disabled="copied || !content">
+          <button type="button" class="text-btn" :title="copied ? '已复制' : '复制'" @click="copyContent" :disabled="copied || !content">
             <CheckIcon v-if="copied" class="icon-mini" />
             <CopyIcon v-else class="icon-mini" />
-            {{ copied ? 'COPIED' : 'COPY' }}
+            {{ copied ? '已复制' : '复制' }}
           </button>
 
           <button
             v-if="isUser && content && canEdit"
             class="text-btn"
-            :title="isInlineEditing ? 'EDITING' : 'EDIT'"
+            :title="isInlineEditing ? '正在编辑' : '编辑'"
             :disabled="busy || isInlineEditing"
             @click="handleEdit"
           >
-            <PencilIcon class="icon-mini" /> {{ isInlineEditing ? 'EDITING' : 'EDIT' }}
+            <PencilIcon class="icon-mini" /> {{ isInlineEditing ? '正在编辑' : '编辑' }}
           </button>
 
           <button v-if="allowRegenerate" class="text-btn" title="REGENERATE" @click="$emit('regenerate')">
-            <RefreshIcon class="icon-mini" /> REGEN
+            <RefreshIcon class="icon-mini" /> 重新生成
           </button>
         </template>
       </footer>
@@ -981,21 +981,28 @@ const formatTime = (date) => {
 .terminal-message:hover .terminal-message__actions {
   opacity: 1; /* 鼠标进入卡片区域时激活 */
 }
+
 .text-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.22rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid rgba(0, 229, 255, 0.15); /* 降低边框初始对比度 */
+  gap: 0.4rem; 
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(0, 229, 255, 0.15);
   background: rgba(0, 0, 0, 0.2);
-  color: #7ba7bc; /* 降低文字初始对比度 */
+  color: #7ba7bc;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.75rem; 
   line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
   transition: all 0.2s ease;
+  cursor: pointer; 
+}
+
+.icon-mini {
+  width: 1rem; 
+  height: 1rem;
 }
 
 .text-btn:hover:not(:disabled) {

@@ -1,5 +1,5 @@
 <template>
-  <FuiCard title="RECORD DETAIL" class="intel-detail-card" :class="{ 'intel-detail-card--immersive': isDetailImmersive }" variant="primary">
+  <FuiCard title="记录详情" class="intel-detail-card" :class="{ 'intel-detail-card--immersive': isDetailImmersive }" variant="primary">
     <template #actions>
       <NButton v-if="selectedRecord" quaternary size="small" class="detail-immersive-btn" @click="$emit('toggle-immersive')">
         {{ isDetailImmersive ? '缩小' : '最大化' }}
@@ -208,7 +208,7 @@
       <div class="intel-reader-backdrop" />
 
       <section class="intel-reader-shell" role="dialog" aria-modal="true" aria-label="情报详情阅读器">
-        <FuiCard title="RECORD DETAIL" class="intel-reader-card" variant="primary">
+        <FuiCard title="记录详情" class="intel-reader-card" variant="primary">
           <template #actions>
             <div class="intel-reader-toolbar">
               <div class="intel-reader-toolbar__meta">

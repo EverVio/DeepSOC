@@ -6,7 +6,7 @@
 
 <template>
   <FuiCard
-    :title="collapsed ? '' : 'TACTICAL SESSIONS'"
+    :title="collapsed ? '' : '历史会话'"
     class="session-card"
     :class="{ 'session-card--collapsed': collapsed, 'session-card--expandable': collapsed }"
     @click="collapsed && $emit('toggle-collapse')"
@@ -26,12 +26,12 @@
     <template v-if="!collapsed">
       <button type="button" class="session-create-bar" @click="$emit('create-session')">
         <PlusIcon class="session-create-bar__icon" />
-        <span class="session-create-bar__text">NEW SESSION...</span>
+        <span class="session-create-bar__text">新建会话...</span>
       </button>
 
       <NInput
         :value="searchQuery"
-        placeholder="SEARCH SESSION..."
+        placeholder="搜索会话..."
         class="session-search-input"
         @update:value="$emit('update:search-query', $event)"
       >
@@ -87,7 +87,7 @@
           @click="$emit('clear-history')"
         >
           <TrashIcon class="btn-icon footer-trash-icon" />
-          CLEAR SESSION
+          清空历史会话
         </NButton>
       </div>
     </template>
@@ -211,6 +211,11 @@ const confirmRename = () => {
   flex-direction: column;
 }
 
+.session-card :deep(.fui-card-header .fui-card-title) {
+  font-size: 1rem; 
+  font-weight: 500;  
+}
+
 .session-card--collapsed {
   min-height: 180px;
 }
@@ -272,7 +277,7 @@ const confirmRename = () => {
 
 .session-create-bar__text {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   letter-spacing: 0.06em;
   color: #92b9cc;
 }
@@ -471,12 +476,12 @@ const confirmRename = () => {
 
 .fui-footer-btn {
   width: 100%;
-  height: 30px;
+  height: 40px;
   border: 1px solid rgba(0, 229, 255, 0.24);
   background: rgba(0, 229, 255, 0.06);
   color: var(--neon-cyan);
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.85rem;
   letter-spacing: 0.1em;
   display: inline-flex;
   align-items: center;

@@ -11,7 +11,7 @@ import { useAuthStore } from '../stores/authStore'
 import { EXPORT_TARGET_SESSION_KEY, useChatStore } from '../stores/chatStore'
 
 const PROVIDER_OPTIONS = [
-  { value: 'ollama', label: 'Ollama (Local)' },
+  { value: 'ollama', label: 'Ollama' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'deepseek', label: 'DeepSeek' },
   { value: 'minimax', label: 'MiniMax' },
@@ -19,21 +19,20 @@ const PROVIDER_OPTIONS = [
 ]
 
 const MODELS_BY_PROVIDER = {
-  ollama: ['DeepSeek-R1:7b', 'Qwen3:8b', 'Llama3:8b'],
-  openai: ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1'],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  minimax: ['MiniMax-M2.5', 'MiniMax-M2.5-highspeed', 'MiniMax-M2.1', 'MiniMax-M2.1-highspeed', 'MiniMax-M2'],
-  siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen2.5-72B'],
+  ollama: ['DeepSeek-R1:7b', 'Qwen3:8b'],
+  deepseek: ['DeepSeek-V3.2', 'DeepSeek-R1'],
+  minimax: ['MiniMax-M2.7', 'MiniMax-M2.5'],
+  siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen3.5-397B-A17B'],
 }
 
 const EMBEDDING_MODE_OPTIONS = [
-  { value: 'local', label: 'Local (Ollama)' },
-  { value: 'siliconflow', label: 'Remote (SiliconFlow)' },
+  { value: 'local', label: 'Ollama' },
+  { value: 'siliconflow', label: 'SiliconFlow' },
 ]
 
 const EMBEDDING_MODELS_BY_MODE = {
-  local: ['qwen3-embedding:4b'],
-  siliconflow: ['Qwen/Qwen3-Embedding-8B'],
+  local: ['Qwen3-Embedding:4B'],
+  siliconflow: ['Qwen3-Embedding-8B'],
 }
 
 export function useChatSettings({ router, apiClient, currentSession, sessions, onConfirmLogout }) {

@@ -53,7 +53,7 @@
       <div class="expandable-inner">
         <NForm label-placement="top" :show-feedback="false" class="multi-agent-config">
           <div class="multi-agent-header">
-            <div class="multi-agent-title">TACTICAL MODEL MATRIX</div>
+            <div class="multi-agent-title">MODEL MATRIX</div>
             <div class="multi-agent-provider">PROVIDER: {{ normalizedProvider.toUpperCase() }}</div>
           </div>
           <NGrid class="multi-agent-grid" cols="1 s:1 m:3" :x-gap="12" :y-gap="8" responsive="screen">
@@ -80,7 +80,7 @@
     <div class="input-stage">
       <input ref="fileInputRef" type="file" accept=".txt,.docx,.xlsx" style="display: none" @change="onFileChange" />
 
-      <NButton class="action-btn attach-btn" quaternary circle @click="triggerFileSelect" :disabled="loading" title="附加数据流">
+      <NButton class="action-btn attach-btn" quaternary circle @click="triggerFileSelect" :disabled="loading" title="上传文件">
         <PaperclipIcon class="action-icon" />
       </NButton>
 

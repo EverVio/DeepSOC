@@ -4,11 +4,11 @@
       <template #header>
         <div class="terminal-header-left">
           <span class="status-dot-inline" />
-          <span class="terminal-title">TACTICAL ANALYSIS TERMINAL</span>
+          <span class="terminal-title">分析终端</span>
         </div>
         <div class="terminal-header-right">
           <span class="terminal-meta terminal-meta--session" :title="currentSession">{{ currentSession }}</span>
-          <span class="terminal-meta terminal-meta--tagline">SOC 智能研判 · 日志与多模型协同</span>
+          <span class="terminal-meta terminal-meta--tagline">SOC 智能研判 · 日志与多智能体协同</span>
         </div>
       </template>
 
@@ -368,7 +368,7 @@ onMounted(() => {
 
 .terminal-title {
   font-family: var(--font-display);
-  font-size: 0.76rem;
+  font-size: 1.1rem;
   color: var(--neon-cyan);
   letter-spacing: 0.09em;
   text-shadow: var(--neon-cyan-glow);
@@ -394,12 +394,14 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   text-transform: none;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
+  padding-top: 1.6px;
 }
 
 .terminal-meta--tagline {
   text-transform: none;
-  font-size: 0.68rem;
+  font-size: 0.85rem;
+  padding-top: 3px;
   font-weight: 500;
   letter-spacing: 0.04em;
   color: #7a9fb4;

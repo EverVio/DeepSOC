@@ -1,5 +1,5 @@
 <template>
-  <FuiCard title="THREAT INTEL QUERY" class="intel-filter-card" :glow="true">
+  <FuiCard title="威胁情报检索" class="intel-filter-card" :glow="true">
     <div class="intel-filter-shell">
       <div class="intel-filter-shell__header">
         <div class="intel-filter-shell__title-group">
@@ -155,6 +155,12 @@ const sortOrderModel = computed({
 .intel-filter-card {
   flex-shrink: 0;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.intel-filter-card :deep(.fui-card-header .fui-card-title) {
+  font-size: 1rem;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
 }
 
 .intel-filter-card:hover {
