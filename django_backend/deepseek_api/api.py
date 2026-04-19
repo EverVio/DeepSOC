@@ -1,3 +1,4 @@
+import csv
 import json
 import logging
 import os
@@ -404,8 +405,8 @@ def chat(request, data: ChatIn):
     use_db_search = data.use_db_search
     use_web_search = data.use_web_search
     selected_model = data.model_name
-    selected_provider = (data.provider or "ollama").strip().lower()
-    selected_embedding_mode = (data.embedding_mode or "local").strip().lower()
+    selected_provider = (data.provider or "siliconflow").strip().lower()
+    selected_embedding_mode = (data.embedding_mode or "siliconflow").strip().lower()
     selected_embedding_model = data.embedding_model
     provider_api_key = data.provider_api_key
     web_search_api_key = data.web_search_api_key
@@ -808,9 +809,12 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
 
     filename = safe_name.lower()
     _, ext = os.path.splitext(filename)
-    allowed_exts = {".txt", ".docx", ".xlsx"}
+    text_exts = {".txt", ".md", ".log", ".json", ".jsonl", ".xml", ".yaml", ".yml", ".ini", ".conf"}
+    allowed_exts = set(text_exts) | {".docx", ".xlsx", ".csv"}
     if ext not in allowed_exts:
-        return 400, {"error": "不支持的文件类型，仅支持 .txt / .docx / .xlsx"}
+        return 400, {
+            "error": "不支持的文件类型，仅支持 .txt / .md / .log / .json / .jsonl / .xml / .yaml / .yml / .ini / .conf / .docx / .xlsx / .csv"
+        }
 
     file_size = int(getattr(file, "size", 0) or 0)
     if file_size <= 0:
@@ -820,7 +824,7 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
         return 400, {"error": f"文件过大，最大允许 {max_mb}MB"}
 
     try:
-        if ext == ".txt":
+        if ext in text_exts:
             content_bytes = file.read()
             try:
                 text = content_bytes.decode("utf-8")
@@ -863,7 +867,24 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
             text = "\n".join(lines)
             return {"text": text}
 
-        return 400, {"error": "不支持的文件类型，仅支持 .txt / .docx / .xlsx"}
+        if ext == ".csv":
+            content_bytes = file.read()
+            try:
+                csv_text = content_bytes.decode("utf-8-sig")
+            except Exception:
+                csv_text = content_bytes.decode("gbk", errors="ignore")
+
+            reader = csv.reader(csv_text.splitlines())
+            lines = []
+            for row in reader:
+                cells = ["" if value is None else str(value) for value in row]
+                lines.append("\t".join(cells))
+            text = "\n".join(lines)
+            return {"text": text}
+
+        return 400, {
+            "error": "不支持的文件类型，仅支持 .txt / .md / .log / .json / .jsonl / .xml / .yaml / .yml / .ini / .conf / .docx / .xlsx / .csv"
+        }
 
     except Exception as e:
         logger.error("文件解析失败: %s", e)

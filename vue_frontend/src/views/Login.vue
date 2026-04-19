@@ -61,7 +61,7 @@
                 :disabled="loading"
                 @click="fillDefaultCredentials"
               >
-                测试账号
+                填充默认账号
               </NButton>
             </div>
 

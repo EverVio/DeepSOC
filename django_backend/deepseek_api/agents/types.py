@@ -20,7 +20,7 @@ class SseEvent(TypedDict, total=False):
 
 @dataclass(frozen=True)
 class LlmConfig:
-    provider: str = "ollama"
+    provider: str = "siliconflow"
     model: Optional[str] = None
     provider_api_key: Optional[str] = None
     embedding_mode: Optional[str] = None

@@ -78,7 +78,7 @@
     </div>
 
     <div class="input-stage">
-      <input ref="fileInputRef" type="file" accept=".txt,.docx,.xlsx" style="display: none" @change="onFileChange" />
+      <input ref="fileInputRef" type="file" accept=".txt,.md,.log,.json,.jsonl,.xml,.yaml,.yml,.ini,.conf,.docx,.xlsx,.csv" style="display: none" @change="onFileChange" />
 
       <NButton class="action-btn attach-btn" quaternary circle @click="triggerFileSelect" :disabled="loading" title="上传文件">
         <PaperclipIcon class="action-icon" />

@@ -25,9 +25,9 @@ class ChatIn(Schema):
     use_web_search: bool = False  # 默认关闭联网
     model_name: Optional[str] = None  # 前端选择的模型
     provider: Optional[str] = (
-        "ollama"  # 模型提供商：ollama/openai/deepseek/minimax/siliconflow
+        "siliconflow"  # 模型提供商：ollama/openai/deepseek/minimax/siliconflow
     )
-    embedding_mode: Optional[str] = "local"  # 向量化方式：local/siliconflow
+    embedding_mode: Optional[str] = "siliconflow"  # 向量化方式：local/siliconflow
     embedding_model: Optional[str] = None  # 向量模型名称
     provider_api_key: Optional[str] = None  # OpenAI 兼容提供商 API Key
     web_search_api_key: Optional[str] = None  # 联网搜索 API Key（博查）
@@ -35,9 +35,9 @@ class ChatIn(Schema):
     agent_configs: Optional[Dict[str, Dict[str, Optional[str]]]] = None
     # agent_configs 示例：
     # {
-    #   "rag": {"provider":"ollama","model":"deepseek-r1:7b","provider_api_key":null},
+    #   "rag": {"provider":"siliconflow","model":"deepseek-ai/DeepSeek-V3.2","provider_api_key":null},
     #   "web": {"provider":"deepseek","model":"deepseek-chat","provider_api_key":"..."},
-    #   "synthesis": {"provider":"ollama","model":"deepseek-r1:7b","provider_api_key":null}
+    #   "synthesis": {"provider":"siliconflow","model":"deepseek-ai/DeepSeek-V3.2","provider_api_key":null}
     # }
 
 
