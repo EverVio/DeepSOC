@@ -1,13 +1,10 @@
-import asyncio
 import json
 import logging
 import os
 import re
-import threading
 import zipfile
 import time
 import requests
-from queue import Queue
 from typing import Generator
 from ninja import File, NinjaAPI, Router, Schema
 
@@ -274,6 +271,8 @@ def _build_agent_cfg(base_llm: LlmConfig, agent_cfgs: dict, agent_id: str) -> Ll
         provider=(raw.get("provider") or base_llm.provider or "ollama"),
         model=(raw.get("model") or base_llm.model),
         provider_api_key=(raw.get("provider_api_key") or base_llm.provider_api_key),
+        embedding_mode=(raw.get("embedding_mode") or base_llm.embedding_mode),
+        embedding_model=(raw.get("embedding_model") or base_llm.embedding_model),
     )
 
 
@@ -521,6 +520,8 @@ def chat(request, data: ChatIn):
                     provider=selected_provider,
                     model=selected_model,
                     provider_api_key=provider_api_key,
+                    embedding_mode=selected_embedding_mode,
+                    embedding_model=selected_embedding_model,
                 )
                 cfg = _build_multi_agent_config(base_llm, data.agent_configs or {})
                 orch = Orchestrator()
@@ -585,32 +586,7 @@ def chat(request, data: ChatIn):
         finally:
             yield _sse_line({"type": "done"})
 
-    async def async_stream_generator():
-        sentinel = object()
-        stream_queue: Queue = Queue()
-
-        def producer() -> None:
-            try:
-                for chunk in stream_generator():
-                    stream_queue.put(chunk)
-            except Exception as e:
-                logger.exception("异步流生产器异常: %s", e)
-                stream_queue.put(_sse_line(_error_event(f"流处理失败: {e}")))
-                stream_queue.put(_sse_line({"type": "done"}))
-            finally:
-                stream_queue.put(sentinel)
-
-        threading.Thread(target=producer, daemon=True).start()
-
-        while True:
-            item = await asyncio.to_thread(stream_queue.get)
-            if item is sentinel:
-                break
-            yield item
-
-    response = StreamingHttpResponse(
-        async_stream_generator(), content_type="text/event-stream"
-    )
+    response = StreamingHttpResponse(stream_generator(), content_type="text/event-stream")
     response["X-Accel-Buffering"] = "no"
     response["Cache-Control"] = "no-cache"
     return response

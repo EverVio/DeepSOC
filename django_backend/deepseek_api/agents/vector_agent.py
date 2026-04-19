@@ -19,7 +19,12 @@ class VectorAgent(BaseAgent):
     def run_stream(self, run_input: AgentRunInput, llm: LlmConfig) -> Iterable[str]:
         retrieved = []
         if services.log_system is not None:
-            retrieved = services.log_system.retrieve_logs(run_input.query, top_k=5)
+            embedding_mode = services.normalize_embedding_mode(llm.embedding_mode)
+            if embedding_mode == "siliconflow":
+                logger.info("[RAG] 远程 embedding 模式，使用远程检索路径")
+                retrieved = services.retrieve_logs_remote_mode(run_input.query, top_k=5)
+            else:
+                retrieved = services.log_system.retrieve_logs(run_input.query, top_k=5)
 
         if retrieved:
             logger.info(

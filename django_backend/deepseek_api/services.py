@@ -901,6 +901,90 @@ def stream_openai_compatible_response(
         _raise_openai_compatible_error(provider, model_name, e)
 
 
+def _normalize_messages_for_openai(
+    messages: List[BaseMessage] | List[Dict[str, str]],
+) -> List[Dict[str, str]]:
+    if messages and isinstance(messages[0], BaseMessage):
+        normalized_messages: List[Dict[str, str]] = []
+        for message in messages:  # type: ignore[assignment]
+            role = getattr(message, "type", None) or getattr(message, "role", None) or "user"
+            if role == "human":
+                role = "user"
+            elif role == "ai":
+                role = "assistant"
+            content = getattr(message, "content", "")
+            normalized_messages.append({"role": role, "content": str(content)})
+        return normalized_messages
+
+    return messages  # type: ignore[return-value]
+
+
+def _resolve_remote_fallback_model_name(model_name: Optional[str]) -> str:
+    normalized_model = (model_name or "").strip()
+    candidate = resolve_model_name("siliconflow", normalized_model or None)
+
+    supported_remote_models = set(SILICONFLOW_MODEL_ALIASES.values()) | {
+        PROVIDER_DEFAULT_MODELS["siliconflow"],
+    }
+    if candidate in supported_remote_models or "/" in candidate:
+        return candidate
+
+    return PROVIDER_DEFAULT_MODELS["siliconflow"]
+
+
+def _stream_fallback_notice(message: str) -> Iterable[Dict[str, Any]]:
+    notice = (message or "").strip()
+    if notice:
+        yield {
+            "type": "notice",
+            "scope": "llm_fallback",
+            "message": notice,
+        }
+
+
+def _stream_remote_fallback_from_messages(
+    messages: List[BaseMessage] | List[Dict[str, str]],
+    model_name: Optional[str],
+    provider_api_key: Optional[str],
+    notice_message: str,
+) -> Iterable[str]:
+    fallback_provider = "siliconflow"
+    fallback_model = _resolve_remote_fallback_model_name(model_name)
+    yield from _stream_fallback_notice(notice_message)
+    fallback_key = resolve_provider_api_key(fallback_provider, None)
+    if not fallback_key and provider_api_key and provider_api_key.strip():
+        fallback_key = provider_api_key.strip()
+    if not fallback_key:
+        yield f"错误：{fallback_provider} API Key 为空，请在设置中填写后重试。"
+        return
+
+    normalized_messages = _normalize_messages_for_openai(messages)
+    base_url = resolve_provider_base_url(fallback_provider)
+    client = OpenAI(api_key=fallback_key, base_url=base_url)
+    request_kwargs = {
+        "model": fallback_model,
+        "messages": normalized_messages,
+        "stream": True,
+    }
+
+    try:
+        stream = client.chat.completions.create(**request_kwargs)
+        for chunk in stream:
+            if not getattr(chunk, "choices", None):
+                continue
+            delta = chunk.choices[0].delta
+            if not delta:
+                continue
+            reasoning_content = getattr(delta, "reasoning_content", None)
+            if reasoning_content:
+                yield reasoning_content
+            content = getattr(delta, "content", None)
+            if content:
+                yield content
+    except Exception as e:
+        _raise_openai_compatible_error(fallback_provider, fallback_model, e)
+
+
 def stream_llm_from_messages(
     provider: str,
     messages: List[BaseMessage] | List[Dict[str, str]],
@@ -921,18 +1005,7 @@ def stream_llm_from_messages(
             yield f"错误：{provider_name} API Key 为空，请在设置中填写后重试。"
             return
 
-        if messages and isinstance(messages[0], BaseMessage):
-            oa_messages: List[Dict[str, str]] = []
-            for m in messages:  # type: ignore[assignment]
-                role = getattr(m, "type", None) or getattr(m, "role", None) or "user"
-                if role == "human":
-                    role = "user"
-                elif role == "ai":
-                    role = "assistant"
-                content = getattr(m, "content", "")
-                oa_messages.append({"role": role, "content": str(content)})
-        else:
-            oa_messages = messages  # type: ignore[assignment]
+        oa_messages = _normalize_messages_for_openai(messages)
 
         base_url = resolve_provider_base_url(provider_name)
         client = OpenAI(api_key=api_key, base_url=base_url)
@@ -968,16 +1041,39 @@ def stream_llm_from_messages(
         return
 
     if log_system is None:
-        yield "错误：日志分析系统未成功初始化，无法调用 ollama。"
+        logger.warning("Ollama 初始化失败，自动降级到 siliconflow 远程调用。")
+        yield from _stream_remote_fallback_from_messages(
+            messages,
+            model_name,
+            provider_api_key,
+            "本地调用失败，切换至远程模式",
+        )
         return
 
     if not messages or not isinstance(messages[0], BaseMessage):
-        yield "错误：ollama 调用需要 LangChain messages。"
+        logger.warning("Ollama 输入消息格式不兼容，自动降级到 siliconflow 远程调用。")
+        yield from _stream_remote_fallback_from_messages(
+            messages,
+            model_name,
+            provider_api_key,
+            "本地调用失败，切换至远程模式",
+        )
         return
 
-    llm = log_system._get_or_create_llm(resolved_model_name)
-    for chunk in llm.stream(messages):  # type: ignore[arg-type]
-        yield chunk
+    try:
+        llm = log_system._get_or_create_llm(resolved_model_name)
+        for chunk in llm.stream(messages):  # type: ignore[arg-type]
+            yield chunk
+        return
+    except Exception as exc:
+        logger.warning("Ollama 调用失败，自动降级到 siliconflow 远程调用: %s", exc)
+
+    yield from _stream_remote_fallback_from_messages(
+        messages,
+        model_name,
+        provider_api_key,
+        "本地调用失败，切换至远程模式",
+    )
 
 
 def model_api_call(
@@ -1180,18 +1276,57 @@ def model_api_call(
                 yield chunk
             return
 
+        fallback_model = _resolve_remote_fallback_model_name(model_name)
+        fallback_key = resolve_provider_api_key("siliconflow", None)
+        if not fallback_key and provider_api_key and provider_api_key.strip():
+            fallback_key = provider_api_key.strip()
+
         if log_system is None:
-            logger.error("Log system 未初始化，无法调用 ollama 模型。")
-            yield "错误：日志分析系统未成功初始化，无法调用 ollama。"
+            logger.warning("Log system 未初始化，自动降级到 siliconflow 远程调用。")
+            if not fallback_key:
+                yield "错误：siliconflow API Key 为空，请在设置中填写后重试。"
+                return
+            yield from _stream_fallback_notice("本地调用失败，切换至远程模式")
+            for chunk in stream_openai_compatible_response(
+                provider="siliconflow",
+                prompt=prompt,
+                conversation_history=conversation_history,
+                model_name=fallback_model,
+                provider_api_key=fallback_key,
+                log_results=log_results,
+                web_results=web_results,
+            ):
+                yield chunk
             return
 
         combined_context = {"log_context": log_results, "web_context": web_results}
 
-        for chunk in log_system.generate_response(
-            prompt,
-            context=combined_context,
-            history=conversation_history,
-            model_name=resolved_model_name,
+        try:
+            for chunk in log_system.generate_response(
+                prompt,
+                context=combined_context,
+                history=conversation_history,
+                model_name=resolved_model_name,
+            ):
+                yield chunk
+            return
+        except Exception as exc:
+            logger.warning("Ollama 调用失败，自动降级到 siliconflow 远程调用: %s", exc)
+
+        if not fallback_key:
+            yield "错误：siliconflow API Key 为空，请在设置中填写后重试。"
+            return
+
+        yield from _stream_fallback_notice("本地调用失败，切换至远程模式")
+
+        for chunk in stream_openai_compatible_response(
+            provider="siliconflow",
+            prompt=prompt,
+            conversation_history=conversation_history,
+            model_name=fallback_model,
+            provider_api_key=fallback_key,
+            log_results=log_results,
+            web_results=web_results,
         ):
             yield chunk
 

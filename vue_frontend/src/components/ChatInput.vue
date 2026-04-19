@@ -585,32 +585,56 @@ defineExpose({
   width: 2.15rem;
   height: 2.15rem;
   padding: 0;
-  --n-border: 1px solid var(--border-dim);
-  --n-color: rgba(0, 229, 255, 0.06);
-  --n-color-hover: rgba(0, 229, 255, 0.16);
-  --n-color-pressed: rgba(0, 229, 255, 0.22);
-  --n-text-color: var(--text-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  --n-border: 1px solid rgba(0, 229, 255, 0.24);
+  --n-color: linear-gradient(180deg, rgba(18, 33, 60, 0.98) 0%, rgba(6, 14, 30, 0.98) 100%);
+  --n-color-hover: linear-gradient(180deg, rgba(24, 46, 82, 0.98) 0%, rgba(8, 18, 36, 0.98) 100%);
+  --n-color-pressed: linear-gradient(180deg, rgba(12, 24, 48, 0.98) 0%, rgba(4, 10, 22, 0.98) 100%);
+  --n-text-color: rgba(140, 205, 226, 0.9);
   --n-text-color-hover: var(--neon-cyan);
-  --n-text-color-pressed: var(--neon-cyan);
+  --n-text-color-pressed: #e7feff;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 229, 255, 0.08),
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  transition:
+    transform 0.18s var(--transition-bezier),
+    box-shadow 0.18s var(--transition-bezier),
+    border-color 0.18s var(--transition-bezier),
+    filter 0.18s var(--transition-bezier);
 }
 
 .stage-btn--send {
-  --n-border: 1px solid rgba(0, 229, 255, 0.45);
+  --n-border: 1px solid rgba(0, 229, 255, 0.4);
+  --n-color: linear-gradient(180deg, rgba(15, 49, 72, 0.98) 0%, rgba(5, 24, 40, 0.98) 100%);
+  --n-color-hover: linear-gradient(180deg, rgba(21, 65, 92, 0.98) 0%, rgba(7, 31, 52, 0.98) 100%);
+  --n-color-pressed: linear-gradient(180deg, rgba(11, 35, 54, 0.98) 0%, rgba(3, 16, 28, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(0, 229, 255, 0.05),
+    0 0 0 1px rgba(0, 229, 255, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
 .send-btn--stop {
   position: relative;
-  --n-border: 1px solid rgba(255, 107, 147, 0.58);
-  --n-color: linear-gradient(180deg, rgba(255, 107, 147, 0.24) 0%, rgba(255, 107, 147, 0.14) 100%);
-  --n-color-hover: linear-gradient(180deg, rgba(255, 107, 147, 0.34) 0%, rgba(255, 107, 147, 0.2) 100%);
-  --n-color-pressed: linear-gradient(180deg, rgba(255, 107, 147, 0.42) 0%, rgba(255, 107, 147, 0.26) 100%);
-  --n-text-color: #ffd0dc;
-  --n-text-color-hover: #fff0f3;
+  --n-border: 1px solid rgba(255, 110, 145, 0.55);
+  --n-color: linear-gradient(180deg, rgba(68, 15, 36, 0.98) 0%, rgba(29, 10, 22, 0.98) 100%);
+  --n-color-hover: linear-gradient(180deg, rgba(92, 22, 47, 0.98) 0%, rgba(39, 12, 26, 0.98) 100%);
+  --n-color-pressed: linear-gradient(180deg, rgba(46, 12, 26, 0.98) 0%, rgba(20, 8, 16, 0.98) 100%);
+  --n-text-color: #ffd6e0;
+  --n-text-color-hover: #fff4f7;
   --n-text-color-pressed: #ffffff;
   box-shadow:
-    0 0 0 1px rgba(255, 107, 147, 0.24),
-    0 0 0 4px rgba(255, 107, 147, 0.06),
-    0 0 18px rgba(255, 107, 147, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(255, 110, 145, 0.2),
+    0 0 18px rgba(255, 110, 145, 0.26),
+    0 12px 24px rgba(0, 0, 0, 0.32);
   transform: translateY(-1px);
 }
 
@@ -646,6 +670,47 @@ defineExpose({
 .stage-icon {
   width: 1rem;
   height: 1rem;
+}
+
+.stage-btn:hover:not(:disabled),
+.stage-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.05) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 229, 255, 0.2),
+    0 0 18px rgba(0, 229, 255, 0.22),
+    0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.stage-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.stage-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 229, 255, 0.3),
+    0 0 0 4px rgba(0, 229, 255, 0.08),
+    0 0 20px rgba(0, 229, 255, 0.22),
+    0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.send-btn--stop:hover:not(:disabled),
+.send-btn--stop:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(255, 110, 145, 0.24),
+    0 0 20px rgba(255, 110, 145, 0.28),
+    0 12px 24px rgba(0, 0, 0, 0.36);
+}
+
+.send-btn--stop:focus-visible {
+  outline: none;
 }
 
 .wave-lane {

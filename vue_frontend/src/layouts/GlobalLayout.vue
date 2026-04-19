@@ -34,6 +34,7 @@
           :current-session="currentSession"
           :current-time="currentTime"
           :show-session="showSession"
+          :runtime-notice="runtimeNotice"
         />
       </n-layout-header>
 
@@ -52,14 +53,17 @@ import { MenuIcon, SearchIcon, SettingsIcon, TerminalIcon } from 'vue-tabler-ico
 import { useRoute, useRouter } from 'vue-router'
 import SocHeader from '../components/layout/SocHeader.vue'
 import { useClock } from '../composables/useClock'
+import { useAppStore } from '../stores/appStore'
 import { useChatStore } from '../stores/chatStore'
 
 const route = useRoute()
 const router = useRouter()
 const chatStore = useChatStore()
+const appStore = useAppStore()
 
 const { currentTime } = useClock()
 const { currentSession } = storeToRefs(chatStore)
+const { runtimeNotice } = storeToRefs(appStore)
 
 const isCollapsed = ref(true)
 const showSession = computed(() => route.path.startsWith('/chat'))

@@ -272,6 +272,9 @@ export function useChatSession({
     } catch {
       // ignore
     }
+    activeStreamAbortController = null
+    isStreaming.value = false
+    appStore.setLoading(false)
   }
 
   const clearStreamFlushHandles = () => {
@@ -397,6 +400,7 @@ export function useChatSession({
     const ac = new AbortController()
     activeStreamAbortController = ac
     isStreaming.value = true
+    appStore.clearRuntimeNotice()
     try {
       await apiClient.streamChat(
         sessionId,
@@ -438,6 +442,11 @@ export function useChatSession({
           onAgentStatus: (data) => {
             flushStreamPatchQueue()
             applyAgentStatus(sessionId, aiMessageId, data)
+          },
+          onNotice: (data) => {
+            const message = String(data?.message || '').trim()
+            if (!message) return
+            appStore.setRuntimeNotice(message)
           },
         },
       )
@@ -565,6 +574,29 @@ export function useChatSession({
     await runStreamChat(sessionId, aiMessageId, input, historyContext, extra, undefined, undefined)
   }
 
+  const buildHistoryContextBeforeLastUser = (sessionId) => {
+    const sessionMessages = chatStore.messages[sessionId] || []
+    let lastUserIdx = -1
+
+    for (let i = sessionMessages.length - 1; i >= 0; i -= 1) {
+      if (sessionMessages[i].isUser) {
+        lastUserIdx = i
+        break
+      }
+    }
+
+    if (lastUserIdx === -1) return []
+
+    return sessionMessages
+      .slice(0, lastUserIdx)
+      .filter((message) => String(message?.content || '').trim().length > 0)
+      .map((message) => ({
+        role: message.isUser ? 'user' : 'assistant',
+        content: String(message.content || ''),
+      }))
+      .slice(-24)
+  }
+
   const submitEditedLastUserMessage = async (sessionId, messageId, editedContent, extra) => {
     if (!messageId) {
       appStore.setError('缺少要编辑的消息标识')
@@ -649,8 +681,34 @@ export function useChatSession({
     const sessionMessages = messages.value
     if (sessionMessages.length === 0 || sessionMessages[sessionMessages.length - 1].isUser) return
 
+    const historyContext = buildHistoryContextBeforeLastUser(currentSession.value)
+    const lastAssistantMessage = sessionMessages[sessionMessages.length - 1]
+    const extra = lastAssistantMessage?.isMultiAgent ? { mode: 'multi_agent' } : undefined
+
     chatStore.removeLastMessage(currentSession.value)
-    await handleNormalSend(currentSession.value, lastUserMessage.value)
+
+    const isMultiAgent = extra?.mode === 'multi_agent'
+    const aiMessageId = chatStore.addMessage(currentSession.value, false, {
+      content: '',
+      think_process: '',
+      isMultiAgent,
+      agentData: DEFAULT_AGENT_DATA(),
+    })
+
+    await scrollMessagesToBottomForced()
+
+    appStore.setLoading(true)
+    appStore.setError(null)
+
+    await runStreamChat(
+      currentSession.value,
+      aiMessageId,
+      lastUserMessage.value,
+      historyContext,
+      extra,
+      undefined,
+      undefined,
+    )
   }
 
   const handleEditMessage = async ({ messageId, content, extra } = {}) => {
@@ -686,6 +744,14 @@ export function useChatSession({
       chatStore.hydrateSessions(response?.data?.sessions || [])
     } catch (err) {
       appStore.setError(err.response?.data?.error || '同步后端会话列表失败，已使用本地会话列表')
+    }
+
+    const localSessionMessages = chatStore.messages[currentSession.value] || []
+    if (localSessionMessages.length > 0) {
+      const lastUser = [...localSessionMessages].reverse().find((message) => message.isUser)
+      lastUserMessage.value = lastUser ? lastUser.content : ''
+      await scrollMessagesToBottomForced()
+      return
     }
 
     await loadHistory(currentSession.value)

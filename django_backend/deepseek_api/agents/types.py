@@ -23,6 +23,8 @@ class LlmConfig:
     provider: str = "ollama"
     model: Optional[str] = None
     provider_api_key: Optional[str] = None
+    embedding_mode: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 
 @dataclass(frozen=True)

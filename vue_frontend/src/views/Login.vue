@@ -221,7 +221,8 @@ const initThreeJS = () => {
   // 使用 styles.css 中的主题色
   const colorActive = new THREE.Color('#00f2ff') // --neon-cyan
   const colorDim = new THREE.Color('#4787b6')   // --text-muted
-
+  const colorPurple = new THREE.Color('#7B2CBF');
+  
   let textIndex = 0
 
   for (let i = 0; i < rayCount; i++) {
@@ -250,11 +251,17 @@ const initThreeJS = () => {
     nodePositions[i * 3 + 1] = dirY * radius;
     nodePositions[i * 3 + 2] = dirZ * radius;
     
-    // 逻辑：每隔几个点固定出现一个大端点，确保交互锚点也分布均匀
     const isLarge = (i % 4 === 0); 
     nodeSizes[i] = isLarge ? (28 + Math.random() * 8) : (10 + Math.random() * 6)
     
-    const nodeColor = isLarge ? colorActive : colorDim;
+    let nodeColor;
+    if (isLarge && Math.random() < 0.3) {
+      nodeColor = colorPurple;
+    } else if (isLarge) {
+      nodeColor = colorActive;
+    } else {
+      nodeColor = colorDim;
+    }
     nodeColors[i * 3] = nodeColor.r;
     nodeColors[i * 3 + 1] = nodeColor.g;
     nodeColors[i * 3 + 2] = nodeColor.b;
@@ -272,7 +279,7 @@ const initThreeJS = () => {
   const lineMat = new THREE.LineBasicMaterial({
     color: new THREE.Color('#00E5FF'),
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.15,
   })
   const lines = new THREE.LineSegments(lineGeo, lineMat)
   networkGroup.add(lines)
@@ -684,7 +691,6 @@ onBeforeUnmount(() => {
   box-shadow: none;
 }
 
-/* ================= 错误提示 ================= */
 .error-alert {
   margin-bottom: 1.8rem;
   background: rgba(255, 0, 85, 0.08);
@@ -697,7 +703,6 @@ onBeforeUnmount(() => {
   letter-spacing: 0.04em;
 }
 
-/* ================= 响应式适配 ================= */
 @media (max-width: 1024px) {
   .login-stage {
     grid-template-columns: 1fr;

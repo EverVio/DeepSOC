@@ -1,9 +1,3 @@
-<!--
-  组件职责：聊天页面容器，组织消息流、输入区与会话控制。
-  业务模块：对话业务页面
-  主要数据流：会话状态/消息列表 -> 子组件渲染 -> 用户交互事件
--->
-
 <template>
   <div class="terminal-shell">
     <FuiCard class="terminal-card">
@@ -90,37 +84,50 @@
         </div>
       </div>
 
-      <NScrollbar ref="messagesViewportRef" class="messages-viewport">
-        <div class="messages-viewport-inner">
-          <NAlert v-if="entryHint" class="terminal-entry-hint" type="info" :show-icon="true">
-            {{ entryHint }}
-          </NAlert>
-          <div v-if="isEmptyState" class="terminal-empty">
-            <div class="terminal-empty-inner">
-              <img class="terminal-empty-logo" :src="deepsocEmptyLogo" alt="DeepSOC" />
-              <div class="terminal-empty-brand">
-                <p class="terminal-empty-brand__line">智能安全运营中心系统</p>
+      <div class="messages-container">
+        <NScrollbar ref="messagesViewportRef" class="messages-viewport">
+          <div class="messages-viewport-inner">
+            <NAlert v-if="entryHint" class="terminal-entry-hint" type="info" :show-icon="true">
+              {{ entryHint }}
+            </NAlert>
+            <div v-if="isEmptyState" class="terminal-empty">
+              <div class="terminal-empty-inner">
+                <img class="terminal-empty-logo animate-item delay-1" :src="deepsocEmptyLogo" alt="DeepSOC" />
+                <div class="terminal-empty-brand animate-item delay-2">
+                  <p class="terminal-empty-brand__line">智能安全运营中心系统</p>
+                </div>
+                <p class="terminal-empty-hint animate-item delay-3">有什么我能帮您的吗？</p>
               </div>
-              <p class="terminal-empty-hint">有什么我能帮您的吗？</p>
+            </div>
+
+            <ChatMessage v-for="(msg, index) in displayMessages" :key="msg.id" :is-user="msg.isUser"
+              :content="msg.content" :attachment-name="msg.attachmentName" :think-process="msg.think_process"
+              :duration="msg.duration" :timestamp="msg.timestamp" :message-id="msg.id" :is-multi-agent="msg.isMultiAgent"
+              :agent-data="msg.agentData" :busy="Boolean(loading || streaming)"
+              :allow-regenerate="!msg.isUser && index === displayMessages.length - 1 && !loading"
+              :can-edit="Boolean(msg.isUser && msg.id === lastEditableUserMessageId)" @regenerate="onRegenerate"
+              @edit="onEditMessage" />
+
+            <div
+              v-if="loading && lastDisplayMessage && !lastDisplayMessage.isUser && !lastDisplayMessage.content && !lastDisplayMessage.think_process"
+              class="terminal-loading">
+              <span class="loading-cursor">█</span>
+              <span class="loading-text">ANALYZING...</span>
             </div>
           </div>
+        </NScrollbar>
 
-          <ChatMessage v-for="(msg, index) in displayMessages" :key="msg.id" :is-user="msg.isUser"
-            :content="msg.content" :attachment-name="msg.attachmentName" :think-process="msg.think_process"
-            :duration="msg.duration" :timestamp="msg.timestamp" :message-id="msg.id" :is-multi-agent="msg.isMultiAgent"
-            :agent-data="msg.agentData" :busy="Boolean(loading || streaming)"
-            :allow-regenerate="!msg.isUser && index === displayMessages.length - 1 && !loading"
-            :can-edit="Boolean(msg.isUser && msg.id === lastEditableUserMessageId)" @regenerate="onRegenerate"
-            @edit="onEditMessage" />
-
-          <div
-            v-if="loading && lastDisplayMessage && !lastDisplayMessage.isUser && !lastDisplayMessage.content && !lastDisplayMessage.think_process"
-            class="terminal-loading">
-            <span class="loading-cursor">█</span>
-            <span class="loading-text">ANALYZING...</span>
-          </div>
-        </div>
-      </NScrollbar>
+        <Transition name="fade-up">
+          <button
+            v-if="(loading || streaming) && !isNearBottom"
+            class="scroll-to-bottom-btn"
+            @click="forceScrollToBottom"
+          >
+            <ArrowDownIcon class="scroll-to-bottom-btn__icon" />
+            <span class="scroll-to-bottom-btn__text">回到底部跟随</span>
+          </button>
+        </Transition>
+      </div>
 
       <div class="terminal-input-zone">
         <ChatInput :ref="chatInputRef" :loading="loading" :streaming="streaming" :current-session="currentSession"
@@ -136,7 +143,7 @@ import { NAlert, NButton, NCard, NScrollbar } from 'naive-ui'
 import FuiCard from '../components/FuiCard.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
-import { AlertTriangleIcon as AlertIcon, XIcon } from 'vue-tabler-icons'
+import { AlertTriangleIcon as AlertIcon, XIcon, ArrowDownIcon } from 'vue-tabler-icons'
 import deepsocEmptyLogo from '../assets/logo/logo.png'
 
 const props = defineProps({
@@ -298,6 +305,11 @@ const scrollToBottom = (force = false) => {
     if (el) el.scrollTop = el.scrollHeight
   }
   requestAnimationFrame(() => updateNearBottom())
+}
+
+const forceScrollToBottom = () => {
+  isNearBottom.value = true
+  scrollToBottom(true)
 }
 
 const bindMessagesScroll = () => {
@@ -688,6 +700,14 @@ onUnmounted(() => {
   font-size: 0.66rem;
 }
 
+.messages-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .messages-viewport {
   flex: 1;
   min-height: 0;
@@ -706,16 +726,21 @@ onUnmounted(() => {
 }
 
 .terminal-empty {
-  min-height: min(450px, 52vh);
+  min-height: min(600px,62vh);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: 1px dashed rgba(0, 229, 255, 0.22);
-  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.04), transparent 65%);
+  border: 1px solid rgba(0, 229, 255, 0.06);
+  background: linear-gradient(180deg, rgba(8, 18, 34, 0.4), rgba(4, 10, 22, 0.6)),
+              radial-gradient(circle at center, rgba(0, 229, 255, 0.05), transparent 70%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   box-sizing: border-box;
   padding: 0.75rem 1rem clamp(1.5rem, 5vh, 3rem);
+  width: 100%;
+  margin: 0 auto;
 }
 
 .terminal-empty-inner {
@@ -728,13 +753,13 @@ onUnmounted(() => {
 }
 
 .terminal-empty-logo {
-  width: clamp(420px, 52vw, 560px);
-  max-width: 560px;
+  width: clamp(280px, 45vw, 420px);
+  max-width: 420px;
   height: auto;
   object-fit: contain;
   display: block;
   flex-shrink: 0;
-  filter: none;
+  filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.12));
 }
 
 .terminal-empty-brand {
@@ -742,42 +767,47 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.45rem;
-  margin-top: 1.35rem;
-  margin-bottom: 0.25rem;
+  margin-top: 1.8rem;
+  margin-bottom: 0.5rem;
 }
 
-/** 与 .terminal-empty-hint 同字号、同色；额外霓虹发光 */
 .terminal-empty-brand__line {
   margin: 0;
-  font-size: 3rem;
+  font-size: 2.2rem;
   font-family: var(--font-ui);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: var(--neon-cyan);
-  text-shadow: var(--neon-cyan-glow);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  background: linear-gradient(135deg, #FFFFFF 0%, #C0D6F0 35%, #9ABDF8 70%, #00E5FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: #00E5FF; /* Fallback */
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.terminal-empty-text {
-  margin-top: 0.2rem;
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #d9effa;
-}
-
-.prompt-prefix {
-  color: var(--neon-green);
-}
-
 .terminal-empty-hint {
-  margin-top: 1.05rem;
-  font-size: 1.5rem;
+  margin-top: 0.8rem;
+  font-size: 1.2rem;
   font-family: var(--font-ui);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #5c8a9a;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: #8babc1;
+  opacity: 0.85;
+}
+
+/* 引入错落浮现进场动效 */
+.animate-item {
+  opacity: 0;
+  animation: float-up-fade 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.25s; }
+.delay-3 { animation-delay: 0.4s; }
+
+@keyframes float-up-fade {
+  0% { opacity: 0; transform: translateY(15px) scale(0.98); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 
 .terminal-loading {
@@ -816,5 +846,49 @@ onUnmounted(() => {
   font-family: var(--font-ui);
   font-size: 0.66rem;
   letter-spacing: 0.08em;
+}
+
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  background: rgba(4, 12, 28, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.6);
+  border-radius: 4px;
+  color: var(--neon-cyan);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.scroll-to-bottom-btn:hover {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.35);
+}
+
+.scroll-to-bottom-btn__icon {
+  width: 14px;
+  height: 14px;
+}
+
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-up-enter-from,
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
 }
 </style>

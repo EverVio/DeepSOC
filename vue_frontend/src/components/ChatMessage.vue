@@ -1,5 +1,5 @@
 <template>
-  <article class="terminal-message" :class="isUser ? 'terminal-message--user' : 'terminal-message--ai'">
+  <article ref="messageRootRef" class="terminal-message" :class="isUser ? 'terminal-message--user' : 'terminal-message--ai'">
     <header class="terminal-message__meta">
       <div class="meta-left">
         <span class="meta-sigil">{{ isUser ? 'USR' : 'AI' }}</span>
@@ -163,15 +163,12 @@
 </template>
 
 <script setup>
-import { computed, defineEmits, defineProps, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, createApp, defineEmits, defineProps, h, nextTick, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from 'vue-tabler-icons'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
-
-const CODE_COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`
-const CODE_CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`
 
 const utf8ToBase64 = (str) => btoa(unescape(encodeURIComponent(str)))
 
@@ -224,7 +221,7 @@ marked.use({
       const language = hljs.getLanguage(lang) ? lang : 'plaintext'
       const highlighted = hljs.highlight(text, { language }).value
       const payload = utf8ToBase64(text)
-      return `<div class="code-block-wrapper"><button type="button" class="code-copy-btn" data-code-b64="${payload}" title="复制代码" aria-label="复制代码">${CODE_COPY_ICON_SVG}</button><pre><code class="hljs ${language}">${highlighted}</code></pre></div>`
+      return `<div class="code-block-wrapper"><button type="button" class="code-copy-btn" data-code-b64="${payload}" title="复制代码" aria-label="复制代码"><span class="code-copy-icon-host" aria-hidden="true"></span></button><pre><code class="hljs ${language}">${highlighted}</code></pre></div>`
     }
   }
 })
@@ -235,22 +232,10 @@ const sanitizeMarkdown = (markdownText) => {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-    ADD_TAGS: ['button', 'svg', 'path', 'rect'],
+    ADD_TAGS: ['button'],
     ADD_ATTR: [
       'data-code-b64',
       'aria-hidden',
-      'stroke-linecap',
-      'stroke-linejoin',
-      'viewBox',
-      'xmlns',
-      'width',
-      'height',
-      'fill',
-      'stroke',
-      'stroke-width',
-      'rx',
-      'ry',
-      'd',
     ],
   })
 }
@@ -278,6 +263,7 @@ const props = defineProps({
 
 const emit = defineEmits(['regenerate', 'edit'])
 
+const messageRootRef = ref(null)
 const showThink = ref(false)
 const showAgentPanel = ref(false)
 const isInlineEditing = ref(false)
@@ -286,6 +272,7 @@ const inlineEditorRef = ref(null)
 const copied = ref(false)
 const displayTime = ref(props.duration ? props.duration.toFixed(1) : '0.0')
 let timerId = null
+const codeCopyMounts = new Map()
 
 const promptLabel = computed(() => {
   if (props.isUser) return 'root@DeepSOC:~$'
@@ -409,6 +396,41 @@ const formatAgentError = (agent) => {
   return `[${provider}/${model}] ${status}${code}: ${message}`
 }
 
+const mountCodeCopyIcon = (host) => {
+  const copiedState = ref(false)
+
+  const app = createApp({
+    setup() {
+      return () => h(copiedState.value ? CheckIcon : CopyIcon, { class: 'icon-mini', 'aria-hidden': 'true' })
+    },
+  })
+
+  app.mount(host)
+  codeCopyMounts.set(host, { app, copiedState })
+}
+
+const syncCodeCopyIcons = () => {
+  nextTick(() => {
+    const root = messageRootRef.value
+    if (!root) return
+
+    const currentHosts = new Set()
+    root.querySelectorAll('.code-copy-icon-host').forEach((host) => {
+      currentHosts.add(host)
+      if (!codeCopyMounts.has(host)) {
+        mountCodeCopyIcon(host)
+      }
+    })
+
+    for (const [host, mount] of codeCopyMounts) {
+      if (!host.isConnected || !currentHosts.has(host)) {
+        mount.app.unmount()
+        codeCopyMounts.delete(host)
+      }
+    }
+  })
+}
+
 watch(
   () => props.thinkProcess,
   (nextValue, prevValue) => {
@@ -441,6 +463,14 @@ watch(
 )
 
 watch(
+  () => [renderedContent.value, ragRendered.value, webRendered.value, showAgentPanel.value],
+  () => {
+    syncCodeCopyIcons()
+  },
+  { immediate: true }
+)
+
+watch(
   () => props.content,
   (nextContent) => {
     if (isInlineEditing.value) return
@@ -460,6 +490,11 @@ watch(
 
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
+
+  for (const [host, mount] of codeCopyMounts) {
+    mount.app.unmount()
+    codeCopyMounts.delete(host)
+  }
 })
 
 const copyContent = () => {
@@ -495,14 +530,20 @@ const handleCodeCopyButton = async (btn) => {
   const copiedSuccessfully = await copyTextToClipboard(text)
   if (!copiedSuccessfully) return
 
-  const prevHtml = btn.innerHTML
-  btn.innerHTML = CODE_CHECK_ICON_SVG
   btn.classList.add('code-copy-btn--done')
+  const iconHost = btn.querySelector('.code-copy-icon-host')
+  const mount = iconHost ? codeCopyMounts.get(iconHost) : null
+  if (mount) {
+    mount.copiedState.value = true
+  }
+
   const oldT = codeCopyTimers.get(btn)
   if (oldT) clearTimeout(oldT)
   const t = window.setTimeout(() => {
-    btn.innerHTML = prevHtml || CODE_COPY_ICON_SVG
     btn.classList.remove('code-copy-btn--done')
+    if (mount) {
+      mount.copiedState.value = false
+    }
     codeCopyTimers.delete(btn)
   }, 1400)
   codeCopyTimers.set(btn, t)
@@ -1000,14 +1041,15 @@ const formatTime = (date) => {
 
 .message-markdown :deep(.code-block-wrapper) {
   position: relative;
-  margin: 0.6rem 0;
+  margin: 0.7rem 0 1.05rem;
+  padding-bottom: 0.12rem;
 }
 
 .message-markdown :deep(.code-copy-btn) {
   position: absolute;
   z-index: 3;
-  top: 8px;
-  right: 8px;
+  top: 40px;
+  right: 35px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1015,32 +1057,75 @@ const formatTime = (date) => {
   height: 28px;
   padding: 0;
   margin: 0;
-  border: 1px solid rgba(0, 229, 255, 0.28);
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.82);
-  color: rgba(0, 229, 255, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(18, 30, 52, 0.98) 0%, rgba(8, 16, 30, 0.98) 100%);
+  color: rgba(161, 232, 248, 0.92);
   cursor: pointer;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 229, 255, 0.08),
+    0 10px 18px rgba(0, 0, 0, 0.28);
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+    transform 0.18s var(--transition-bezier),
+    box-shadow 0.18s var(--transition-bezier),
+    border-color 0.18s var(--transition-bezier),
+    background 0.18s var(--transition-bezier),
+    color 0.18s var(--transition-bezier);
 }
 
-.message-markdown :deep(.code-copy-btn:hover) {
-  background: rgba(0, 229, 255, 0.12);
-  border-color: rgba(0, 229, 255, 0.45);
-  color: #e0fbff;
+.message-markdown :deep(.code-copy-btn:hover),
+.message-markdown :deep(.code-copy-btn:focus-visible) {
+  border-color: rgba(0, 229, 255, 0.5);
+  background: linear-gradient(180deg, rgba(26, 48, 82, 0.98) 0%, rgba(10, 22, 40, 0.98) 100%);
+  color: #effdff;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 229, 255, 0.2),
+    0 0 18px rgba(0, 229, 255, 0.2),
+    0 12px 22px rgba(0, 0, 0, 0.34);
+}
+
+.message-markdown :deep(.code-copy-btn:active) {
+  transform: translateY(0) scale(0.98);
+}
+
+.message-markdown :deep(.code-copy-icon-host) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.message-markdown :deep(.code-copy-icon-host svg) {
+  width: 14px;
+  height: 14px;
 }
 
 .message-markdown :deep(.code-copy-btn--done) {
-  border-color: rgba(67, 243, 162, 0.45);
-  color: var(--neon-green, #43f3a2);
+  border-color: rgba(67, 243, 162, 0.48);
+  background: linear-gradient(180deg, rgba(10, 42, 36, 0.98) 0%, rgba(6, 26, 20, 0.98) 100%);
+  color: #bffbe0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(67, 243, 162, 0.18),
+    0 0 18px rgba(67, 243, 162, 0.22),
+    0 10px 18px rgba(0, 0, 0, 0.28);
+}
+
+.message-markdown :deep(.code-copy-btn:focus-visible) {
+  outline: none;
 }
 
 .message-markdown :deep(.code-block-wrapper pre) {
   background: #0f172a !important;
   border: 1px solid rgba(0, 229, 255, 0.22) !important;
-  padding: 2.2rem 1rem 1rem;
+  padding: 2rem 1.5rem 1.5rem;
   overflow-x: auto;
   margin: 0;
   border-radius: 4px;

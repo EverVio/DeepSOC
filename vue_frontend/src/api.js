@@ -205,6 +205,11 @@ function routeSseEvent(data, onData, streamOptions) {
     return;
   }
 
+  if (data.type === 'notice') {
+    streamOptions.onNotice?.(data);
+    return;
+  }
+
   onData?.(data);
 }
 
@@ -265,6 +270,7 @@ async function streamChat(
 
     const headers = {
       'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
     };
     if (token) {
       headers.Authorization = `Bearer ${token}`;
@@ -273,6 +279,8 @@ async function streamChat(
     const executeStream = async () => {
       let reader = null;
       let completed = false;
+
+      streamOptions.onNotice?.({ type: 'notice', scope: 'llm_fallback', message: '' })
 
       const notifyComplete = (duration) => {
         if (completed) return;
@@ -347,10 +355,14 @@ async function streamChat(
             throw createRetryableError('流式响应缓存超过上限，请重试');
           }
 
-          let eolIndex;
-          while ((eolIndex = buffer.indexOf('\n\n')) !== -1) {
+          let separatorMatch;
+          while ((separatorMatch = buffer.match(/\r?\n\r?\n/)) !== null) {
+            const separator = separatorMatch[0];
+            const eolIndex = separatorMatch.index ?? -1;
+            if (eolIndex < 0) break;
+
             const line = buffer.substring(0, eolIndex).trim();
-            buffer = buffer.substring(eolIndex + 2);
+            buffer = buffer.substring(eolIndex + separator.length);
 
             if (!line.startsWith('data:')) continue;
 
@@ -402,6 +414,7 @@ async function streamChat(
         return;
       } catch (error) {
         if (isAbortLike(error)) {
+          onComplete?.();
           return;
         }
         const isRetryable = Boolean(error?.retryable);

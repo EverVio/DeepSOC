@@ -29,6 +29,7 @@ export const useAppStore = defineStore('app', {
   state: () => ({
     loading: false,
     error: null,
+    runtimeNotice: '',
     useDbSearch: true,
     useWebSearch: false,
     isEditing: false,
@@ -59,6 +60,22 @@ export const useAppStore = defineStore('app', {
           this.error = null
         }
       }, 3000)
+    },
+
+    setRuntimeNotice(message) {
+      this.runtimeNotice = message || ''
+      if (!this.runtimeNotice) return
+
+      const currentMessage = this.runtimeNotice
+      setTimeout(() => {
+        if (this.runtimeNotice === currentMessage) {
+          this.runtimeNotice = ''
+        }
+      }, 4500)
+    },
+
+    clearRuntimeNotice() {
+      this.runtimeNotice = ''
     },
 
     setUseDbSearch(value) {
@@ -152,6 +169,7 @@ export const useAppStore = defineStore('app', {
     clearSensitiveKeys() {
       this.clearProviderApiKey()
       this.clearWebSearchApiKey()
+      this.clearRuntimeNotice()
       this.runtimeProviderApiKeys = {}
       this.runtimeWebSearchApiKey = ''
       this.runtimeConfigLoaded = false
