@@ -535,7 +535,9 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
             exact_filters,
         )
 
-    def build_candidate_map(queries: List[str], relaxed: bool = False) -> Dict[str, Dict[str, Any]]:
+    def build_candidate_map(
+        queries: List[str], relaxed: bool = False
+    ) -> Dict[str, Dict[str, Any]]:
         fetch_size = max(limit * 5, 25) if relaxed else max(limit * 3, 15)
         candidate_map: Dict[str, Dict[str, Any]] = {}
         exact_hit_total = 0
@@ -597,7 +599,9 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
                 query_terms,
                 query_signals.get("exact_terms", []),
             )
-            candidate["keyword_score"] = max(float(candidate["keyword_score"]), float(keyword_score))
+            candidate["keyword_score"] = max(
+                float(candidate["keyword_score"]), float(keyword_score)
+            )
             if keyword_score > 0:
                 candidate["channels"].add("keyword")
 
@@ -665,7 +669,9 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
         if "" not in relaxed_queries and len(relaxed_queries) < max_queries:
             relaxed_queries.append("")
         relaxed_candidates = build_candidate_map(relaxed_queries, relaxed=True)
-        relaxed_ranked_items = log_system._rank_candidates(relaxed_candidates, query_signals)
+        relaxed_ranked_items = log_system._rank_candidates(
+            relaxed_candidates, query_signals
+        )
         relaxed_best = relaxed_ranked_items[0]["score"] if relaxed_ranked_items else 0.0
         if relaxed_ranked_items and (
             not ranked_items
@@ -682,9 +688,7 @@ def retrieve_logs_remote_mode(prompt: str, top_k: int = 5) -> List[Dict[str, Any
     )
     for item in grouped_items:
         raw_source = str(item.get("source") or "")
-        item["source"] = (
-            f"remote_{raw_source}" if raw_source else "remote_keyword"
-        )
+        item["source"] = f"remote_{raw_source}" if raw_source else "remote_keyword"
     return grouped_items[:limit]
 
 
@@ -867,7 +871,9 @@ def _build_openai_messages(
                 "cve_id": metadata.get("cve_id"),
                 "ioc_value": metadata.get("ioc_value"),
                 "tags": _deserialize_metadata_list(metadata.get("tags")),
-                "mitre_attack_id": _deserialize_metadata_list(metadata.get("mitre_attack_id")),
+                "mitre_attack_id": _deserialize_metadata_list(
+                    metadata.get("mitre_attack_id")
+                ),
             },
             "member_count": item.get("member_count", 1),
         }
@@ -1002,7 +1008,11 @@ def _normalize_messages_for_openai(
     if messages and isinstance(messages[0], BaseMessage):
         normalized_messages: List[Dict[str, str]] = []
         for message in messages:  # type: ignore[assignment]
-            role = getattr(message, "type", None) or getattr(message, "role", None) or "user"
+            role = (
+                getattr(message, "type", None)
+                or getattr(message, "role", None)
+                or "user"
+            )
             if role == "human":
                 role = "user"
             elif role == "ai":
@@ -1273,7 +1283,9 @@ def model_api_call(
                     db_executor = ThreadPoolExecutor(max_workers=1)
                     try:
                         if resolved_embedding_mode == "siliconflow":
-                            logger.info("当前为远程 embedding 模式，使用关键词检索路径。")
+                            logger.info(
+                                "当前为远程 embedding 模式，使用关键词检索路径。"
+                            )
                             db_future = db_executor.submit(
                                 retrieve_logs_remote_mode,
                                 prompt,
@@ -1480,18 +1492,15 @@ def model_api_call(
 
 def create_api_key(username: str) -> str:
     """
-    为用户创建或更新 API Key。
-    如果用户已存在，则更新其 key 和过期时间；否则创建新记录。
+    为用户创建新的 API Key 记录，支持同一账号多设备并发登录。
     """
     expiry_duration = settings.TOKEN_EXPIRY_SECONDS
     expiry_timestamp = int(time.time()) + expiry_duration
 
-    api_key_obj, _created = APIKey.objects.update_or_create(
+    api_key_obj = APIKey.objects.create(
         user=username,
-        defaults={
-            "key": APIKey.generate_key(),
-            "expiry_time": expiry_timestamp,
-        },
+        key=APIKey.generate_key(),
+        expiry_time=expiry_timestamp,
     )
     return api_key_obj.key
 
