@@ -1632,14 +1632,16 @@ def delete_conversation_session(user: APIKey, session_id: str) -> tuple[str, boo
 
 def get_cached_reply(prompt: str, session_id: str, user: APIKey) -> str | None:
     """缓存键包含 session_id 和 user，避免跨会话冲突"""
-    cache_key = f"reply:{user.user}:{session_id}:{hash(prompt)}"
+    safe_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    cache_key = f"reply:{user.user}:{session_id}:{safe_hash}"
     return cache.get(cache_key)
 
 
 def set_cached_reply(
     prompt: str, reply: str, session_id: str, user: APIKey, timeout=3600
 ):
-    cache_key = f"reply:{user.user}:{session_id}:{hash(prompt)}"
+    safe_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    cache_key = f"reply:{user.user}:{session_id}:{safe_hash}"
     cache.set(cache_key, reply, timeout)
 
 

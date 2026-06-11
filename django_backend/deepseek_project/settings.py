@@ -90,6 +90,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,  # 增加超时时间防止多线程并发写入时锁定数据库
+        }
     }
 }
 

@@ -598,7 +598,7 @@ def chat(request, data: ChatIn):
         async def async_stream_generator():
             iterator = iter(stream_generator())
             while True:
-                chunk = await sync_to_async(next, thread_sensitive=True)(iterator, None)
+                chunk = await sync_to_async(next, thread_sensitive=False)(iterator, None)
                 if chunk is None:
                     break
                 yield chunk
