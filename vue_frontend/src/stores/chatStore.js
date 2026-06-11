@@ -95,10 +95,23 @@ const parseConversationHistory = (contextText) => {
 
   const flushCurrent = () => {
     if (!currentRole) return;
-    const joined = currentLines.join('\n').trim();
+    let joined = currentLines.join('\n').trim();
+
+    // 提取并清除时间戳标记，避免污染页面渲染
+    const tsRegex = /\s*【TIMESTAMP】(\d+)【\/TIMESTAMP】/;
+    const match = joined.match(tsRegex);
+    let timestamp = null;
+    if (match) {
+      timestamp = parseInt(match[1], 10);
+      joined = joined.replace(tsRegex, '');
+    }
+
     const content = unescapeContextText(joined);
     if (content || currentAgentMeta) {
       const entry = { role: currentRole, content };
+      if (timestamp) {
+        entry.timestamp = timestamp;
+      }
       if (currentRole === 'assistant' && currentAgentMeta) {
         entry.agentData = normalizeAgentData(currentAgentMeta);
       }
@@ -399,8 +412,8 @@ export const useChatStore = defineStore('chat', () => {
       duration: null,
       isMultiAgent: false,
       agentData: createDefaultAgentData(),
-      ...payload,
-      timestamp: new Date(),
+      timestamp: new Date(), // 默认当前时间，作为解构前置值
+      ...payload, // 此时 payload 中的 timestamp 会正确覆盖默认时间，解决时间戳被强刷的问题
     };
 
     messages.value[sessionId].push(newMessage);
@@ -509,6 +522,10 @@ export const useChatStore = defineStore('chat', () => {
       if (!isUser && message.agentData) {
         payload.isMultiAgent = true;
         payload.agentData = normalizeAgentData(message.agentData);
+      }
+
+      if (message.timestamp) {
+        payload.timestamp = new Date(message.timestamp * 1000);
       }
 
       addMessage(sessionId, isUser, payload);

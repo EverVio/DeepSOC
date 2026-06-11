@@ -103,9 +103,11 @@ class ConversationSession(models.Model):
         原子更新上下文。
         [修复] 检查当前上下文，如果为空或格式错误（垃圾数据），则重写；否则追加。
         """
+        import time
+        now_ts = int(time.time())
         safe_user_input = self._escape_context_text(user_input)
         safe_bot_reply = self._escape_context_text(bot_reply)
-        new_entry = f"用户：{safe_user_input}\n回复：{safe_bot_reply}\n"
+        new_entry = f"用户：{safe_user_input} 【TIMESTAMP】{now_ts}【/TIMESTAMP】\n回复：{safe_bot_reply} 【TIMESTAMP】{now_ts}【/TIMESTAMP】\n"
 
         # 获取当前上下文并去除首尾空白
         current_context = self.context.strip()
@@ -174,9 +176,23 @@ class ConversationSession(models.Model):
             if not current_role:
                 return
             joined = "\n".join(current_lines).strip()
+
+            # 提取并清除内容中附带的时间戳标记，避免污染 LLM 的输入上下文
+            import re
+            ts_match = re.search(r" 【TIMESTAMP】(\d+)【/TIMESTAMP】", joined)
+            timestamp = None
+            if ts_match:
+                try:
+                    timestamp = int(ts_match.group(1))
+                except Exception:
+                    pass
+                joined = joined.replace(ts_match.group(0), "")
+
             content = self._unescape_context_text(joined)
             if content or current_meta:
                 entry = {"role": current_role, "content": content}
+                if timestamp:
+                    entry["timestamp"] = timestamp
                 if current_role == "assistant" and current_meta:
                     entry["agent_meta"] = current_meta
                 history.append(entry)

@@ -311,19 +311,23 @@ def _render_context(
     final_reply: str,
     current_agent_meta: dict | None = None,
 ) -> str:
+    import time
     lines = []
     for msg in history_for_llm:
+        ts = msg.get("timestamp")
+        ts_str = f" 【TIMESTAMP】{ts}【/TIMESTAMP】" if ts else ""
         if msg.get("role") == "user":
-            lines.append(f"用户：{msg.get('content', '')}")
+            lines.append(f"用户：{msg.get('content', '')}{ts_str}")
         elif msg.get("role") == "assistant":
-            lines.append(f"回复：{msg.get('content', '')}")
+            lines.append(f"回复：{msg.get('content', '')}{ts_str}")
             agent_meta = msg.get("agent_meta")
             meta_line = _serialize_multi_agent_meta(agent_meta)
             if meta_line:
                 lines.append(meta_line)
 
-    lines.append(f"用户：{user_input}")
-    lines.append(f"回复：{final_reply}")
+    now_ts = int(time.time())
+    lines.append(f"用户：{user_input} 【TIMESTAMP】{now_ts}【/TIMESTAMP】")
+    lines.append(f"回复：{final_reply} 【TIMESTAMP】{now_ts}【/TIMESTAMP】")
     meta_line = _serialize_multi_agent_meta(current_agent_meta)
     if meta_line:
         lines.append(meta_line)

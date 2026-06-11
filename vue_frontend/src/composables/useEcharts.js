@@ -273,6 +273,18 @@ export function useEcharts(
             chart.dispose()
             chart = null
         }
+
+        // 手动清理挂载在 document.body 下的赛博 tooltip 和 ECharts 默认 tooltip 元素，防止跳转或销毁时残留
+        if (typeof document !== 'undefined') {
+            const tooltips = document.querySelectorAll('.cyber-tooltip, .echarts-tooltip')
+            tooltips.forEach((el) => {
+                try {
+                    el.parentNode?.removeChild(el)
+                } catch {
+                    // ignore
+                }
+            })
+        }
     }
 
     onMounted(() => {
