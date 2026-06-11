@@ -87,4 +87,18 @@ router.beforeEach(async (to) => {
   }
 })
 
+router.afterEach(() => {
+  // 全局后置路由守卫：在路由切换完成后，强行清理从上一个图表页面残留挂载在 body 下的 ECharts Tooltip DOM，防止牛皮癣式悬浮残留
+  if (typeof document !== 'undefined') {
+    const tooltips = document.querySelectorAll('.cyber-tooltip, .echarts-tooltip')
+    tooltips.forEach((el) => {
+      try {
+        el.parentNode?.removeChild(el)
+      } catch {
+        // ignore
+      }
+    })
+  }
+})
+
 export default router
