@@ -594,11 +594,26 @@ def chat(request, data: ChatIn):
             yield _sse_line({"type": "done"})
 
     if _is_asgi_request(request):
+        import asyncio
 
         async def async_stream_generator():
-            iterator = iter(stream_generator())
+            queue = asyncio.Queue()
+            loop = asyncio.get_running_loop()
+
+            def thread_target():
+                try:
+                    for chunk in stream_generator():
+                        loop.call_soon_threadsafe(queue.put_nowait, chunk)
+                except Exception as e:
+                    logger.error("异步流生成线程执行异常: %s", e)
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, None)
+
+            # 在子线程中异步启动并执行整个生成器，避免由于 sync_to_async(next) 导致的不同线程交替迭代进而引发的线程局部锁或死锁
+            asyncio.create_task(sync_to_async(thread_target, thread_sensitive=False)())
+
             while True:
-                chunk = await sync_to_async(next, thread_sensitive=False)(iterator, None)
+                chunk = await queue.get()
                 if chunk is None:
                     break
                 yield chunk
