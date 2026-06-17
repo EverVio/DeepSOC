@@ -11,6 +11,7 @@ from asgiref.sync import sync_to_async
 from ninja import File, NinjaAPI, Router, Schema
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connection
 from django.http import HttpResponse, StreamingHttpResponse
 from ninja import File, NinjaAPI, Router
@@ -361,14 +362,63 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in text.replace(";", ",").split(",") if item.strip()]
 
 
-@api.post("/login", response={200: LoginOut, 400: ErrorResponse, 403: ErrorResponse})
+# 登录限速配置
+LOGIN_RATE_LIMIT_MAX = 5  # 最大尝试次数
+LOGIN_RATE_LIMIT_WINDOW = 300  # 时间窗口（秒）
+
+
+def _get_client_ip(request) -> str:
+    """获取客户端 IP 地址"""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def _check_login_rate_limit(ip: str) -> bool:
+    """检查登录尝试是否超过限速。返回 True 表示允许，False 表示被限制。"""
+    cache_key = f"login_attempts:{ip}"
+    attempts = cache.get(cache_key, 0)
+    if attempts >= LOGIN_RATE_LIMIT_MAX:
+        return False
+    return True
+
+
+def _record_login_failure(ip: str) -> None:
+    """记录一次登录失败"""
+    cache_key = f"login_attempts:{ip}"
+    attempts = cache.get(cache_key, 0)
+    if attempts == 0:
+        cache.set(cache_key, 1, LOGIN_RATE_LIMIT_WINDOW)
+    else:
+        cache.incr(cache_key)
+
+
+def _clear_login_attempts(ip: str) -> None:
+    """清除登录尝试记录（登录成功时调用）"""
+    cache_key = f"login_attempts:{ip}"
+    cache.delete(cache_key)
+
+
+@api.post("/login", response={200: LoginOut, 400: ErrorResponse, 403: ErrorResponse, 429: ErrorResponse})
 def login(request, data: LoginIn):
+    client_ip = _get_client_ip(request)
+
+    # 检查登录限速
+    if not _check_login_rate_limit(client_ip):
+        logger.warning("登录限速触发: ip=%s", client_ip)
+        return 429, {"error": f"登录尝试次数过多，请 {LOGIN_RATE_LIMIT_WINDOW // 60} 分钟后再试"}
+
     username = data.username.strip()
     password = data.password.strip()
     if not username or not password:
         return 400, {"error": "用户名和密码不能为空"}
     if password != settings.AUTH_PASSWORD:
+        _record_login_failure(client_ip)
         return 403, {"error": "密码错误"}
+
+    # 登录成功，清除失败记录
+    _clear_login_attempts(client_ip)
     key = services.create_api_key(username)
     return {"api_key": key, "expiry": settings.TOKEN_EXPIRY_SECONDS}
 
@@ -632,28 +682,36 @@ def chat(request, data: ChatIn):
     return response
 
 
-@router.get("/sessions", response={200: SessionListOut})
+@router.get("/sessions", response={200: SessionListOut, 401: ErrorResponse})
 def sessions(request):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     return {"sessions": list_user_sessions(request.auth)}
 
 
-@router.get("/history", response={200: HistoryOut})
+@router.get("/history", response={200: HistoryOut, 401: ErrorResponse})
 def history(request, session_id: str = "默认对话"):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     processed_session_id = session_id.strip() or "默认对话"
     session = services.get_or_create_session(processed_session_id, request.auth)
     return {"history": session.context}
 
 
-@router.delete("/history", response={200: dict})
+@router.delete("/history", response={200: dict, 401: ErrorResponse})
 def clear_history(request, session_id: str = "默认对话"):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     processed_session_id = session_id.strip() or "默认对话"
     session = services.get_or_create_session(processed_session_id, request.auth)
     session.clear_context()
     return {"message": "历史记录已清空"}
 
 
-@router.delete("/session", response={200: dict})
+@router.delete("/session", response={200: dict, 401: ErrorResponse})
 def delete_session(request, session_id: str = "默认对话"):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     normalized_session_id, deleted = delete_conversation_session(request.auth, session_id)
     return {
         "message": "ok",
@@ -662,9 +720,11 @@ def delete_session(request, session_id: str = "默认对话"):
     }
 
 
-@router.post("/session/rename", response={200: dict, 400: ErrorResponse})
+@router.post("/session/rename", response={200: dict, 400: ErrorResponse, 401: ErrorResponse})
 def rename_session(request, data: SessionRenameIn):
     """重命名会话：更新数据库中的 session_id，与前端会话列表一致。"""
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     try:
         old_id, new_id = rename_conversation_session(
             request.auth, data.old_session_id, data.new_session_id
@@ -678,13 +738,15 @@ def rename_session(request, data: SessionRenameIn):
         return 400, {"error": str(e)}
 
 
-@router.get("/dashboard/stats", response={200: dict})
+@router.get("/dashboard/stats", response={200: dict, 401: ErrorResponse})
 def get_dashboard_stats(request):
     """聚合 data/log 下真实 CSV 日志，返回大屏图表与拓扑数据。"""
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     return build_dashboard_stats()
 
 
-@router.get("/query/logs", response={200: dict})
+@router.get("/query/logs", response={200: dict, 401: ErrorResponse})
 def query_logs(
     request,
     q: str = "",
@@ -702,6 +764,8 @@ def query_logs(
     sort_by: str = "fetched_at",
     sort_order: str = "desc",
 ):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     filters = _build_query_filters(
         db_type=db_type,
         risk_level=risk_level,
@@ -723,15 +787,17 @@ def query_logs(
     )
 
 
-@router.get("/query/logs/{record_id}", response={200: dict, 404: ErrorResponse})
+@router.get("/query/logs/{record_id}", response={200: dict, 404: ErrorResponse, 401: ErrorResponse})
 def query_log_detail(request, record_id: str):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     item = get_query_record_detail(record_id)
     if not item:
         return 404, {"error": "记录不存在"}
     return item
 
 
-@router.get("/query/facets", response={200: dict})
+@router.get("/query/facets", response={200: dict, 401: ErrorResponse})
 def query_facets(
     request,
     q: str = "",
@@ -745,6 +811,8 @@ def query_facets(
     start_time: str = "",
     end_time: str = "",
 ):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     filters = _build_query_filters(
         db_type=db_type,
         risk_level=risk_level,
@@ -762,7 +830,7 @@ def query_facets(
     )
 
 
-@router.get("/query/export")
+@router.get("/query/export", response={401: ErrorResponse})
 def query_export(
     request,
     export_format: str = "csv",
@@ -785,6 +853,8 @@ def query_export(
     include_details: bool = False,
     filename_prefix: str = "deepsoc_query",
 ):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
     filters = _build_query_filters(
         db_type=db_type,
         risk_level=risk_level,

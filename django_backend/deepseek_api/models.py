@@ -1,7 +1,7 @@
 import json
 from django.db import models
 import string
-import random
+import secrets
 import time
 import logging
 from django.db.models.functions import Concat
@@ -18,9 +18,9 @@ class APIKey(models.Model):
 
     @classmethod
     def generate_key(cls, length=32):
-        """生成随机 API Key"""
+        """生成随机 API Key（使用加密安全的随机数生成器）"""
         characters = string.ascii_letters + string.digits
-        return "".join(random.choice(characters) for _ in range(length))
+        return "".join(secrets.choice(characters) for _ in range(length))
 
     def is_valid(self):
         """检查 API Key 是否未过期"""
