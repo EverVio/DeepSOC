@@ -1489,12 +1489,12 @@ def model_api_call(
         logger.error("model_api_call provider 调用失败: %s", e.detail)
         yield json.dumps({
             "type": "error",
-            "chunk": e.detail.get("message") or str(e),
+            "chunk": "API 调用失败，请稍后重试",
             "error_detail": e.detail,
         }, ensure_ascii=False)
     except Exception as e:
         logger.error(f"model_api_call 流式处理失败: {e}")
-        yield json.dumps({"type": "error", "chunk": f"API 调用失败: {e}"}, ensure_ascii=False)
+        yield json.dumps({"type": "error", "chunk": "API 调用失败，请稍后重试"}, ensure_ascii=False)
     finally:
         if web_executor is not None:
             web_executor.shutdown(wait=False)
@@ -1527,40 +1527,36 @@ def validate_api_key(key_str: str) -> bool:
         return False
 
 
-rate_lock = threading.Lock()
-
-
 def check_rate_limit(key_str: str) -> bool:
-    """检查 API Key 的请求频率是否超过限制"""
-    with rate_lock:
-        try:
-            rate_limit = RateLimit.objects.select_related("api_key").get(
-                api_key__key=key_str
-            )
+    """
+    检查 API Key 的请求频率是否超过限制。
+    使用 Django cache 实现跨进程速率限制。
+    """
+    cache_key = f"rate_limit:{key_str}"
+    current_time = time.time()
 
-            current_time = time.time()
-            if current_time > rate_limit.reset_time:
-                rate_limit.count = 1
-                rate_limit.reset_time = current_time + settings.RATE_LIMIT_INTERVAL
-                rate_limit.save()
-                return True
-            if rate_limit.count < settings.RATE_LIMIT_MAX:
-                rate_limit.count += 1
-                rate_limit.save()
-                return True
-            return False
-        except RateLimit.DoesNotExist:
-            try:
-                current_time = time.time()
-                api_key = APIKey.objects.get(key=key_str)
-                RateLimit.objects.create(
-                    api_key=api_key,
-                    count=1,
-                    reset_time=current_time + settings.RATE_LIMIT_INTERVAL,
-                )
-                return True
-            except APIKey.DoesNotExist:
-                return False
+    # 从缓存获取当前计数和重置时间
+    cached = cache.get(cache_key)
+    if cached is None:
+        # 首次请求或缓存过期，初始化计数
+        cache.set(cache_key, {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL}, settings.RATE_LIMIT_INTERVAL)
+        return True
+
+    count = cached.get("count", 0)
+    reset_time = cached.get("reset_time", 0)
+
+    # 检查是否需要重置
+    if current_time > reset_time:
+        cache.set(cache_key, {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL}, settings.RATE_LIMIT_INTERVAL)
+        return True
+
+    # 检查是否超过限制
+    if count < settings.RATE_LIMIT_MAX:
+        cached["count"] = count + 1
+        cache.set(cache_key, cached, int(reset_time - current_time) + 1)
+        return True
+
+    return False
 
 
 def rename_conversation_session(

@@ -969,13 +969,15 @@ class TopKLogSystem:
         if not target_name:
             target_name = self._default_llm_name
 
-        cached_llm = self._llm_cache.get(target_name)
-        if cached_llm is not None:
-            return cached_llm
+        # 在锁内完成缓存读写，确保线程安全
+        with self._llm_lock:
+            cached_llm = self._llm_cache.get(target_name)
+            if cached_llm is not None:
+                return cached_llm
 
-        new_llm = OllamaLLM(model=target_name, temperature=0.1, keep_alive="1h")
-        self._llm_cache[target_name] = new_llm
-        return new_llm
+            new_llm = OllamaLLM(model=target_name, temperature=0.1, keep_alive="1h")
+            self._llm_cache[target_name] = new_llm
+            return new_llm
 
     def generate_response(
         self,

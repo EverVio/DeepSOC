@@ -637,13 +637,13 @@ def chat(request, data: ChatIn):
                     "type": "agent_status",
                     "agent_id": "synthesis",
                     "status": "error",
-                    "error": f"流处理失败: {e}",
+                    "error": "流处理失败，请稍后重试",
                 }
                 if isinstance(detail, dict):
                     payload["error_detail"] = detail
                 yield _sse_line(payload)
             else:
-                yield _sse_line(_error_event(f"流处理失败: {e}"))
+                yield _sse_line(_error_event("流处理失败，请稍后重试"))
         finally:
             yield _sse_line({"type": "done"})
 
@@ -653,6 +653,7 @@ def chat(request, data: ChatIn):
         async def async_stream_generator():
             queue = asyncio.Queue()
             loop = asyncio.get_running_loop()
+            _background_tasks = set()
 
             def thread_target():
                 try:
@@ -664,7 +665,9 @@ def chat(request, data: ChatIn):
                     loop.call_soon_threadsafe(queue.put_nowait, None)
 
             # 在子线程中异步启动并执行整个生成器，避免由于 sync_to_async(next) 导致的不同线程交替迭代进而引发的线程局部锁或死锁
-            asyncio.create_task(sync_to_async(thread_target, thread_sensitive=False)())
+            task = asyncio.create_task(sync_to_async(thread_target, thread_sensitive=False)())
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
             while True:
                 chunk = await queue.get()
@@ -977,7 +980,7 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
 
     except Exception as e:
         logger.error("文件解析失败: %s", e)
-        return 400, {"error": f"文件解析失败: {e}"}
+        return 400, {"error": "文件解析失败，请检查文件格式是否正确"}
 
 
 api.add_router("", router)

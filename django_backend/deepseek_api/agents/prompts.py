@@ -1,10 +1,46 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import List, Optional
 
 from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+
+
+def _sanitize_retrieved_content(text: str) -> str:
+    """
+    对检索到的内容进行消毒处理，防止 prompt injection。
+    - 转义可能导致 LLM 混淆的特殊标记
+    - 移除潜在的指令覆盖尝试
+    """
+    if not text:
+        return text
+
+    # 移除常见的 prompt injection 模式
+    injection_patterns = [
+        r"(?i)ignore\s+(all\s+)?previous\s+instructions",
+        r"(?i)disregard\s+(all\s+)?prior\s+(instructions|context)",
+        r"(?i)you\s+are\s+now\s+",
+        r"(?i)new\s+instructions?\s*:",
+        r"(?i)system\s*prompt\s*:",
+        r"(?i)override\s+(all\s+)?instructions",
+        r"(?i)forget\s+(everything|all)",
+    ]
+
+    sanitized = text
+    for pattern in injection_patterns:
+        sanitized = re.sub(pattern, "[FILTERED]", sanitized)
+
+    # 转义 XML/HTML 标签，防止与 LLM 内部处理冲突
+    sanitized = sanitized.replace("<system>", "&lt;system&gt;")
+    sanitized = sanitized.replace("</system>", "&lt;/system&gt;")
+    sanitized = sanitized.replace("<user>", "&lt;user&gt;")
+    sanitized = sanitized.replace("</user>", "&lt;/user&gt;")
+    sanitized = sanitized.replace("<assistant>", "&lt;assistant&gt;")
+    sanitized = sanitized.replace("</assistant>", "&lt;/assistant&gt;")
+
+    return sanitized
 
 
 RAG_OUTPUT_SCHEMA = {
@@ -46,13 +82,18 @@ WEB_OUTPUT_SCHEMA = {
 
 
 def _format_history(history: Optional[List[dict]]) -> List[BaseMessage]:
+    """格式化对话历史，白名单校验角色，防止 prompt injection。"""
     if not history:
         return []
+    allowed_roles = {"user", "assistant"}
     formatted: List[BaseMessage] = []
     for msg in history:
         role = (msg.get("role") or "").strip().lower()
         content = (msg.get("content") or "").strip()
         if not content:
+            continue
+        # 仅允许 user 和 assistant 角色，忽略其他（如 system）
+        if role not in allowed_roles:
             continue
         formatted.append(HumanMessage(content=content) if role == "user" else AIMessage(content=content))
     return formatted
@@ -83,7 +124,7 @@ def build_vector_agent_messages(query: str, retrieved_snippets: str, history: Op
     return prompt.format_prompt(
         chat_history=_format_history(history),
         query=query,
-        snippets=retrieved_snippets,
+        snippets=_sanitize_retrieved_content(retrieved_snippets),
         schema=_render_schema(RAG_OUTPUT_SCHEMA),
     ).to_messages()
 
@@ -97,7 +138,7 @@ def build_search_agent_messages(query: str, web_snippets: str, history: Optional
     user_content = (
         f"### 用户查询\n{query}\n\n"
         "### 联网检索结果（JSON）\n"
-        f"{web_snippets}\n\n"
+        f"{_sanitize_retrieved_content(web_snippets)}\n\n"
         "### 输出约束（必须全部满足）\n"
         "1. 只能输出一个 JSON 对象，不能输出 Markdown、解释文字或代码块标记。\n"
         "2. `agent` 必须为 `web`。\n"
