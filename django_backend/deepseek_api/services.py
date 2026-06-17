@@ -1042,14 +1042,14 @@ def _resolve_remote_fallback_model_name(model_name: Optional[str]) -> str:
     return PROVIDER_DEFAULT_MODELS["siliconflow"]
 
 
-def _stream_fallback_notice(message: str) -> Iterable[Dict[str, Any]]:
+def _stream_fallback_notice(message: str) -> Iterable[str]:
     notice = (message or "").strip()
     if notice:
-        yield {
+        yield json.dumps({
             "type": "notice",
             "scope": "llm_fallback",
             "message": notice,
-        }
+        }, ensure_ascii=False)
 
 
 def _stream_remote_fallback_from_messages(
@@ -1487,14 +1487,14 @@ def model_api_call(
 
     except ProviderHttpError as e:
         logger.error("model_api_call provider 调用失败: %s", e.detail)
-        yield {
+        yield json.dumps({
             "type": "error",
             "chunk": e.detail.get("message") or str(e),
             "error_detail": e.detail,
-        }
+        }, ensure_ascii=False)
     except Exception as e:
         logger.error(f"model_api_call 流式处理失败: {e}")
-        yield {"type": "error", "chunk": f"API 调用失败: {e}"}
+        yield json.dumps({"type": "error", "chunk": f"API 调用失败: {e}"}, ensure_ascii=False)
     finally:
         if web_executor is not None:
             web_executor.shutdown(wait=False)

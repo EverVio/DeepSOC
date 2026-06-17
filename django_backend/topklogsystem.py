@@ -252,23 +252,26 @@ class TopKLogSystem:
         ) as progress:
             for file_path in loadable_files:
                 ext = os.path.splitext(file_path)[1]
-
-                if ext == ".csv":
-                    documents.extend(TopKLogSystem._process_csv(file_path))
-                elif ext in [".json", ".jsonl"]:
-                    documents.extend(TopKLogSystem._process_json(file_path, ext))
-                elif ext in [".yaml", ".yml"]:
-                    documents.extend(TopKLogSystem._process_yaml(file_path))
-                elif ext == ".xml":
-                    documents.extend(TopKLogSystem._process_xml(file_path))
-                elif ext == ".log":
-                    documents.extend(TopKLogSystem._process_log(file_path))
-                elif ext == ".docx":
-                    documents.extend(TopKLogSystem._process_docx(file_path))
-                elif ext == ".pdf":
-                    documents.extend(TopKLogSystem._process_pdf(file_path))
-                else:
-                    documents.extend(TopKLogSystem._process_text(file_path))
+                try:
+                    if ext == ".csv":
+                        documents.extend(TopKLogSystem._process_csv(file_path))
+                    elif ext in [".json", ".jsonl"]:
+                        documents.extend(TopKLogSystem._process_json(file_path, ext))
+                    elif ext in [".yaml", ".yml"]:
+                        documents.extend(TopKLogSystem._process_yaml(file_path))
+                    elif ext == ".xml":
+                        documents.extend(TopKLogSystem._process_xml(file_path))
+                    elif ext == ".log":
+                        documents.extend(TopKLogSystem._process_log(file_path))
+                    elif ext == ".docx":
+                        documents.extend(TopKLogSystem._process_docx(file_path))
+                    elif ext == ".pdf":
+                        documents.extend(TopKLogSystem._process_pdf(file_path))
+                    else:
+                        documents.extend(TopKLogSystem._process_text(file_path))
+                except Exception as e:
+                    logger.warning("文件加载失败，跳过: %s (%s)", file_path, e)
+                    continue
                 progress.set_postfix_str(f"文档数={len(documents)}")
                 progress.update(1)
 
@@ -737,7 +740,11 @@ class TopKLogSystem:
             risk_level = TopKLogSystem._normalize_risk_level(metadata.get("risk_level"))
             risk_score = risk_weight.get(risk_level, 0.25)
 
-            text_match_score = item["vector_score"] * 0.5 + item["keyword_score"] * 0.2
+            # 远程模式下 vector_score 为 0 时，提升关键词权重以保证纯关键词命中能突破阈值
+            if item["vector_score"] > 0:
+                text_match_score = item["vector_score"] * 0.5 + item["keyword_score"] * 0.2
+            else:
+                text_match_score = item["keyword_score"] * 0.5
 
             if text_match_score < 0.15 and exact_match_boost == 0.0:
                 final_score = text_match_score

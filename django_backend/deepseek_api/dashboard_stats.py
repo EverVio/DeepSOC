@@ -135,13 +135,17 @@ def _iter_jsonl_files(log_root: Path) -> list[Path]:
 
 def _iter_jsonl_records(file_path: Path) -> Iterator[Dict[str, Any]]:
     with file_path.open("r", encoding="utf-8", errors="ignore") as handle:
-        for line in handle:
+        for line_no, line in enumerate(handle, start=1):
             stripped = line.strip()
             if not stripped:
                 continue
-            data = json.loads(stripped)
-            if isinstance(data, dict):
-                yield data
+            try:
+                data = json.loads(stripped)
+                if isinstance(data, dict):
+                    yield data
+            except json.JSONDecodeError:
+                logger.warning("JSONL 解析失败，跳过: %s:%d", file_path.name, line_no)
+                continue
 
 
 def _build_topology(db_type_counts, tag_counts_by_db_type):
@@ -428,12 +432,20 @@ def build_dashboard_stats(log_root: Path | None = None) -> dict:
     ][:8]
 
     if not tactic_items:
+        # 无真实 MITRE 战术数据时，返回常用战术维度的零值，反映"未检测到相关战术数据"的实际状态
+        default_tactics = [
+            "Initial Access",
+            "Execution",
+            "Persistence",
+            "Privilege Escalation",
+            "Defense Evasion",
+            "Credential Access",
+            "Discovery",
+            "Lateral Movement",
+        ]
         tactic_items = [
-            {"name": "Initial Access", "total": int(risk_counts.get("High", 0) + risk_counts.get("Critical", 0)), "verified": int(risk_counts.get("Critical", 0))},
-            {"name": "Execution", "total": int(risk_counts.get("Medium", 0) + risk_counts.get("High", 0)), "verified": int(risk_counts.get("High", 0))},
-            {"name": "Command and Control", "total": int(risk_counts.get("Medium", 0) + risk_counts.get("Critical", 0)), "verified": int(risk_counts.get("Critical", 0))},
-            {"name": "Discovery", "total": int(risk_counts.get("Medium", 0)), "verified": int(risk_counts.get("High", 0))},
-            {"name": "Collection", "total": int(risk_counts.get("Low", 0) + risk_counts.get("Medium", 0)), "verified": int(risk_counts.get("Medium", 0))},
+            {"name": tactic, "total": 0, "verified": 0}
+            for tactic in default_tactics
         ]
 
     radar_indicators = []
