@@ -103,16 +103,21 @@ SRE_SYSTEM_PROMPT = """
 # 全局初始化 TopKLogSystem
 # 使用 DeepSeek-R1:7B 作为主模型，qwen3-embedding:4b 作为嵌入模型
 # 避免在每次 API 调用时都重新加载索引，极大提高效率
+# 注意：Ollama 为可选依赖。当 Ollama 不可用时，TopKLogSystem 仍会初始化，
+# 但本地 LLM 和嵌入功能将不可用，系统自动使用远程 provider（如 siliconflow）。
 try:
     log_system = TopKLogSystem(
         log_path="./data/log",
         llm="deepseek-r1:7b",
         embedding_model="qwen3-embedding:4b",
     )
-    logger.info("TopKLogSystem 全局初始化成功。使用模型: DeepSeek-R1:7B")
+    if log_system._ollama_available:
+        logger.info("TopKLogSystem 初始化成功（Ollama 本地模式可用）。")
+    else:
+        logger.info("TopKLogSystem 初始化成功（Ollama 不可用，将使用远程模式）。")
 except Exception as e:
     log_system = None
-    logger.error(f"TopKLogSystem 全局初始化失败: {e}")
+    logger.warning("TopKLogSystem 初始化失败（远程模式仍可用）: %s", e)
 
 
 def _warm_query_records_cache() -> None:
@@ -1145,13 +1150,13 @@ def stream_llm_from_messages(
         yield f"错误：当前 provider={provider_name} 不支持该调用方式。"
         return
 
-    if log_system is None:
-        logger.warning("Ollama 初始化失败，自动降级到 siliconflow 远程调用。")
+    if log_system is None or not log_system._ollama_available:
+        logger.warning("Ollama 不可用（未安装或初始化失败），自动降级到 siliconflow 远程调用。")
         yield from _stream_remote_fallback_from_messages(
             messages,
             model_name,
             provider_api_key,
-            "本地调用失败，切换至远程模式",
+            "Ollama 不可用，切换至远程模式",
         )
         return
 
@@ -1161,7 +1166,7 @@ def stream_llm_from_messages(
             messages,
             model_name,
             provider_api_key,
-            "本地调用失败，切换至远程模式",
+            "消息格式不兼容，切换至远程模式",
         )
         return
 
@@ -1244,6 +1249,11 @@ def model_api_call(
 
         if use_db_search:
             db_retrieval_started_at = time.perf_counter()
+            # 当 Ollama 不可用时，自动切换到远程 embedding 模式
+            if log_system is not None and not log_system._ollama_available and resolved_embedding_mode != "siliconflow":
+                logger.warning("Ollama 不可用，自动切换到远程 embedding 模式进行检索。")
+                resolved_embedding_mode = "siliconflow"
+
             if log_system is None:
                 logger.warning("log_system 未初始化，跳过数据库日志检索。")
             else:

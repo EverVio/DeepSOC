@@ -23,7 +23,13 @@ from langchain_core.messages import (
     HumanMessage,
     AIMessage,
 )
-from langchain_ollama import OllamaLLM, OllamaEmbeddings
+try:
+    from langchain_ollama import OllamaLLM, OllamaEmbeddings
+    _OLLAMA_LIB_AVAILABLE = True
+except ImportError:
+    _OLLAMA_LIB_AVAILABLE = False
+    OllamaLLM = None  # type: ignore[assignment,misc]
+    OllamaEmbeddings = None  # type: ignore[assignment,misc]
 
 # llama-index & chroma
 import chromadb
@@ -51,14 +57,40 @@ class TopKLogSystem:
     ) -> None:
         self.embedding_model_name = embedding_model
         self._embedding_profile = self._resolve_embedding_profile(embedding_model)
-        self.embedding_model = OllamaEmbeddings(model=embedding_model)
-        self._default_llm_name = llm
-        self._llm_cache: Dict[str, OllamaLLM] = {}
-        self._llm_lock = threading.RLock()
-        self.llm = self._get_or_create_llm(llm)
 
-        Settings.llm = self.llm
-        Settings.embed_model = self.embedding_model
+        # Ollama 组件初始化（可选）——当 Ollama 不可用时系统仍能以远程模式运行
+        self._ollama_available = False
+        if _OLLAMA_LIB_AVAILABLE:
+            try:
+                self.embedding_model = OllamaEmbeddings(model=embedding_model)
+                self._ollama_available = True
+                logger.info("Ollama 嵌入模型初始化成功: %s", embedding_model)
+            except Exception as e:
+                self.embedding_model = None
+                logger.warning("Ollama 嵌入模型初始化失败（将使用远程 embedding 模式）: %s", e)
+        else:
+            self.embedding_model = None
+            logger.warning("langchain_ollama 未安装，Ollama 本地模式不可用。")
+
+        self._default_llm_name = llm
+        self._llm_cache: Dict[str, Any] = {}
+        self._llm_lock = threading.RLock()
+
+        if self._ollama_available:
+            try:
+                self.llm = self._get_or_create_llm(llm)
+            except Exception as e:
+                self.llm = None
+                self._ollama_available = False
+                logger.warning("Ollama LLM 初始化失败: %s", e)
+        else:
+            self.llm = None
+
+        # 仅在 Ollama 可用时设置全局 Settings；远程模式由 services.py 管理
+        if self.llm:
+            Settings.llm = self.llm
+        if self.embedding_model:
+            Settings.embed_model = self.embedding_model
         Settings.chunk_size = int(self._embedding_profile["chunk_size"])
         Settings.chunk_overlap = int(self._embedding_profile["chunk_overlap"])
 
@@ -66,12 +98,13 @@ class TopKLogSystem:
         self.log_index = None
         self.vector_store = None
         logger.info(
-            "嵌入模型参数档案: model=%s, chunk_size=%s, chunk_overlap=%s, index_batch_size=%s, retriever_mult=%s",
+            "嵌入模型参数档案: model=%s, chunk_size=%s, chunk_overlap=%s, index_batch_size=%s, retriever_mult=%s, ollama=%s",
             self.embedding_model_name,
             self._embedding_profile["chunk_size"],
             self._embedding_profile["chunk_overlap"],
             self._embedding_profile["index_insert_batch_size"],
             self._embedding_profile["retriever_k_multiplier"],
+            self._ollama_available,
         )
         self._build_vectorstore()
 
@@ -106,6 +139,25 @@ class TopKLogSystem:
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
         batch_size = int(self._embedding_profile["index_insert_batch_size"])
+
+        # 如果没有嵌入模型，只尝试加载已有向量库（无法构建新的）
+        if not self.embedding_model:
+            if os.path.exists(vector_store_path):
+                logger.info("无嵌入模型，尝试加载已有向量库: %s", vector_store_path)
+                try:
+                    chroma_client = chromadb.PersistentClient(path=vector_store_path)
+                    log_collection = chroma_client.get_collection("log_collection")
+                    log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
+                    self.log_index = VectorStoreIndex.from_vector_store(
+                        vector_store=log_vector_store
+                    )
+                    self.vector_store = log_vector_store
+                    logger.info("已有向量库加载成功（向量检索可用，但无法嵌入新文档）")
+                except Exception as e:
+                    logger.warning("加载已有向量库失败: %s", e)
+            else:
+                logger.warning("无嵌入模型且无已有向量库，检索将仅使用关键词模式。")
+            return
 
         if os.path.exists(vector_store_path):
             logger.info(f"加载现有向量数据库索引: {vector_store_path}")
@@ -902,7 +954,10 @@ class TopKLogSystem:
             all_results = [item for item in all_results if filter_func(item)]
         return all_results[:top_k]
 
-    def _get_or_create_llm(self, model_name: Optional[str]) -> OllamaLLM:
+    def _get_or_create_llm(self, model_name: Optional[str]) -> Any:
+        if not _OLLAMA_LIB_AVAILABLE or OllamaLLM is None:
+            raise RuntimeError("langchain_ollama 未安装，无法创建本地 LLM。请使用远程 provider（如 siliconflow）。")
+
         target_name = (model_name or self._default_llm_name or "").strip()
         if not target_name:
             target_name = self._default_llm_name
@@ -929,7 +984,7 @@ class TopKLogSystem:
             self.llm = llm_to_use
             Settings.llm = llm_to_use
 
-        for chunk in llm_to_use.stream(prompt_messages):
+        for chunk in llm_to_use.stream(prompt_messages):  # type: ignore[union-attr]
             yield chunk
 
     def _build_prompt(
