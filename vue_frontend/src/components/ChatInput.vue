@@ -283,6 +283,7 @@ const sendMessage = () => {
     mode: isMultiAgentEnabled.value ? 'multi_agent' : null,
     agentConfigs: isMultiAgentEnabled.value ? buildAgentConfigs() : null,
     isMultiAgent: isMultiAgentEnabled.value,
+    enableThinking: useDeepThinking.value,
   })
 
   chatStore.clearSessionDraft(resolvedSessionId.value)

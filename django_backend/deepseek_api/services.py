@@ -986,6 +986,7 @@ def stream_openai_compatible_response(
     provider_api_key: Optional[str],
     log_results: List[Dict],
     web_results: List[Dict],
+    enable_thinking: bool = False,
 ):
     api_key = resolve_provider_api_key(provider, provider_api_key)
     if not api_key:
@@ -1013,6 +1014,7 @@ def stream_openai_compatible_response(
         "model": model_name,
         "messages": messages,
         "stream": True,
+        "enable_thinking": enable_thinking,
     }
 
     if provider == "minimax":
@@ -1237,6 +1239,7 @@ def model_api_call(
     embedding_model: Optional[str] = None,
     provider_api_key: Optional[str] = None,
     web_search_api_key: Optional[str] = None,
+    enable_thinking: bool = False,
 ):
     """
     调用模型 API（流式响应）。
@@ -1467,6 +1470,7 @@ def model_api_call(
                 provider_api_key=provider_api_key,
                 log_results=log_results,
                 web_results=web_results,
+                enable_thinking=enable_thinking,
             ):
                 yield chunk
             return
@@ -1490,6 +1494,7 @@ def model_api_call(
                 provider_api_key=fallback_key,
                 log_results=log_results,
                 web_results=web_results,
+                enable_thinking=enable_thinking,
             ):
                 yield chunk
             return

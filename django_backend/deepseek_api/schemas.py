@@ -33,6 +33,7 @@ class ChatIn(Schema):
     web_search_api_key: Optional[str] = None  # 联网搜索 API Key（博查）
     mode: Optional[str] = None  # single / multi_agent
     agent_configs: Optional[Dict[str, Dict[str, Optional[str]]]] = None
+    enable_thinking: bool = False  # 深度思考开关（默认关闭）
 
 
 class ChatOut(Schema):

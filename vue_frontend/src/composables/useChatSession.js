@@ -426,6 +426,7 @@ export function useChatSession({
         {
           mode: extra?.mode,
           agentConfigs: extra?.agentConfigs,
+          enableThinking: extra?.enableThinking ?? appStore.useDeepThinking,
           idleTimeoutMs: 120000,
           maxRetries: 1,
           bufferLimitBytes: 1024 * 1024,

@@ -466,10 +466,13 @@ def chat(request, data: ChatIn):
     web_search_api_key = data.web_search_api_key
     mode = (data.mode or "").strip().lower() or "single"
 
+    enable_thinking = bool(getattr(data, 'enable_thinking', False))
+
     logger.info(
-        "搜索选项 - 数据库: %s, 联网: %s, provider: %s, model: %s, embedding_mode: %s, embedding_model: %s",
+        "搜索选项 - 数据库: %s, 联网: %s, 深度思考: %s, provider: %s, model: %s, embedding_mode: %s, embedding_model: %s",
         use_db_search,
         use_web_search,
+        enable_thinking,
         selected_provider,
         selected_model or "default",
         selected_embedding_mode,
@@ -553,6 +556,7 @@ def chat(request, data: ChatIn):
                     embedding_model=selected_embedding_model,
                     provider_api_key=provider_api_key,
                     web_search_api_key=web_search_api_key,
+                    enable_thinking=enable_thinking,
                 ):
                     if not raw_chunk:
                         continue

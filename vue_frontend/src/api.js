@@ -265,8 +265,10 @@ async function streamChat(
 
     const mode = streamOptions.mode?.trim();
     const agentConfigs = streamOptions.agentConfigs;
+    const enableThinking = Boolean(streamOptions.enableThinking);
     if (mode) body.mode = mode;
     if (mode === 'multi_agent' && agentConfigs) body.agent_configs = agentConfigs;
+    if (enableThinking) body.enable_thinking = true;
 
     const headers = {
       'Content-Type': 'application/json',
