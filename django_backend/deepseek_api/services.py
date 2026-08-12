@@ -958,18 +958,24 @@ def _is_v4_flash_model(model_name: Optional[str]) -> bool:
 
 def _configure_thinking_mode(model_name: Optional[str], request_kwargs: Dict[str, Any]) -> bool:
     """
-    配置模型思考模式：
-    对 DeepSeek-V4-Flash 明确关闭思考模式：
-    1. 在 extra_body 中添加 enable_thinking: False 和 thinking: {"type": "disabled"}
-    2. 返回 True 标识已关闭思考模式（流式输出时丢弃 reasoning_content）
+    配置模型思考模式（默认关闭 DEEP THINKING）：
+    - 若 request_kwargs 包含 enable_thinking=True，则开启思考模式（允许输出 reasoning_content）。
+    - 默认（未勾选深度思考）在 extra_body 中添加 enable_thinking: False 和 thinking: {"type": "disabled"}，
+      并返回 True 标识已关闭思考模式（流式输出时过滤丢弃 reasoning_content）。
     """
-    if _is_v4_flash_model(model_name):
+    enable_thinking = request_kwargs.pop("enable_thinking", False)
+    if enable_thinking:
         extra = request_kwargs.get("extra_body") or {}
-        extra["enable_thinking"] = False
-        extra["thinking"] = {"type": "disabled"}
+        extra["enable_thinking"] = True
+        extra["thinking"] = {"type": "enabled"}
         request_kwargs["extra_body"] = extra
-        return True
-    return False
+        return False
+
+    extra = request_kwargs.get("extra_body") or {}
+    extra["enable_thinking"] = False
+    extra["thinking"] = {"type": "disabled"}
+    request_kwargs["extra_body"] = extra
+    return True
 
 
 def stream_openai_compatible_response(

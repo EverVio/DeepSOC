@@ -32,6 +32,7 @@ export const useAppStore = defineStore('app', {
     runtimeNotice: '',
     useDbSearch: true,
     useWebSearch: false,
+    useDeepThinking: localStorage.getItem('useDeepThinking') === 'true',
     isEditing: false,
     editingMessageId: null,
     llmProvider: DEFAULT_PROVIDER,
@@ -83,7 +84,21 @@ export const useAppStore = defineStore('app', {
     },
 
     setUseWebSearch(value) {
-      this.useWebSearch = value
+      this.useWebSearch = Boolean(value)
+      try {
+        localStorage.setItem('useWebSearch', this.useWebSearch ? 'true' : 'false')
+      } catch {
+        // ignore
+      }
+    },
+
+    setUseDeepThinking(value) {
+      this.useDeepThinking = Boolean(value)
+      try {
+        localStorage.setItem('useDeepThinking', this.useDeepThinking ? 'true' : 'false')
+      } catch {
+        // ignore
+      }
     },
 
     setEditing(messageId) {

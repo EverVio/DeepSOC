@@ -29,6 +29,13 @@
                 <BoltIcon class="toggle-icon" /> MULTI AGENT
               </span>
             </NFormItem>
+
+            <NFormItem class="toggle-item" label="">
+              <NSwitch v-model:value="useDeepThinking" size="small" />
+              <span class="toggle-core">
+                <BrainIcon class="toggle-icon" /> DEEP THINKING
+              </span>
+            </NFormItem>
           </NForm>
         </div>
       </div>
@@ -139,7 +146,7 @@ import {
 } from 'naive-ui'
 import { useAppStore } from '../stores/appStore'
 import { useChatStore } from '../stores/chatStore'
-import { BoltIcon, DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon, XIcon } from 'vue-tabler-icons'
+import { BoltIcon, BrainIcon, DatabaseIcon, PaperclipIcon, SendIcon, WorldIcon, XIcon } from 'vue-tabler-icons'
 import { uploadFile as uploadFileApi } from '../api'
 
 const props = defineProps({
@@ -213,6 +220,11 @@ const useDbSearch = computed({
 const useWebSearch = computed({
   get: () => appStore.useWebSearch,
   set: (value) => appStore.setUseWebSearch(value),
+})
+
+const useDeepThinking = computed({
+  get: () => appStore.useDeepThinking,
+  set: (value) => appStore.setUseDeepThinking(value),
 })
 
 const resolvedSessionId = computed(() => {
