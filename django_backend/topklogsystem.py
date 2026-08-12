@@ -28,8 +28,8 @@ try:
     _OLLAMA_LIB_AVAILABLE = True
 except ImportError:
     _OLLAMA_LIB_AVAILABLE = False
-    OllamaLLM = None  # type: ignore[assignment,misc]
-    OllamaEmbeddings = None  # type: ignore[assignment,misc]
+    OllamaLLM = None  
+    OllamaEmbeddings = None  
 
 # llama-index & chroma
 import chromadb
@@ -186,7 +186,6 @@ class TopKLogSystem:
         
         log_documents = self._load_documents(self.log_path)
         if log_documents:
-            # 显式将 Document 解析为符合长度限制的 Node 集合，防止单条过长导致 embedding 接口报错
             text_splitter = SentenceSplitter(
                 chunk_size=Settings.chunk_size,
                 chunk_overlap=Settings.chunk_overlap

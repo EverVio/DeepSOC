@@ -19,53 +19,7 @@
         {{ error }}
       </NAlert>
 
-      <NCard v-if="analysisJumpEntry" class="analysis-jump-card" :bordered="false" embedded>
-        <template #header>
-          <div class="analysis-jump-card__header">
-            <span class="analysis-jump-card__title">{{ '分析模板' }}</span>
-          </div>
-        </template>
 
-        <template #header-extra>
-          <NButton class="analysis-jump-card__close-btn" quaternary circle aria-label="关闭分析入口框"
-            @click="onDismissAnalysisJump?.()">
-            <XIcon class="analysis-jump-card__close-icon" />
-          </NButton>
-        </template>
-
-        <div class="analysis-jump-card__summary-list">
-          <div v-for="item in analysisJumpEntry.summaryCards" :key="`${item.label}-${item.value}`"
-            class="analysis-jump-card__summary-item"
-            :class="{ 'analysis-jump-card__summary-item--wide': item.label === '看板摘要' }">
-            <span class="analysis-jump-card__summary-label">{{ item.label }}</span>
-            <span class="analysis-jump-card__summary-value">{{ item.value }}</span>
-          </div>
-        </div>
-
-        <div class="analysis-jump-card__prompt">
-          <div class="analysis-jump-card__prompt-label">拟定问题</div>
-          <div class="analysis-jump-card__prompt-text">{{ analysisJumpEntry.prompt }}</div>
-        </div>
-
-        <div v-if="analysisJumpEntry.followUps?.length" class="analysis-jump-card__followups">
-          <div class="analysis-jump-card__followups-label">建议追问</div>
-          <div class="analysis-jump-card__followups-list">
-            <span v-for="item in analysisJumpEntry.followUps" :key="item" class="analysis-jump-card__followup-item">{{
-              item
-            }}</span>
-          </div>
-        </div>
-
-        <div class="analysis-jump-card__actions">
-          <NButton class="analysis-jump-card__button" tertiary @click="onApplyAnalysisJump?.(analysisJumpEntry)">
-            填入输入框编辑
-          </NButton>
-          <NButton class="analysis-jump-card__button" secondary @click="onSendAnalysisJump?.(analysisJumpEntry)">
-            直接发送
-          </NButton>
-          <NButton class="analysis-jump-card__button" quaternary @click="onDismissAnalysisJump?.()">关闭提示</NButton>
-        </div>
-      </NCard>
 
       <div v-if="analysisHistoryVisible && analysisJumpHistory?.length" class="analysis-history-strip">
         <div class="analysis-history-strip__header">
@@ -87,6 +41,72 @@
       <div class="messages-container">
         <NScrollbar :ref="setMessagesViewportRef" class="messages-viewport" :on-scroll="handleScroll">
           <div class="messages-viewport-inner">
+            <NCard v-if="analysisJumpEntry" class="analysis-jump-card" :bordered="false" embedded>
+              <template #header>
+                <div class="analysis-jump-card__header">
+                  <span class="analysis-jump-card__title">{{ '分析模板' }}</span>
+                  <span v-if="analysisJumpEntry.sourceLabel" class="analysis-jump-card__tag">
+                    {{ analysisJumpEntry.sourceLabel }}
+                  </span>
+                </div>
+              </template>
+
+              <template #header-extra>
+                <NButton
+                  class="analysis-jump-card__close-btn"
+                  quaternary
+                  circle
+                  aria-label="关闭分析入口框"
+                  title="关闭分析模板"
+                  @click="onDismissAnalysisJump?.()"
+                >
+                  <XIcon class="analysis-jump-card__close-icon" />
+                </NButton>
+              </template>
+
+              <div class="analysis-jump-card__summary-list">
+                <div
+                  v-for="item in analysisJumpEntry.summaryCards"
+                  :key="`${item.label}-${item.value}`"
+                  class="analysis-jump-card__summary-item"
+                  :class="{ 'analysis-jump-card__summary-item--wide': item.label === '看板摘要' }"
+                >
+                  <span class="analysis-jump-card__summary-label">{{ item.label }}</span>
+                  <span class="analysis-jump-card__summary-value">{{ item.value }}</span>
+                </div>
+              </div>
+
+              <div class="analysis-jump-card__prompt">
+                <div class="analysis-jump-card__prompt-label">拟定问题</div>
+                <div class="analysis-jump-card__prompt-text">{{ analysisJumpEntry.prompt }}</div>
+              </div>
+
+              <div v-if="analysisJumpEntry.followUps?.length" class="analysis-jump-card__followups">
+                <div class="analysis-jump-card__followups-label">建议追问</div>
+                <div class="analysis-jump-card__followups-list">
+                  <button
+                    v-for="item in analysisJumpEntry.followUps"
+                    :key="item"
+                    type="button"
+                    class="analysis-jump-card__followup-item"
+                    @click="onSelectFollowUp?.(item)"
+                  >
+                    {{ item }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="analysis-jump-card__actions">
+                <NButton class="analysis-jump-card__button" tertiary @click="onApplyAnalysisJump?.(analysisJumpEntry)">
+                  填入输入框编辑
+                </NButton>
+                <NButton class="analysis-jump-card__button" secondary @click="onSendAnalysisJump?.(analysisJumpEntry)">
+                  直接发送
+                </NButton>
+                <NButton class="analysis-jump-card__button" quaternary @click="onDismissAnalysisJump?.()">关闭提示</NButton>
+              </div>
+            </NCard>
+
             <NAlert v-if="entryHint" class="terminal-entry-hint" type="info" :show-icon="true">
               {{ entryHint }}
             </NAlert>
@@ -143,7 +163,7 @@ import { NAlert, NButton, NCard, NScrollbar } from 'naive-ui'
 import FuiCard from '../components/FuiCard.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
-import { AlertTriangleIcon as AlertIcon, XIcon, ArrowDownIcon } from 'vue-tabler-icons'
+import { AlertTriangleIcon as AlertIcon, XIcon, ArrowDownIcon, ChevronDownIcon, ChevronUpIcon } from 'vue-tabler-icons'
 import deepsocEmptyLogo from '../assets/logo/logo.png'
 
 const props = defineProps({
@@ -164,6 +184,7 @@ const props = defineProps({
   onDismissAnalysisJump: { type: Function, default: null },
   onDismissAnalysisJumpHistory: { type: Function, default: null },
   onReuseAnalysisJump: { type: Function, default: null },
+  onSelectFollowUp: { type: Function, default: null },
   onStopGenerating: { type: Function, required: true },
   messagesContainerRef: { type: Object, default: null },
   chatInputRef: { type: Object, default: null },
@@ -187,9 +208,12 @@ const {
   onDismissAnalysisJump,
   onDismissAnalysisJumpHistory,
   onReuseAnalysisJump,
+  onSelectFollowUp,
   onStopGenerating,
   chatInputRef,
 } = toRefs(props)
+
+const isCardCollapsed = ref(false)
 
 /** 本地绑定 NScrollbar，并同步给父级引用，供会话加载时复用 */
 const messagesViewportRef = ref(null)
@@ -448,9 +472,19 @@ onMounted(() => {
 }
 
 .analysis-jump-card {
-  margin-bottom: 0.68rem;
-  border: 1px solid rgba(0, 229, 255, 0.22);
-  background: linear-gradient(180deg, rgba(8, 18, 34, 0.9), rgba(4, 10, 22, 0.8));
+  margin-bottom: 1rem;
+  border: 1px solid rgba(0, 229, 255, 0.26);
+  background: linear-gradient(160deg, rgba(8, 18, 36, 0.95), rgba(4, 10, 24, 0.9));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(0, 229, 255, 0.05);
+  border-radius: 8px;
+}
+
+.analysis-jump-card :deep(.n-card-header) {
+  padding: 0.75rem 1rem 0.5rem;
+}
+
+.analysis-jump-card :deep(.n-card__content) {
+  padding: 0.5rem 1rem 0.85rem;
 }
 
 .analysis-jump-card__header {
@@ -474,21 +508,30 @@ onMounted(() => {
 
 .analysis-jump-card__title {
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--neon-cyan);
   text-transform: uppercase;
+}
+
+.analysis-jump-card__tag {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--neon-cyan);
+  border: 1px solid rgba(0, 229, 255, 0.25);
 }
 
 .analysis-jump-card__summary-label,
 .analysis-jump-card__prompt-label,
 .analysis-jump-card__followups-label,
 .analysis-history-strip__label {
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
   font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
   color: #6f95a9;
   text-transform: uppercase;
 }
@@ -496,19 +539,20 @@ onMounted(() => {
 .analysis-jump-card__summary-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.6rem 0.8rem;
 }
 
 .analysis-jump-card__summary-item {
-  border: 1px solid rgba(0, 229, 255, 0.14);
+  border: 1px solid rgba(0, 229, 255, 0.16);
   background: rgba(0, 229, 255, 0.04);
-  padding: 0.42rem 0.52rem;
+  padding: 0.4rem 0.6rem;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
   min-width: 0;
+  border-radius: 4px;
 }
 
 .analysis-jump-card__summary-item--wide {
@@ -523,58 +567,65 @@ onMounted(() => {
 .analysis-jump-card__summary-value {
   color: #d9f6ff;
   font-family: var(--font-ui);
-  font-size: 0.9rem;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  line-height: 1.45;
   word-break: break-word;
   text-align: left;
 }
 
 .analysis-jump-card__prompt {
-  margin-top: 1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(0, 229, 255, 0.16);
-  background: rgba(2, 8, 22, 0.62);
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  background: rgba(2, 8, 22, 0.65);
+  border-radius: 4px;
 }
 
 .analysis-jump-card__prompt-text {
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
   color: #d8f5ff;
   font-family: var(--font-ui);
-  font-size: 0.95rem;
-  line-height: 1.65;
+  font-size: 0.9rem;
+  line-height: 1.55;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .analysis-jump-card__followups {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
-.analysis-jump-card__followups-list,
-.analysis-history-strip__items {
+.analysis-jump-card__followups-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 3rem;
-}
-
-.analysis-jump-card__followup-item,
-.analysis-history-strip__item {
-  border: 1px solid rgba(0, 229, 255, 0.16);
-  background: rgba(0, 229, 255, 0.05);
-  color: #b9dced;
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
+  gap: 0.5rem;
 }
 
 .analysis-jump-card__followup-item {
-  padding: 0.3rem 0.5rem;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: rgba(0, 229, 255, 0.06);
+  color: #b9dced;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  padding: 0.28rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.analysis-jump-card__followup-item:hover {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: var(--neon-cyan);
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
 }
 
 .analysis-jump-card__actions {
-  margin-top: 2rem;
+  margin-top: 0.85rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.6rem;
 }
 
 .analysis-jump-card__button {

@@ -52,6 +52,7 @@
         :on-dismiss-analysis-jump="dismissAnalysisJump"
         :on-dismiss-analysis-jump-history="hideAnalysisJumpHistory"
         :on-reuse-analysis-jump="reuseAnalysisJump"
+        :on-select-follow-up="handleSelectFollowUp"
         :on-stop-generating="stopGenerating"
         :messages-container-ref="messagesContainerRef"
         :chat-input-ref="chatInputRef"
@@ -251,9 +252,17 @@ const handleRegenerateWithHistoryReveal = async (...args) => {
 const applyAnalysisJump = (entry = analysisJumpEntry.value) => {
   if (!entry) return
 
-  analysisJumpEntry.value = entry
   analysisJumpHint.value = '已预填图表分析问题，可直接编辑后发送。'
   chatInputRef.value?.setContent(entry.prompt || '')
+  analysisJumpEntry.value = null
+  nextTick(() => chatInputRef.value?.focus())
+}
+
+const handleSelectFollowUp = (followUpText) => {
+  if (!followUpText) return
+  const current = chatInputRef.value?.getContent?.() || ''
+  const nextContent = current ? `${current}\n${followUpText}` : followUpText
+  chatInputRef.value?.setContent(nextContent)
   nextTick(() => chatInputRef.value?.focus())
 }
 

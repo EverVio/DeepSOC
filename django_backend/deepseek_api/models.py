@@ -146,12 +146,6 @@ class ConversationSession(models.Model):
         # 刷新实例，获取更新后的值
         self.refresh_from_db()
 
-        # import logging # (确保 logging 已经在本文件顶部导入)
-        # logger = logging.getLogger(__name__) # (确保 logger 已经在本文件顶部定义)
-
-        # [修改]：取消这一行的注释
-        # logger.info(f"更新会话 {self.session_id}（用户：{self.user.key}）：{new_entry}") # 这一行在原始代码中是重复的，已合并到上面的逻辑中
-
     def clear_context(self):
         """清空对话上下文"""
         self.context = ""

@@ -33,12 +33,6 @@ class ChatIn(Schema):
     web_search_api_key: Optional[str] = None  # 联网搜索 API Key（博查）
     mode: Optional[str] = None  # single / multi_agent
     agent_configs: Optional[Dict[str, Dict[str, Optional[str]]]] = None
-    # agent_configs 示例：
-    # {
-    #   "rag": {"provider":"siliconflow","model":"deepseek-ai/DeepSeek-V3.2","provider_api_key":null},
-    #   "web": {"provider":"deepseek","model":"deepseek-chat","provider_api_key":"..."},
-    #   "synthesis": {"provider":"siliconflow","model":"deepseek-ai/DeepSeek-V3.2","provider_api_key":null}
-    # }
 
 
 class ChatOut(Schema):

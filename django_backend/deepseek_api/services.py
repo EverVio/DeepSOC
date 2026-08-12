@@ -1026,7 +1026,7 @@ def _normalize_messages_for_openai(
             normalized_messages.append({"role": role, "content": str(content)})
         return normalized_messages
 
-    return messages  # type: ignore[return-value]
+    return messages 
 
 
 def _resolve_remote_fallback_model_name(model_name: Optional[str]) -> str:
@@ -1172,7 +1172,7 @@ def stream_llm_from_messages(
 
     try:
         llm = log_system._get_or_create_llm(resolved_model_name)
-        for chunk in llm.stream(messages):  # type: ignore[arg-type]
+        for chunk in llm.stream(messages):
             yield chunk
         return
     except Exception as exc:
