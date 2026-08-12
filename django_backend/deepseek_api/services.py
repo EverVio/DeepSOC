@@ -32,15 +32,18 @@ OLLAMA_MODEL_ALIASES = {
 }
 # 硅基流动模型名称映射（前端展示名 -> 硅基流动模型 ID）
 SILICONFLOW_MODEL_ALIASES = {
-    "DeepSeek-V3.2": "deepseek-ai/DeepSeek-V3.2",
+    "deepseek-ai/DeepSeek-V4-Flash": "deepseek-ai/DeepSeek-V4-Flash",
+    "DeepSeek-V4-Flash": "deepseek-ai/DeepSeek-V4-Flash",
+    "DeepSeek-V3.2": "deepseek-ai/DeepSeek-V4-Flash",
     "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
     "Qwen2.5-72B": "Qwen/Qwen2.5-72B-Instruct",
-    "deepseek-chat": "deepseek-ai/DeepSeek-V3.2",
+    "deepseek-chat": "deepseek-ai/DeepSeek-V4-Flash",
     "deepseek-reasoner": "deepseek-ai/DeepSeek-R1",
-    "gpt-4o-mini": "deepseek-ai/DeepSeek-V3.2",
-    "gpt-4": "deepseek-ai/DeepSeek-V3.2",
-    "gpt-3.5-turbo": "deepseek-ai/DeepSeek-V3.2",
-    "deepseek-v3.2": "deepseek-ai/DeepSeek-V3.2",
+    "gpt-4o-mini": "deepseek-ai/DeepSeek-V4-Flash",
+    "gpt-4": "deepseek-ai/DeepSeek-V4-Flash",
+    "gpt-3.5-turbo": "deepseek-ai/DeepSeek-V4-Flash",
+    "deepseek-v4-flash": "deepseek-ai/DeepSeek-V4-Flash",
+    "deepseek-v3.2": "deepseek-ai/DeepSeek-V4-Flash",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1",
     "qwen2.5-72b": "Qwen/Qwen2.5-72B-Instruct",
 }
@@ -71,7 +74,7 @@ PROVIDER_DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "deepseek": "deepseek-chat",
     "minimax": "MiniMax-M2.5",
-    "siliconflow": "deepseek-ai/DeepSeek-V3.2",
+    "siliconflow": "deepseek-ai/DeepSeek-V4-Flash",
 }
 
 OPENAI_COMPATIBLE_PROVIDERS = {"openai", "deepseek", "minimax", "siliconflow"}

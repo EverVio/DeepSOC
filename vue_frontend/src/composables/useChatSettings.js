@@ -20,9 +20,9 @@ const PROVIDER_OPTIONS = [
 
 const MODELS_BY_PROVIDER = {
   ollama: ['DeepSeek-R1:7b', 'Qwen3:8b'],
-  deepseek: ['DeepSeek-V3.2', 'DeepSeek-R1'],
+  deepseek: ['DeepSeek-V4-Flash', 'DeepSeek-R1'],
   minimax: ['MiniMax-M2.7', 'MiniMax-M2.5'],
-  siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen3.5-397B-A17B'],
+  siliconflow: ['DeepSeek-V4-Flash', 'DeepSeek-R1', 'Qwen3.5-397B-A17B'],
 }
 
 const EMBEDDING_MODE_OPTIONS = [

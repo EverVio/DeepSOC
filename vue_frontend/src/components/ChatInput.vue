@@ -159,7 +159,7 @@ const PROVIDER_MODEL_CANDIDATES = {
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
   minimax: ['MiniMax-M2.5'],
-  siliconflow: ['DeepSeek-V3.2', 'DeepSeek-R1', 'Qwen2.5-72B'],
+  siliconflow: ['DeepSeek-V4-Flash', 'DeepSeek-R1', 'Qwen2.5-72B'],
 }
 
 const textareaRef = ref(null)
@@ -174,7 +174,7 @@ const normalizedProvider = computed(() => (appStore.llmProvider || 'siliconflow'
 const providerModelOptions = computed(() => {
   const options = PROVIDER_MODEL_CANDIDATES[normalizedProvider.value]
   if (Array.isArray(options) && options.length > 0) return options
-  return [appStore.llmModel || 'DeepSeek-V3.2']
+  return [appStore.llmModel || 'DeepSeek-V4-Flash']
 })
 
 const modelSelectOptions = computed(() => providerModelOptions.value.map((model) => ({ label: model, value: model })))
@@ -182,7 +182,7 @@ const modelSelectOptions = computed(() => providerModelOptions.value.map((model)
 const resolvePreferredModel = () => {
   const preferred = (appStore.llmModel || '').trim()
   if (preferred && providerModelOptions.value.includes(preferred)) return preferred
-  return providerModelOptions.value[0] || 'DeepSeek-V3.2'
+  return providerModelOptions.value[0] || 'DeepSeek-V4-Flash'
 }
 
 const multiAgentModels = ref({

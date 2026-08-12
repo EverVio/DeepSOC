@@ -19,7 +19,7 @@ const readSensitiveValue = (key) => {
 }
 
 const DEFAULT_PROVIDER = localStorage.getItem('llmProvider') || 'siliconflow'
-const DEFAULT_MODEL = localStorage.getItem('llmModel') || 'DeepSeek-V3.2'
+const DEFAULT_MODEL = localStorage.getItem('llmModel') || 'DeepSeek-V4-Flash'
 const DEFAULT_EMBEDDING_MODE = localStorage.getItem('embeddingMode') || 'siliconflow'
 const DEFAULT_EMBEDDING_MODEL = localStorage.getItem('embeddingModel') || 'Qwen/Qwen3-Embedding-8B'
 const DEFAULT_PROVIDER_API_KEY = readSensitiveValue('providerApiKey')

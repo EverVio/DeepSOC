@@ -101,4 +101,12 @@ router.afterEach(() => {
   }
 })
 
+// 处理 Vite 重新打包构建后资源 Hash 变更导致旧页面加载新动态 chunk 404 失败的问题
+router.onError((error) => {
+  const pattern = /Failed to fetch dynamically imported module|Importing a module script failed/i
+  if (pattern.test(error?.message || '')) {
+    window.location.reload()
+  }
+})
+
 export default router

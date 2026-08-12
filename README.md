@@ -43,7 +43,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
   - **远程模式（默认）**：使用 SiliconFlow 的 Qwen/Qwen3-Embedding-8B，无需本地 GPU。
   - **本地模式（可选）**：使用 Ollama 的 qwen3-embedding:4b，需安装 Ollama 并拉取模型。
 - 当前检索系统默认初始化参数：
-  - 生成模型：deepseek-ai/DeepSeek-V3.2（SiliconFlow）
+  - 生成模型：deepseek-ai/DeepSeek-V4-Flash（SiliconFlow）
   - 嵌入模型：Qwen/Qwen3-Embedding-8B（SiliconFlow）
 - Ollama 为可选依赖。当 Ollama 未安装或不可用时，系统自动使用远程模式，功能不受影响。
 - JSON/JSONL 结构化加载：search_content 入向量，关键字段写入 metadata。
@@ -58,7 +58,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
 - 消息操作：复制、编辑最近一条用户消息、重新生成。
 - 消息展示：支持 Markdown 渲染、代码块一键复制、多智能体过程面板与停止生成。
 - 仪表盘：拓扑图（节点搜索、风险分级过滤、自动旋转开关、焦点/锁定提示）+ 威胁雷达/日志流入/分类分布三图，支持全屏（含 Fullscreen API 失败时 Modal 回退）、下钻引导与跳转分析终端。
-- 设置页：模型 Provider/模型/Embedding 配置、Provider 与 Web Search 双链路 Ping（显示时延）、会话 HTML 导出、退出登录二次确认，默认配置为 siliconflow / DeepSeek-V3.2 / SiliconFlow embedding。
+- 设置页：模型 Provider/模型/Embedding 配置、Provider 与 Web Search 双链路 Ping（显示时延）、会话 HTML 导出、退出登录二次确认，默认配置为 siliconflow / deepseek-ai/DeepSeek-V4-Flash / SiliconFlow embedding。
 - 状态持久化：Pinia + localStorage（登录态、会话草稿、模型配置、导出目标等）。
 
 ### 2.4 情报查询页（IntelQuery）
@@ -140,7 +140,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
         -> Multi-Agent Orchestrator (RAG + WEB -> Synthesis)
 
 说明：
-- 代码层保留多 Provider 路由；当前比赛部署口径为仅使用 SiliconFlow 的 deepseek-ai/DeepSeek-V3.2。
+- 代码层保留多 Provider 路由；当前比赛部署口径为仅使用 SiliconFlow 的 deepseek-ai/DeepSeek-V4-Flash。
 - Ollama 为可选依赖，不安装时系统自动使用远程模式，功能不受影响。
 - 其他厂商选项作为占位与兼容入口保留。
 
@@ -210,7 +210,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
 
 - Provider 路由代码支持：ollama、openai、deepseek、minimax、siliconflow。
 - Ollama 为可选依赖：当 Ollama 未安装或不可用时，系统自动使用远程 provider（如 siliconflow）。
-- 当前比赛部署口径：仅使用 SiliconFlow deepseek-ai/DeepSeek-V3.2（前端显示名 DeepSeek-V3.2）。
+- 当前比赛部署口径：仅使用 SiliconFlow deepseek-ai/DeepSeek-V4-Flash（前端显示名 deepseek-ai/DeepSeek-V4-Flash）。
 - 其余 Provider 在当前项目中视为占位/兼容入口。
 - 联网检索主路径：博查 API（BOCHA_API_KEY）。
 - test_connection 支持：
@@ -490,7 +490,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
 
 安装后，系统会自动检测 Ollama 并启用本地模式。在设置页可切换 embedding 模式（local/siliconflow）。
 
-说明：比赛口径主模型为 SiliconFlow 的 DeepSeek-V3.2；Ollama 是本地能力增强选项，不安装也不影响系统正常使用。
+说明：比赛口径主模型为 SiliconFlow 的 deepseek-ai/DeepSeek-V4-Flash；Ollama 是本地能力增强选项，不安装也不影响系统正常使用。
 
 ### 9.7 可选：常用环境变量（django_backend/.env）
 
@@ -509,7 +509,7 @@ DeepSOC（基于多智能体协同与RAG架构的智能安全运营系统）是�
 2. 登录：用户名自定义，密码默认 secret。
 3. 进入系统设置页面：
   - Provider 选择 siliconflow。
-  - Model 选择 DeepSeek-V3.2。
+  - Model 选择 deepseek-ai/DeepSeek-V4-Flash。
   - Embedding 模式选择 siliconflow。
   - Embedding 模型选择 Qwen/Qwen3-Embedding-8B。
   - 填入 SiliconFlow API Key。
