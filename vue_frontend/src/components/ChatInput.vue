@@ -30,7 +30,7 @@
               </span>
             </NFormItem>
 
-            <NFormItem class="toggle-item" label="">
+            <NFormItem class="toggle-item toggle-item--right" label="">
               <NSwitch v-model:value="useDeepThinking" size="small" />
               <span class="toggle-core">
                 <BrainIcon class="toggle-icon" /> DEEP THINKING
@@ -409,12 +409,18 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
 
 .toggle-form {
   display: flex;
+  align-items: center;
+  width: 100%;
   gap: 0.8rem;
 }
 
 .toggle-item {
   display: inline-flex;
   align-items: center;
+}
+
+.toggle-item--right {
+  margin-left: auto;
 }
 
 .toggle-item :deep(.n-form-item-blank) {
