@@ -421,6 +421,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
 
 .toggle-item--right {
   margin-left: auto;
+  margin-right: 0.4rem;
 }
 
 .toggle-item :deep(.n-form-item-blank) {
