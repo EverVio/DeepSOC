@@ -949,6 +949,29 @@ def _build_openai_messages(
     return messages
 
 
+def _is_v4_flash_model(model_name: Optional[str]) -> bool:
+    if not model_name:
+        return False
+    name_lower = str(model_name).lower()
+    return "v4-flash" in name_lower or "v4_flash" in name_lower or "deepseek-v4-flash" in name_lower
+
+
+def _configure_thinking_mode(model_name: Optional[str], request_kwargs: Dict[str, Any]) -> bool:
+    """
+    配置模型思考模式：
+    对 DeepSeek-V4-Flash 明确关闭思考模式：
+    1. 在 extra_body 中添加 enable_thinking: False 和 thinking: {"type": "disabled"}
+    2. 返回 True 标识已关闭思考模式（流式输出时丢弃 reasoning_content）
+    """
+    if _is_v4_flash_model(model_name):
+        extra = request_kwargs.get("extra_body") or {}
+        extra["enable_thinking"] = False
+        extra["thinking"] = {"type": "disabled"}
+        request_kwargs["extra_body"] = extra
+        return True
+    return False
+
+
 def stream_openai_compatible_response(
     provider: str,
     prompt: str,
@@ -990,6 +1013,8 @@ def stream_openai_compatible_response(
         request_kwargs["extra_body"] = {"reasoning_split": True}
         request_kwargs["temperature"] = 1.0
 
+    is_thinking_disabled = _configure_thinking_mode(model_name, request_kwargs)
+
     try:
         stream = client.chat.completions.create(**request_kwargs)
         for chunk in stream:
@@ -999,9 +1024,10 @@ def stream_openai_compatible_response(
             if not delta:
                 continue
 
-            reasoning_content = getattr(delta, "reasoning_content", None)
-            if reasoning_content:
-                yield reasoning_content
+            if not is_thinking_disabled:
+                reasoning_content = getattr(delta, "reasoning_content", None)
+                if reasoning_content:
+                    yield reasoning_content
 
             content = getattr(delta, "content", None)
             if content:
@@ -1079,6 +1105,7 @@ def _stream_remote_fallback_from_messages(
         "messages": normalized_messages,
         "stream": True,
     }
+    is_thinking_disabled = _configure_thinking_mode(fallback_model, request_kwargs)
 
     try:
         stream = client.chat.completions.create(**request_kwargs)
@@ -1088,9 +1115,10 @@ def _stream_remote_fallback_from_messages(
             delta = chunk.choices[0].delta
             if not delta:
                 continue
-            reasoning_content = getattr(delta, "reasoning_content", None)
-            if reasoning_content:
-                yield reasoning_content
+            if not is_thinking_disabled:
+                reasoning_content = getattr(delta, "reasoning_content", None)
+                if reasoning_content:
+                    yield reasoning_content
             content = getattr(delta, "content", None)
             if content:
                 yield content
@@ -1131,6 +1159,8 @@ def stream_llm_from_messages(
             request_kwargs["extra_body"] = {"reasoning_split": True}
             request_kwargs["temperature"] = 1.0
 
+        is_thinking_disabled = _configure_thinking_mode(resolved_model_name, request_kwargs)
+
         try:
             stream = client.chat.completions.create(**request_kwargs)
             for chunk in stream:
@@ -1139,9 +1169,10 @@ def stream_llm_from_messages(
                 delta = chunk.choices[0].delta
                 if not delta:
                     continue
-                reasoning_content = getattr(delta, "reasoning_content", None)
-                if reasoning_content:
-                    yield reasoning_content
+                if not is_thinking_disabled:
+                    reasoning_content = getattr(delta, "reasoning_content", None)
+                    if reasoning_content:
+                        yield reasoning_content
                 content = getattr(delta, "content", None)
                 if content:
                     yield content
