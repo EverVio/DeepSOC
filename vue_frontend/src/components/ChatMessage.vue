@@ -65,6 +65,7 @@
                     </span>
                   </header>
                   <div
+                    ref="ragContentRef"
                     class="agent-node__content markdown-body message-markdown"
                     v-html="ragRendered"
                     @click="onMarkdownClick"
@@ -83,6 +84,7 @@
                     </span>
                   </header>
                   <div
+                    ref="webContentRef"
                     class="agent-node__content markdown-body message-markdown"
                     v-html="webRendered"
                     @click="onMarkdownClick"
@@ -350,6 +352,14 @@ const onInlineEditKeydown = (event) => {
   }
 }
 
+const ragContentRef = ref(null)
+const webContentRef = ref(null)
+
+const scrollAgentNodeToBottom = (el) => {
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
+
 const renderedContent = computed(() => {
   if (!props.content) return ''
   return sanitizeMarkdown(props.content)
@@ -365,6 +375,14 @@ const webRendered = computed(() => {
   if (!showAgentPanel.value) return ''
   const content = props.agentData?.web?.content || '...'
   return sanitizeMarkdown(content)
+})
+
+watch(ragRendered, () => {
+  nextTick(() => scrollAgentNodeToBottom(ragContentRef.value))
+})
+
+watch(webRendered, () => {
+  nextTick(() => scrollAgentNodeToBottom(webContentRef.value))
 })
 
 const formatAgentStatus = (status) => {

@@ -304,7 +304,10 @@ const forceScrollToBottom = () => {
 }
 
 watch(messagesScrollFingerprint, () => {
-  nextTick(() => scrollToBottom(false))
+  nextTick(() => {
+    scrollToBottom(false)
+    requestAnimationFrame(() => scrollToBottom(false))
+  })
 })
 
 /**
