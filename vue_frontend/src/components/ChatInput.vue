@@ -1,7 +1,7 @@
 <template>
-  <NCard 
-    class="terminal-input-shell" 
-    :class="{ 'terminal-input-shell--focused': isFocused, 'terminal-input-shell--has-text': draftMessage.length > 0 }" 
+  <NCard
+    class="terminal-input-shell"
+    :class="{ 'terminal-input-shell--focused': isFocused, 'terminal-input-shell--has-text': draftMessage.length > 0 }"
     :bordered="false"
     embedded
   >
@@ -95,16 +95,16 @@
         <span class="prompt-label">root@DeepSOC<span class="prompt-cursor">:~$</span></span>
       </div>
 
-      <NInput 
-        ref="textareaRef" 
-        v-model:value="draftMessage" 
-        class="terminal-textarea" 
+      <NInput
+        ref="textareaRef"
+        v-model:value="draftMessage"
+        class="terminal-textarea"
         type="textarea"
-        :autosize="{ minRows: 1, maxRows: 8 }" 
+        :autosize="{ minRows: 1, maxRows: 8 }"
         placeholder="       输入诊断命令、日志片段或排障请求..."
-        @keydown.enter.exact.prevent="sendMessage" 
-        @focus="setFocusState(true)" 
-        @blur="setFocusState(false)" 
+        @keydown.enter.exact.prevent="sendMessage"
+        @focus="setFocusState(true)"
+        @blur="setFocusState(false)"
       />
 
       <NButton
@@ -162,11 +162,9 @@ const chatStore = useChatStore()
 const { isEditing } = storeToRefs(appStore)
 
 const PROVIDER_MODEL_CANDIDATES = {
-  ollama: ['DeepSeek-R1:7b', 'Qwen3:8b', 'Llama3:8b'],
-  openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini'],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  minimax: ['MiniMax-M2.5'],
-  siliconflow: ['DeepSeek-V4-Flash', 'DeepSeek-R1', 'Qwen2.5-72B'],
+  siliconflow: ['deepseek-ai/DeepSeek-V4-Flash', 'deepseek-ai/DeepSeek-R1', 'deepseek-ai/DeepSeek-V3'],
+  deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro', 'deepseek-v4-flash-vision-exp'],
+  ollama: ['DeepSeek-R1:7b', 'Qwen3:8b'],
 }
 
 const textareaRef = ref(null)
@@ -463,7 +461,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 6px;
-  padding: 0.8rem 1rem; 
+  padding: 0.8rem 1rem;
   margin-bottom: 0.8rem;
 }
 
@@ -553,7 +551,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
 .prompt-label {
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: rgba(123, 167, 188, 0.7); 
+  color: rgba(123, 167, 188, 0.7);
   letter-spacing: 0.02em;
 }
 
@@ -580,7 +578,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
   font-size: 0.95rem;
   line-height: 1.6;
   resize: none;
-  padding: 0.4rem 0 0.3rem 1.2rem; 
+  padding: 0.4rem 0 0.3rem 1.2rem;
   caret-color: var(--neon-cyan);
 }
 
@@ -618,7 +616,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
 
 /* 与发送按钮同步交互视觉的附件按钮 */
 .attach-btn:hover:not(:disabled) {
-  background: transparent !important; 
+  background: transparent !important;
   border-color: rgba(0, 229, 255, 0.4);
   border-width: 1.5px;
   box-shadow: none;
@@ -627,7 +625,7 @@ defineExpose({ setContent, clearInput, getContent, submit: sendMessage, focus })
 }
 
 .send-btn--active {
-  background: transparent !important; 
+  background: transparent !important;
   border-color: rgba(0, 229, 255, 0.3);
   border-width: 1.5px;
   box-shadow: none;

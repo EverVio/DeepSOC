@@ -11,18 +11,15 @@ import { useAuthStore } from '../stores/authStore'
 import { EXPORT_TARGET_SESSION_KEY, useChatStore } from '../stores/chatStore'
 
 const PROVIDER_OPTIONS = [
-  { value: 'ollama', label: 'Ollama' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'minimax', label: 'MiniMax' },
   { value: 'siliconflow', label: 'SiliconFlow' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'ollama', label: 'Ollama' },
 ]
 
 const MODELS_BY_PROVIDER = {
+  siliconflow: ['deepseek-ai/DeepSeek-V4-Flash', 'deepseek-ai/DeepSeek-R1', 'deepseek-ai/DeepSeek-V3'],
+  deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro', 'deepseek-v4-flash-vision-exp'],
   ollama: ['DeepSeek-R1:7b', 'Qwen3:8b'],
-  deepseek: ['DeepSeek-V4-Flash', 'DeepSeek-R1'],
-  minimax: ['MiniMax-M2.7', 'MiniMax-M2.5'],
-  siliconflow: ['DeepSeek-V4-Flash', 'DeepSeek-R1', 'Qwen3.5-397B-A17B'],
 }
 
 const EMBEDDING_MODE_OPTIONS = [
@@ -58,9 +55,7 @@ export function useChatSettings({ router, apiClient, currentSession, sessions, o
   const availableEmbeddingModels = computed(() => EMBEDDING_MODELS_BY_MODE[embeddingMode.value] || [])
 
   const providerApiKeyPlaceholder = computed(() => {
-    if (llmProvider.value === 'openai') return '输入 OpenAI API Key'
     if (llmProvider.value === 'deepseek') return '输入 DeepSeek API Key'
-    if (llmProvider.value === 'minimax') return '输入 MiniMax API Key'
     if (llmProvider.value === 'siliconflow') return '输入 硅基流动 API Key'
     return 'Ollama 本地模式不需要 API Key'
   })

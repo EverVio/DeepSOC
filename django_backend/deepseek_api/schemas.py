@@ -24,9 +24,7 @@ class ChatIn(Schema):
     use_db_search: bool = True  # 默认开启数据库
     use_web_search: bool = False  # 默认关闭联网
     model_name: Optional[str] = None  # 前端选择的模型
-    provider: Optional[str] = (
-        "siliconflow"  # 模型提供商：ollama/openai/deepseek/minimax/siliconflow
-    )
+    provider: Optional[str] = "siliconflow"  # 模型提供商：ollama/deepseek/siliconflow
     embedding_mode: Optional[str] = "siliconflow"  # 向量化方式：local/siliconflow
     embedding_model: Optional[str] = None  # 向量模型名称
     provider_api_key: Optional[str] = None  # OpenAI 兼容提供商 API Key

@@ -47,7 +47,9 @@ from .services import (
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(title="DeepSOC——基于多智能体协同与RAG架构的智能安全运营系统 API", version="0.0.1")
+api = NinjaAPI(
+    title="DeepSOC——基于多智能体协同与RAG架构的智能安全运营系统 API", version="0.0.1"
+)
 
 
 def api_key_auth(request):
@@ -104,14 +106,6 @@ def test_connection(request, data: TestConnectionIn):
             if provider == "deepseek":
                 r = requests.get(
                     "https://api.deepseek.com/models", headers=headers, timeout=8
-                )
-            elif provider == "openai":
-                r = requests.get(
-                    "https://api.openai.com/v1/models", headers=headers, timeout=8
-                )
-            elif provider == "minimax":
-                r = requests.get(
-                    "https://api.minimax.chat/v1/models", headers=headers, timeout=8
                 )
             elif provider == "siliconflow":
                 r = requests.get(
@@ -313,6 +307,7 @@ def _render_context(
     current_agent_meta: dict | None = None,
 ) -> str:
     import time
+
     lines = []
     for msg in history_for_llm:
         ts = msg.get("timestamp")
@@ -400,14 +395,24 @@ def _clear_login_attempts(ip: str) -> None:
     cache.delete(cache_key)
 
 
-@api.post("/login", response={200: LoginOut, 400: ErrorResponse, 403: ErrorResponse, 429: ErrorResponse})
+@api.post(
+    "/login",
+    response={
+        200: LoginOut,
+        400: ErrorResponse,
+        403: ErrorResponse,
+        429: ErrorResponse,
+    },
+)
 def login(request, data: LoginIn):
     client_ip = _get_client_ip(request)
 
     # 检查登录限速
     if not _check_login_rate_limit(client_ip):
         logger.warning("登录限速触发: ip=%s", client_ip)
-        return 429, {"error": f"登录尝试次数过多，请 {LOGIN_RATE_LIMIT_WINDOW // 60} 分钟后再试"}
+        return 429, {
+            "error": f"登录尝试次数过多，请 {LOGIN_RATE_LIMIT_WINDOW // 60} 分钟后再试"
+        }
 
     username = data.username.strip()
     password = data.password.strip()
@@ -466,7 +471,7 @@ def chat(request, data: ChatIn):
     web_search_api_key = data.web_search_api_key
     mode = (data.mode or "").strip().lower() or "single"
 
-    enable_thinking = bool(getattr(data, 'enable_thinking', False))
+    enable_thinking = bool(getattr(data, "enable_thinking", False))
 
     logger.info(
         "搜索选项 - 数据库: %s, 联网: %s, 深度思考: %s, provider: %s, model: %s, embedding_mode: %s, embedding_model: %s",
@@ -669,7 +674,9 @@ def chat(request, data: ChatIn):
                     loop.call_soon_threadsafe(queue.put_nowait, None)
 
             # 在子线程中异步启动并执行整个生成器，避免由于 sync_to_async(next) 导致的不同线程交替迭代进而引发的线程局部锁或死锁
-            task = asyncio.create_task(sync_to_async(thread_target, thread_sensitive=False)())
+            task = asyncio.create_task(
+                sync_to_async(thread_target, thread_sensitive=False)()
+            )
             _background_tasks.add(task)
             task.add_done_callback(_background_tasks.discard)
 
@@ -683,7 +690,9 @@ def chat(request, data: ChatIn):
     else:
         streaming_content = stream_generator()
 
-    response = StreamingHttpResponse(streaming_content, content_type="text/event-stream")
+    response = StreamingHttpResponse(
+        streaming_content, content_type="text/event-stream"
+    )
     response["X-Accel-Buffering"] = "no"
     response["Cache-Control"] = "no-cache, no-transform"
     return response
@@ -719,7 +728,9 @@ def clear_history(request, session_id: str = "默认对话"):
 def delete_session(request, session_id: str = "默认对话"):
     if not request.auth:
         return 401, {"error": "请先登录获取API Key"}
-    normalized_session_id, deleted = delete_conversation_session(request.auth, session_id)
+    normalized_session_id, deleted = delete_conversation_session(
+        request.auth, session_id
+    )
     return {
         "message": "ok",
         "session_id": normalized_session_id,
@@ -727,7 +738,9 @@ def delete_session(request, session_id: str = "默认对话"):
     }
 
 
-@router.post("/session/rename", response={200: dict, 400: ErrorResponse, 401: ErrorResponse})
+@router.post(
+    "/session/rename", response={200: dict, 400: ErrorResponse, 401: ErrorResponse}
+)
 def rename_session(request, data: SessionRenameIn):
     """重命名会话：更新数据库中的 session_id，与前端会话列表一致。"""
     if not request.auth:
@@ -794,7 +807,10 @@ def query_logs(
     )
 
 
-@router.get("/query/logs/{record_id}", response={200: dict, 404: ErrorResponse, 401: ErrorResponse})
+@router.get(
+    "/query/logs/{record_id}",
+    response={200: dict, 404: ErrorResponse, 401: ErrorResponse},
+)
 def query_log_detail(request, record_id: str):
     if not request.auth:
         return 401, {"error": "请先登录获取API Key"}
@@ -905,7 +921,18 @@ def upload_file(request, file: NinjaUploadedFile = File(...)):
 
     filename = safe_name.lower()
     _, ext = os.path.splitext(filename)
-    text_exts = {".txt", ".md", ".log", ".json", ".jsonl", ".xml", ".yaml", ".yml", ".ini", ".conf"}
+    text_exts = {
+        ".txt",
+        ".md",
+        ".log",
+        ".json",
+        ".jsonl",
+        ".xml",
+        ".yaml",
+        ".yml",
+        ".ini",
+        ".conf",
+    }
     allowed_exts = set(text_exts) | {".docx", ".xlsx", ".csv"}
     if ext not in allowed_exts:
         return 400, {

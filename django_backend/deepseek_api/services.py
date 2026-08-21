@@ -28,24 +28,18 @@ logger = logging.getLogger(__name__)
 OLLAMA_MODEL_ALIASES = {
     "DeepSeek-R1:7b": "deepseek-r1:7b",
     "Qwen3:8b": "qwen3:8b",
-    "Llama3:8b": "llama3:8b",
 }
 # 硅基流动模型名称映射（前端展示名 -> 硅基流动模型 ID）
 SILICONFLOW_MODEL_ALIASES = {
     "deepseek-ai/DeepSeek-V4-Flash": "deepseek-ai/DeepSeek-V4-Flash",
     "DeepSeek-V4-Flash": "deepseek-ai/DeepSeek-V4-Flash",
-    "DeepSeek-V3.2": "deepseek-ai/DeepSeek-V4-Flash",
+    "deepseek-ai/DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
     "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
-    "Qwen2.5-72B": "Qwen/Qwen2.5-72B-Instruct",
-    "deepseek-chat": "deepseek-ai/DeepSeek-V4-Flash",
-    "deepseek-reasoner": "deepseek-ai/DeepSeek-R1",
-    "gpt-4o-mini": "deepseek-ai/DeepSeek-V4-Flash",
-    "gpt-4": "deepseek-ai/DeepSeek-V4-Flash",
-    "gpt-3.5-turbo": "deepseek-ai/DeepSeek-V4-Flash",
+    "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
+    "DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
     "deepseek-v4-flash": "deepseek-ai/DeepSeek-V4-Flash",
-    "deepseek-v3.2": "deepseek-ai/DeepSeek-V4-Flash",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1",
-    "qwen2.5-72b": "Qwen/Qwen2.5-72B-Instruct",
+    "deepseek-v3": "deepseek-ai/DeepSeek-V3",
 }
 
 SILICONFLOW_EMBEDDING_MODEL_ALIASES = {
@@ -59,30 +53,33 @@ DEFAULT_EMBEDDING_MODELS = {
     "siliconflow": "Qwen/Qwen3-Embedding-8B",
 }
 
+# DeepSeek 官方模型名称映射
+DEEPSEEK_MODEL_ALIASES = {
+    "deepseek-v4-flash": "deepseek-v4-flash",
+    "DeepSeek-V4-Flash": "deepseek-v4-flash",
+    "deepseek-v4-pro": "deepseek-v4-pro",
+    "DeepSeek-V4-Pro": "deepseek-v4-pro",
+    "deepseek-v4-flash-vision-exp": "deepseek-v4-flash-vision-exp",
+    "DeepSeek-V4-Flash-Vision": "deepseek-v4-flash-vision-exp",
+}
 
 # OpenAI 兼容提供商的基础 URL
 DEFAULT_OPENAI_COMPATIBLE_BASE_URLS = {
-    "openai": "https://api.openai.com/v1",
     "deepseek": "https://api.deepseek.com",
-    "minimax": "https://api.minimaxi.com/v1",
     "siliconflow": "https://api.siliconflow.cn/v1",
 }
 
 # 各提供商默认模型
 PROVIDER_DEFAULT_MODELS = {
-    "ollama": "deepseek-r1:7b",
-    "openai": "gpt-4o-mini",
-    "deepseek": "deepseek-chat",
-    "minimax": "MiniMax-M2.5",
     "siliconflow": "deepseek-ai/DeepSeek-V4-Flash",
+    "deepseek": "deepseek-v4-flash",
+    "ollama": "deepseek-r1:7b",
 }
 
-OPENAI_COMPATIBLE_PROVIDERS = {"openai", "deepseek", "minimax", "siliconflow"}
+OPENAI_COMPATIBLE_PROVIDERS = {"deepseek", "siliconflow"}
 
 PROVIDER_API_KEY_ENV = {
-    "openai": "OPENAI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
-    "minimax": "MINIMAX_API_KEY",
     "siliconflow": "SILICONFLOW_API_KEY",
 }
 
@@ -150,11 +147,11 @@ _warm_query_records_cache()
 
 def normalize_provider(provider: Optional[str]) -> str:
     if not provider:
-        return "ollama"
+        return "siliconflow"
     normalized = provider.strip().lower()
-    if normalized in {"openai", "deepseek", "minimax", "ollama", "siliconflow"}:
+    if normalized in {"deepseek", "ollama", "siliconflow"}:
         return normalized
-    return "ollama"
+    return "siliconflow"
 
 
 def normalize_embedding_mode(mode: Optional[str]) -> str:
@@ -189,7 +186,17 @@ def resolve_embedding_model(mode: str, model_name: Optional[str]) -> str:
 def resolve_model_name(provider: str, model_name: Optional[str]) -> str:
     normalized_model = (model_name or "").strip()
     if not normalized_model:
-        return PROVIDER_DEFAULT_MODELS.get(provider, PROVIDER_DEFAULT_MODELS["ollama"])
+        return PROVIDER_DEFAULT_MODELS.get(
+            provider, PROVIDER_DEFAULT_MODELS["siliconflow"]
+        )
+
+    if provider == "deepseek":
+        alias = DEEPSEEK_MODEL_ALIASES.get(
+            normalized_model
+        ) or DEEPSEEK_MODEL_ALIASES.get(normalized_model.lower())
+        if alias:
+            return alias
+        return normalized_model
 
     if provider == "siliconflow":
         custom_sf_aliases = getattr(settings, "SILICONFLOW_MODEL_ALIASES", None)
@@ -953,10 +960,16 @@ def _is_v4_flash_model(model_name: Optional[str]) -> bool:
     if not model_name:
         return False
     name_lower = str(model_name).lower()
-    return "v4-flash" in name_lower or "v4_flash" in name_lower or "deepseek-v4-flash" in name_lower
+    return (
+        "v4-flash" in name_lower
+        or "v4_flash" in name_lower
+        or "deepseek-v4-flash" in name_lower
+    )
 
 
-def _configure_thinking_mode(model_name: Optional[str], request_kwargs: Dict[str, Any]) -> bool:
+def _configure_thinking_mode(
+    model_name: Optional[str], request_kwargs: Dict[str, Any]
+) -> bool:
     """
     配置模型思考模式（默认关闭 DEEP THINKING）：
     - 若 request_kwargs 包含 enable_thinking=True，则开启思考模式（允许输出 reasoning_content）。
@@ -1017,10 +1030,6 @@ def stream_openai_compatible_response(
         "enable_thinking": enable_thinking,
     }
 
-    if provider == "minimax":
-        request_kwargs["extra_body"] = {"reasoning_split": True}
-        request_kwargs["temperature"] = 1.0
-
     is_thinking_disabled = _configure_thinking_mode(model_name, request_kwargs)
 
     try:
@@ -1063,7 +1072,7 @@ def _normalize_messages_for_openai(
             normalized_messages.append({"role": role, "content": str(content)})
         return normalized_messages
 
-    return messages 
+    return messages
 
 
 def _resolve_remote_fallback_model_name(model_name: Optional[str]) -> str:
@@ -1082,11 +1091,14 @@ def _resolve_remote_fallback_model_name(model_name: Optional[str]) -> str:
 def _stream_fallback_notice(message: str) -> Iterable[str]:
     notice = (message or "").strip()
     if notice:
-        yield json.dumps({
-            "type": "notice",
-            "scope": "llm_fallback",
-            "message": notice,
-        }, ensure_ascii=False)
+        yield json.dumps(
+            {
+                "type": "notice",
+                "scope": "llm_fallback",
+                "message": notice,
+            },
+            ensure_ascii=False,
+        )
 
 
 def _stream_remote_fallback_from_messages(
@@ -1163,11 +1175,10 @@ def stream_llm_from_messages(
             "messages": oa_messages,
             "stream": True,
         }
-        if provider_name == "minimax":
-            request_kwargs["extra_body"] = {"reasoning_split": True}
-            request_kwargs["temperature"] = 1.0
 
-        is_thinking_disabled = _configure_thinking_mode(resolved_model_name, request_kwargs)
+        is_thinking_disabled = _configure_thinking_mode(
+            resolved_model_name, request_kwargs
+        )
 
         try:
             stream = client.chat.completions.create(**request_kwargs)
@@ -1193,7 +1204,9 @@ def stream_llm_from_messages(
         return
 
     if log_system is None or not log_system._ollama_available:
-        logger.warning("Ollama 不可用（未安装或初始化失败），自动降级到 siliconflow 远程调用。")
+        logger.warning(
+            "Ollama 不可用（未安装或初始化失败），自动降级到 siliconflow 远程调用。"
+        )
         yield from _stream_remote_fallback_from_messages(
             messages,
             model_name,
@@ -1293,7 +1306,11 @@ def model_api_call(
         if use_db_search:
             db_retrieval_started_at = time.perf_counter()
             # 当 Ollama 不可用时，自动切换到远程 embedding 模式
-            if log_system is not None and not log_system._ollama_available and resolved_embedding_mode != "siliconflow":
+            if (
+                log_system is not None
+                and not log_system._ollama_available
+                and resolved_embedding_mode != "siliconflow"
+            ):
                 logger.warning("Ollama 不可用，自动切换到远程 embedding 模式进行检索。")
                 resolved_embedding_mode = "siliconflow"
 
@@ -1532,14 +1549,19 @@ def model_api_call(
 
     except ProviderHttpError as e:
         logger.error("model_api_call provider 调用失败: %s", e.detail)
-        yield json.dumps({
-            "type": "error",
-            "chunk": "API 调用失败，请稍后重试",
-            "error_detail": e.detail,
-        }, ensure_ascii=False)
+        yield json.dumps(
+            {
+                "type": "error",
+                "chunk": "API 调用失败，请稍后重试",
+                "error_detail": e.detail,
+            },
+            ensure_ascii=False,
+        )
     except Exception as e:
         logger.error(f"model_api_call 流式处理失败: {e}")
-        yield json.dumps({"type": "error", "chunk": "API 调用失败，请稍后重试"}, ensure_ascii=False)
+        yield json.dumps(
+            {"type": "error", "chunk": "API 调用失败，请稍后重试"}, ensure_ascii=False
+        )
     finally:
         if web_executor is not None:
             web_executor.shutdown(wait=False)
@@ -1584,7 +1606,11 @@ def check_rate_limit(key_str: str) -> bool:
     cached = cache.get(cache_key)
     if cached is None:
         # 首次请求或缓存过期，初始化计数
-        cache.set(cache_key, {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL}, settings.RATE_LIMIT_INTERVAL)
+        cache.set(
+            cache_key,
+            {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL},
+            settings.RATE_LIMIT_INTERVAL,
+        )
         return True
 
     count = cached.get("count", 0)
@@ -1592,7 +1618,11 @@ def check_rate_limit(key_str: str) -> bool:
 
     # 检查是否需要重置
     if current_time > reset_time:
-        cache.set(cache_key, {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL}, settings.RATE_LIMIT_INTERVAL)
+        cache.set(
+            cache_key,
+            {"count": 1, "reset_time": current_time + settings.RATE_LIMIT_INTERVAL},
+            settings.RATE_LIMIT_INTERVAL,
+        )
         return True
 
     # 检查是否超过限制
